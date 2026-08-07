@@ -92,6 +92,13 @@ export default function HostPage() {
     );
   }, [monthOffset]);
 
+  const conflictBooking = useMemo(() => {
+    if (!start || !end) return null;
+    return bookings.find(
+      (b) => !b.revoked && start < b.checkOut && end > b.checkIn
+    );
+  }, [start, end, bookings]);
+
   async function loadBookings() {
     const response = await fetch("/api/host/code", { cache: "no-store" });
     if (response.ok) {
@@ -576,6 +583,15 @@ export default function HostPage() {
                       </button>
                     )}
                   </div>
+                  {conflictBooking && (
+                    <div className="overlap-warning-banner">
+                      ⚠️ <strong>Date Overlap Warning:</strong> Apartment is already reserved by{" "}
+                      <strong>
+                        {conflictBooking.firstName} {conflictBooking.lastName}
+                      </strong>{" "}
+                      ({formatShort(conflictBooking.checkIn)} to {formatShort(conflictBooking.checkOut)} via {conflictBooking.source}).
+                    </div>
+                  )}
                   <div
                     className="calendar-shell"
                     onPointerLeave={() => {
@@ -630,6 +646,12 @@ export default function HostPage() {
                                       (hoverDate < start &&
                                         value < start &&
                                         value >= hoverDate));
+                                const existingBooking = bookings.find(
+                                  (b) =>
+                                    !b.revoked &&
+                                    value >= b.checkIn &&
+                                    value < b.checkOut
+                                );
                                 const cls = [
                                   "day-btn",
                                   isStart ? "is-start" : "",
@@ -637,6 +659,7 @@ export default function HostPage() {
                                   isSelected ? "selected" : "",
                                   inRange ? "in-range" : "",
                                   inHoverRange ? "in-hover-range" : "",
+                                  existingBooking ? "is-booked-date" : "",
                                 ]
                                   .filter(Boolean)
                                   .join(" ");
@@ -646,6 +669,11 @@ export default function HostPage() {
                                     data-date={value}
                                     key={value}
                                     className={cls}
+                                    title={
+                                      existingBooking
+                                        ? `Booked: ${existingBooking.firstName} ${existingBooking.lastName} (${existingBooking.checkIn} to ${existingBooking.checkOut})`
+                                        : undefined
+                                    }
                                     onPointerDown={(e) => beginRange(value, e)}
                                     onPointerMove={moveRange}
                                     onPointerUp={() => finishRange(value)}

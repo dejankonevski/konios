@@ -95,3 +95,28 @@ export async function deleteBooking(id: string) {
   await Promise.all([redis.del(`booking:${id}`), redis.del(`code:${booking.code}`), redis.zrem("bookings", id)]);
   return true;
 }
+
+export function isDateRangeOverlap(
+  startA: string,
+  endA: string,
+  startB: string,
+  endB: string
+): boolean {
+  return startA < endB && endA > startB;
+}
+
+export async function findOverlappingBooking(
+  checkIn: string,
+  checkOut: string,
+  excludeId?: string
+): Promise<Booking | null> {
+  const allBookings = await listBookings();
+  for (const booking of allBookings) {
+    if (booking.revoked) continue;
+    if (excludeId && booking.id === excludeId) continue;
+    if (isDateRangeOverlap(checkIn, checkOut, booking.checkIn, booking.checkOut)) {
+      return booking;
+    }
+  }
+  return null;
+}

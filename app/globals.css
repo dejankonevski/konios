@@ -545,4 +545,9 @@ footer>div { display:flex; justify-content:flex-end; gap:30px; }
   .share-popover { right: 12px; left: 12px; width: auto; bottom: 90px; }
 }
 
+/* Overlap & Booking Conflict Styles */
+.overlap-warning-banner { padding: 12px 18px; border-radius: 10px; background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; font-size: .82rem; line-height: 1.45; animation: fadeIn .2s ease; }
+.calendar-grid>button.is-booked-date { background: #f1f5f9; color: #94a3b8; text-decoration: line-through; text-decoration-color: #cbd5e1; }
+.calendar-grid>button.is-booked-date:not(.selected):hover { outline: 1px solid #cbd5e1; }
+
 

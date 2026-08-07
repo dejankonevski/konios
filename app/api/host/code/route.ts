@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { verifyHostToken } from "@/lib/access-code";
-import { bookingState, createBooking, listBookings } from "@/lib/bookings";
+import { bookingState, createBooking, findOverlappingBooking, listBookings } from "@/lib/bookings";
 import { getGuestGuide } from "@/lib/guest-guide";
 
 async function authorized() {
@@ -23,7 +23,18 @@ export async function POST(request: Request) {
   const checkIn = data.checkIn;
   const checkOut = data.checkOut;
   if (!firstName || !lastName || !checkIn || !checkOut) return Response.json({ error: "Complete every field." }, { status: 400 });
-  if (new Date(checkOut).getTime() < new Date(checkIn).getTime()) return Response.json({ error: "Check-out must be after check-in." }, { status: 400 });
+  if (new Date(checkOut).getTime() <= new Date(checkIn).getTime()) return Response.json({ error: "Check-out date must be after check-in date." }, { status: 400 });
+
+  const conflict = await findOverlappingBooking(checkIn, checkOut);
+  if (conflict) {
+    return Response.json(
+      {
+        error: `Dates overlap with an existing booking for ${conflict.firstName} ${conflict.lastName} (${conflict.checkIn} to ${conflict.checkOut}).`,
+        conflictBooking: conflict,
+      },
+      { status: 409 }
+    );
+  }
 
   const booking = await createBooking({
     firstName, lastName, checkIn, checkOut,
