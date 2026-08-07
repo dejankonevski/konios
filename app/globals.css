@@ -749,4 +749,31 @@ body { top: 0!important; position: static!important; }
 #goog-gt-tt, .goog-te-balloon-frame { display: none!important; }
 .goog-text-highlight { background-color: transparent!important; box-shadow: none!important; }
 
+/* Clickable Step Photo Zoom */
+.arrival-photo.clickable-photo { cursor: pointer; position: relative; overflow: hidden; }
+.arrival-photo.clickable-photo img { transition: transform .3s ease; }
+.arrival-photo.clickable-photo:hover img { transform: scale(1.05); }
+
+.photo-expand-badge { position: absolute; bottom: 8px; right: 8px; background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(6px); color: #fff; font-size: .72rem; font-weight: 700; padding: 4px 10px; border-radius: 99px; opacity: 0; transform: translateY(4px); transition: opacity .2s, transform .2s; pointer-events: none; }
+.arrival-photo.clickable-photo:hover .photo-expand-badge { opacity: 1; transform: translateY(0); }
+
+/* Guest Full-Screen Photo Modal Popup */
+.guest-photo-modal-overlay { position: fixed; inset: 0; z-index: 99999; background: rgba(15, 23, 42, 0.88); backdrop-filter: blur(12px); display: flex; align-items: center; justify-content: center; padding: 20px; animation: fadeIn .2s ease-out; }
+.guest-photo-modal-card { position: relative; max-width: 1000px; width: 100%; max-height: 90vh; background: #0f172a; border-radius: 20px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); border: 1px solid rgba(255, 255, 255, 0.1); }
+.guest-photo-close-btn { position: absolute; top: 14px; right: 14px; z-index: 10; width: 36px; height: 36px; border-radius: 50%; background: rgba(255, 255, 255, 0.2); color: #ffffff; border: 0; font-size: 1.1rem; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background .18s, transform .15s; }
+.guest-photo-close-btn:hover { background: rgba(255, 255, 255, 0.35); transform: scale(1.08); }
+
+.guest-photo-modal-body { position: relative; width: 100%; height: calc(90vh - 100px); min-height: 350px; background: #020617; }
+.guest-photo-modal-caption { padding: 18px 24px; background: #0f172a; color: #ffffff; text-align: center; border-top: 1px solid rgba(255,255,255,0.08); }
+.guest-photo-modal-caption h3 { margin: 0; font-size: 1.15rem; font-weight: 800; color: #f8fafc; }
+.guest-photo-modal-caption p { margin: 4px 0 0 0; font-size: .9rem; color: #94a3b8; }
+
+@media(max-width: 640px) {
+  .guest-photo-modal-overlay { padding: 12px; }
+  .guest-photo-modal-card { max-height: 95vh; border-radius: 16px; }
+  .guest-photo-modal-body { height: calc(95vh - 90px); min-height: 280px; }
+  .guest-photo-modal-caption { padding: 14px 16px; }
+  .guest-photo-modal-caption h3 { font-size: 1rem; }
+}
+
 

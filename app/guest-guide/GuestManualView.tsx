@@ -65,6 +65,15 @@ export default function GuestManualView({
     }
     return "en";
   });
+  const [previewImage, setPreviewImage] = useState<{ src: string; title: string; subtitle?: string } | null>(null);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setPreviewImage(null);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   useEffect(() => {
     // Inject Google Translate script if needed
@@ -233,7 +242,17 @@ export default function GuestManualView({
           <article>
             <span>01</span>
             <div>
-              <div className="arrival-photo">
+              <div
+                className="arrival-photo clickable-photo"
+                title="Tap to view full image"
+                onClick={() =>
+                  setPreviewImage({
+                    src: guide.step1PhotoUrl || "/self-checkin-guide.png",
+                    title: "Step 01: Find the building",
+                    subtitle: available(guide.address),
+                  })
+                }
+              >
                 <Image
                   src={guide.step1PhotoUrl || "/self-checkin-guide.png"}
                   alt="Konios House building and main entrance"
@@ -246,6 +265,7 @@ export default function GuestManualView({
                       : { objectPosition: "center 18%" }
                   }
                 />
+                <span className="photo-expand-badge">🔍 Zoom photo</span>
               </div>
               <small>Find the building</small>
               <h3>{available(guide.address)}</h3>
@@ -260,7 +280,17 @@ export default function GuestManualView({
           <article>
             <span>02</span>
             <div>
-              <div className="arrival-photo">
+              <div
+                className="arrival-photo clickable-photo"
+                title="Tap to view full image"
+                onClick={() =>
+                  setPreviewImage({
+                    src: guide.step2PhotoUrl || "/self-checkin-guide.png",
+                    title: "Step 02: Park",
+                    subtitle: `Parking space ${available(guide.parkingSpace)}`,
+                  })
+                }
+              >
                 <Image
                   src={guide.step2PhotoUrl || "/self-checkin-guide.png"}
                   alt="Outdoor parking space"
@@ -273,6 +303,7 @@ export default function GuestManualView({
                       : { objectPosition: "center 39%" }
                   }
                 />
+                <span className="photo-expand-badge">🔍 Zoom photo</span>
               </div>
               <small>Park</small>
               <h3>Parking space</h3>
@@ -283,7 +314,17 @@ export default function GuestManualView({
           <article>
             <span>03</span>
             <div>
-              <div className="arrival-photo">
+              <div
+                className="arrival-photo clickable-photo"
+                title="Tap to view full image"
+                onClick={() =>
+                  setPreviewImage({
+                    src: guide.step3PhotoUrl || "/self-checkin-guide.png",
+                    title: "Step 03: Enter the building",
+                    subtitle: `Building code: ${available(guide.buildingCode)}`,
+                  })
+                }
+              >
                 <Image
                   src={guide.step3PhotoUrl || "/self-checkin-guide.png"}
                   alt="Building intercom and entrance code"
@@ -296,6 +337,7 @@ export default function GuestManualView({
                       : { objectPosition: "center 59%" }
                   }
                 />
+                <span className="photo-expand-badge">🔍 Zoom photo</span>
               </div>
               <small>Enter the building</small>
               <h3>Building code</h3>
@@ -307,7 +349,17 @@ export default function GuestManualView({
           <article>
             <span>04</span>
             <div>
-              <div className="arrival-photo">
+              <div
+                className="arrival-photo clickable-photo"
+                title="Tap to view full image"
+                onClick={() =>
+                  setPreviewImage({
+                    src: guide.step4PhotoUrl || "/self-checkin-guide.png",
+                    title: "Step 04: Find your door",
+                    subtitle: guide.floor ? `Floor ${guide.floor} · Apartment ${guide.apartmentNumber}` : "Apartment door",
+                  })
+                }
+              >
                 <Image
                   src={guide.step4PhotoUrl || "/self-checkin-guide.png"}
                   alt="Hallway leading to apartment 32"
@@ -320,6 +372,7 @@ export default function GuestManualView({
                       : { objectPosition: "center 79%" }
                   }
                 />
+                <span className="photo-expand-badge">🔍 Zoom photo</span>
               </div>
               <small>Find your door</small>
               <h3>
@@ -332,7 +385,17 @@ export default function GuestManualView({
           <article>
             <span>05</span>
             <div>
-              <div className="arrival-photo">
+              <div
+                className="arrival-photo clickable-photo"
+                title="Tap to view full image"
+                onClick={() =>
+                  setPreviewImage({
+                    src: guide.step5PhotoUrl || "/self-checkin-guide.png",
+                    title: "Step 05: Collect the key",
+                    subtitle: `Keybox code: ${available(guide.lockboxCode)}`,
+                  })
+                }
+              >
                 <Image
                   src={guide.step5PhotoUrl || "/self-checkin-guide.png"}
                   alt="Keybox beside apartment 32"
@@ -345,6 +408,7 @@ export default function GuestManualView({
                       : { objectPosition: "center 98%" }
                   }
                 />
+                <span className="photo-expand-badge">🔍 Zoom photo</span>
               </div>
               <small>Collect the key</small>
               <h3>Keybox code</h3>
@@ -356,7 +420,17 @@ export default function GuestManualView({
           <article>
             <span>06</span>
             <div>
-              <div className="arrival-photo">
+              <div
+                className="arrival-photo clickable-photo"
+                title="Tap to view full image"
+                onClick={() =>
+                  setPreviewImage({
+                    src: guide.step6PhotoUrl || "/apartment-main.png",
+                    title: "Step 06: Get connected",
+                    subtitle: `Wi-Fi: ${available(guide.wifiName)}`,
+                  })
+                }
+              >
                 <Image
                   src={guide.step6PhotoUrl || "/apartment-main.png"}
                   alt="Konios House apartment interior"
@@ -364,6 +438,7 @@ export default function GuestManualView({
                   sizes="300px"
                   unoptimized
                 />
+                <span className="photo-expand-badge">🔍 Zoom photo</span>
               </div>
               <small>Get connected</small>
               <h3>Wi-Fi</h3>
@@ -637,6 +712,31 @@ export default function GuestManualView({
         <p>Enjoy your stay in Skopje.</p>
         <a href="#top">Back to top ↑</a>
       </footer>
+
+      {/* Full Image Preview Modal */}
+      {previewImage ? (
+        <div className="guest-photo-modal-overlay" onClick={() => setPreviewImage(null)}>
+          <div className="guest-photo-modal-card" onClick={(e) => e.stopPropagation()}>
+            <button className="guest-photo-close-btn" onClick={() => setPreviewImage(null)} title="Close preview (ESC)">
+              ✕
+            </button>
+            <div className="guest-photo-modal-body">
+              <Image
+                src={previewImage.src}
+                alt={previewImage.title}
+                fill
+                sizes="100vw"
+                style={{ objectFit: "contain" }}
+                unoptimized
+              />
+            </div>
+            <div className="guest-photo-modal-caption">
+              <h3>{previewImage.title}</h3>
+              {previewImage.subtitle ? <p>{previewImage.subtitle}</p> : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }
