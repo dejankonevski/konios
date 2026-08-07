@@ -615,7 +615,7 @@ footer>div { display:flex; justify-content:flex-end; gap:30px; }
 .arrivals-unified-table .is-subsequent-row:hover { background: #fafcff; }
 
 .guest-info-block { display: flex; flex-direction: column; justify-content: center; gap: 2px; min-width: 0; }
-.row-tag { display: block; width: 100%; font-size: .62rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 2px; line-height: 1.25; }
+.row-tag { display: block; width: 100%; font-size: .62rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; margin: 2px 0; line-height: 1.25; }
 .row-tag.active-tag { color: #16a34a; }
 .row-tag.next-tag { color: #2563eb; }
 

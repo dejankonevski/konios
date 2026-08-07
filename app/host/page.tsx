@@ -532,15 +532,15 @@ export default function HostPage() {
                           {b.lastName[0]}
                         </span>
                         <div className="guest-info-block">
+                          <h4 className={isNextArrival ? "hero-name-txt" : "guest-fullname"}>
+                            {b.firstName} {b.lastName}
+                          </h4>
                           {isActive && (
                             <span className="row-tag active-tag">● Currently staying</span>
                           )}
                           {isNextArrival && (
                             <span className="row-tag next-tag">✦ Closest upcoming arrival</span>
                           )}
-                          <h4 className={isNextArrival ? "hero-name-txt" : "guest-fullname"}>
-                            {b.firstName} {b.lastName}
-                          </h4>
                           <small className="guest-count-sub">
                             {b.guests} {b.guests === 1 ? "guest" : "guests"}
                           </small>
