@@ -79,6 +79,7 @@ export default function HostPage() {
   const [monthOffset, setMonthOffset] = useState(0),
     [start, setStart] = useState<string>(),
     [end, setEnd] = useState<string>(),
+    [hoverDate, setHoverDate] = useState<string>(),
     [selecting, setSelecting] = useState(false),
     [result, setResult] = useState<Generated | null>(null);
   const anchor = useRef<string | undefined>(undefined),
@@ -112,36 +113,50 @@ export default function HostPage() {
     setPassword("");
     await loadBookings();
   }
+
+  function handleDateClick(value: string) {
+    if (dragged.current) return;
+    if (!start || (start && end)) {
+      setStart(value);
+      setEnd(undefined);
+    } else if (start && !end) {
+      if (value < start) {
+        setStart(value);
+        setEnd(undefined);
+      } else {
+        setEnd(value);
+      }
+    }
+  }
+
   function beginRange(value: string, event: PointerEvent<HTMLButtonElement>) {
     event.currentTarget.setPointerCapture(event.pointerId);
     dragged.current = false;
     setSelecting(true);
-    if (start && !end) anchor.current = start;
-    else {
-      anchor.current = value;
-      setStart(value);
-      setEnd(undefined);
-    }
+    anchor.current = value;
   }
   function moveRange(event: PointerEvent<HTMLButtonElement>) {
-    if (!selecting || !anchor.current) return;
     const value = document
       .elementFromPoint(event.clientX, event.clientY)
       ?.closest<HTMLButtonElement>("[data-date]")?.dataset.date;
-    if (!value || value === anchor.current) return;
-    dragged.current = true;
-    const [first, last] = [anchor.current, value].sort();
-    setStart(first);
-    setEnd(last);
-  }
-  function finishRange(value: string) {
-    if (!anchor.current) return;
-    if (!dragged.current && start && !end) {
-      const [first, last] = [start, value].sort();
+    if (value && value !== hoverDate) {
+      setHoverDate(value);
+    }
+    if (!selecting || !anchor.current || !value) return;
+    if (value !== anchor.current) {
+      dragged.current = true;
+      const [first, last] = [anchor.current, value].sort();
       setStart(first);
       setEnd(last);
     }
-    setSelecting(false);
+  }
+  function finishRange(value: string) {
+    if (selecting) {
+      setSelecting(false);
+    }
+    if (!dragged.current) {
+      handleDateClick(value);
+    }
     anchor.current = undefined;
   }
   async function generate(event: FormEvent<HTMLFormElement>) {
@@ -539,10 +554,25 @@ export default function HostPage() {
                       <span>Check out · {times.checkOutTime}</span>
                       <strong>{formatShort(end)}</strong>
                     </div>
+                    {(start || end) && (
+                      <button
+                        type="button"
+                        className="reset-range-btn"
+                        onClick={() => {
+                          setStart(undefined);
+                          setEnd(undefined);
+                        }}
+                      >
+                        Clear ✕
+                      </button>
+                    )}
                   </div>
                   <div
                     className="calendar-shell"
-                    onPointerLeave={() => selecting && setSelecting(false)}
+                    onPointerLeave={() => {
+                      if (selecting) setSelecting(false);
+                      setHoverDate(undefined);
+                    }}
                   >
                     <button
                       type="button"
@@ -573,18 +603,40 @@ export default function HostPage() {
                             date ? (
                               (() => {
                                 const value = dateKey(date),
-                                  selected = start === value || end === value,
+                                  isStart = start === value,
+                                  isEnd = end === value,
+                                  isSelected = isStart || isEnd,
                                   inRange =
                                     !!start &&
                                     !!end &&
                                     value > start &&
-                                    value < end;
+                                    value < end,
+                                  inHoverRange =
+                                    !end &&
+                                    !!start &&
+                                    !!hoverDate &&
+                                    ((hoverDate > start &&
+                                      value > start &&
+                                      value <= hoverDate) ||
+                                      (hoverDate < start &&
+                                        value < start &&
+                                        value >= hoverDate));
+                                const cls = [
+                                  "day-btn",
+                                  isStart ? "is-start" : "",
+                                  isEnd ? "is-end" : "",
+                                  isSelected ? "selected" : "",
+                                  inRange ? "in-range" : "",
+                                  inHoverRange ? "in-hover-range" : "",
+                                ]
+                                  .filter(Boolean)
+                                  .join(" ");
                                 return (
                                   <button
                                     type="button"
                                     data-date={value}
                                     key={value}
-                                    className={`${selected ? "selected " : ""}${inRange ? "in-range" : ""}`}
+                                    className={cls}
                                     onPointerDown={(e) => beginRange(value, e)}
                                     onPointerMove={moveRange}
                                     onPointerUp={() => finishRange(value)}
