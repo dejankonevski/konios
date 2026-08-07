@@ -40,9 +40,37 @@ export default async function Home(){
   return <main className="guest-manual" id="top">
     <header className="manual-header"><a className="brand" href="#top"><span className="brand-mark">K</span><span>{guide.propertyName}</span></a><nav aria-label="Guide sections"><a href="#arrival">Arrival</a><a href="#gallery">Photos</a><a href="#essentials">Essentials</a>{apartmentInstructions.length>0?<a href="#apartment">Apartment</a>:null}<a href="#explore">Explore</a>{guide.faqs&&guide.faqs.length>0?<a href="#faq">FAQ</a>:null}<a href="#checkout">Checkout</a></nav><span className="manual-stay">{dateLabel(booking.checkIn)} - {dateLabel(booking.checkOut)}</span></header>
 
-    <section className="manual-hero"><div><p className="eyebrow">Your private guest guide</p><h1>Welcome,<br/>{booking.firstName}.</h1><p>Everything you need for an easy arrival and a comfortable stay in Skopje, collected in one place.</p></div><aside><span>Your stay</span><div className="stay-date"><b>Check-in</b><strong>{dateLabel(booking.checkIn)}</strong><i><em>{guide.checkInTime}</em> arrival time</i></div><span className="stay-rule"/><div className="stay-date"><b>Checkout</b><strong>{dateLabel(booking.checkOut)}</strong><i><em>{guide.checkOutTime}</em> departure time</i></div>{guide.hostPhone?<a href={`tel:${phone}`}>Call {guide.hostName||"your host"} ↗</a>:null}</aside></section>
-
-    {guide.welcomeMessage||guide.hostPhotoUrl?<section className="host-welcome-banner"><div className="host-welcome-card">{guide.hostPhotoUrl?<div className="host-avatar-shell"><Image src={guide.hostPhotoUrl} alt={guide.hostName||"Your hosts"} width={100} height={100} className="host-avatar-img"/></div>:null}<div className="host-welcome-content"><span className="host-welcome-tag">A message from your hosts</span><h3>{guide.hostName||"Dejan & Ivana"}</h3>{guide.welcomeMessage?<p className="host-welcome-text">“{guide.welcomeMessage}”</p>:null}{guide.hostPhone?<a href={`tel:${phone}`} className="host-contact-link">Call {guide.hostName||"host"} ({guide.hostPhone}) ↗</a>:null}</div></div></section>:null}
+    <section className="manual-hero">
+      <div>
+        <p className="eyebrow">Your private guest guide</p>
+        <h1>Welcome,<br/>{booking.firstName}.</h1>
+        <p>Everything you need for an easy arrival and a comfortable stay in Skopje, collected in one place.</p>
+        <div className="hero-host-banner">
+          <div className="hero-host-avatar">
+            <Image
+              src={guide.hostPhotoUrl || "/host-profile.jpg"}
+              alt={guide.hostName || "Dejan & Ivana"}
+              fill
+              sizes="140px"
+              priority
+              style={{ objectFit: "cover" }}
+            />
+          </div>
+          <div className="hero-host-copy">
+            <span className="hero-host-tag">A welcome note from your hosts</span>
+            <h3>{guide.hostName || "Dejan & Ivana"}</h3>
+            <p>“{guide.welcomeMessage || "Welcome to Konios House! We are delighted to host you in Skopje. If you need anything during your stay, don't hesitate to reach out. Wish you a wonderful visit!"}”</p>
+          </div>
+        </div>
+      </div>
+      <aside>
+        <span>Your stay</span>
+        <div className="stay-date"><b>Check-in</b><strong>{dateLabel(booking.checkIn)}</strong><i><em>{guide.checkInTime}</em> arrival time</i></div>
+        <span className="stay-rule"/>
+        <div className="stay-date"><b>Checkout</b><strong>{dateLabel(booking.checkOut)}</strong><i><em>{guide.checkOutTime}</em> departure time</i></div>
+        {guide.hostPhone ? <a href={`tel:${phone}`}>Call {guide.hostName || "your host"} ↗</a> : null}
+      </aside>
+    </section>
 
     <section className="manual-section" id="arrival"><div className="manual-heading"><p className="eyebrow">Start here</p><h2>Arrival, step by step.</h2><p>Keep this page open as you approach the building.</p></div><div className="arrival-steps">
       <article><span>01</span><div><div className="arrival-photo"><Image src="/self-checkin-guide.png" alt="Konios House building and main entrance" fill sizes="300px" style={{objectPosition:"center 18%"}}/></div><small>Find the building</small><h3>{available(guide.address)}</h3><p>{available(guide.directions)}</p>{guide.mapsUrl?<a className="arrival-map" href={guide.mapsUrl} target="_blank" rel="noreferrer">⌖ Open directions in Google Maps ↗</a>:null}</div></article>

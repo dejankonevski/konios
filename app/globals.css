@@ -595,4 +595,17 @@ footer>div { display:flex; justify-content:flex-end; gap:30px; }
   .hero-countdown-badge { font-size: 1rem; padding: 6px 14px; }
 }
 
+/* Integrated Main Hero Host Banner */
+.hero-host-banner { margin-top: 36px; display: flex; align-items: center; gap: 24px; padding: 24px 28px; background: rgba(255,255,255,.92); backdrop-filter: blur(12px); border: 1px solid rgba(0,0,0,.08); border-radius: 20px; box-shadow: 0 16px 45px rgba(20,30,22,.08); max-width: 640px; }
+.hero-host-avatar { position: relative; width: 105px; height: 105px; flex-shrink: 0; border-radius: 18px; overflow: hidden; border: 3px solid #fff; box-shadow: 0 8px 25px rgba(0,0,0,.14); }
+.hero-host-copy { display: flex; flex-direction: column; gap: 4px; }
+.hero-host-tag { font-size: .62rem; font-weight: 700; text-transform: uppercase; letter-spacing: .12em; color: var(--guest-blue); }
+.hero-host-copy h3 { margin: 0; font-family: var(--font-sans); font-size: 1.25rem; font-weight: 700; color: #1e293b; }
+.hero-host-copy p { margin: 0; font-size: .88rem; line-height: 1.55; color: #475569; font-style: italic; }
+
+@media(max-width: 600px) {
+  .hero-host-banner { flex-direction: column; align-items: flex-start; gap: 16px; padding: 20px; }
+  .hero-host-avatar { width: 85px; height: 85px; }
+}
+
 
