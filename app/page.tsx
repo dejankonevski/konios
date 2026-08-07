@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import Image from "next/image";
 import { bookingState, getBookingByCode } from "@/lib/bookings";
-import { getGuestGuide } from "@/lib/guest-guide";
+import { defaultGallery, getGuestGuide } from "@/lib/guest-guide";
 import CopyButton from "@/app/guest-guide/CopyButton";
 import ApartmentGallery from "@/app/guest-guide/ApartmentGallery";
 
@@ -81,7 +81,7 @@ export default async function Home(){
       <article><span>06</span><div><div className="arrival-photo"><Image src="/apartment-main.png" alt="Konios House apartment interior" fill sizes="300px"/></div><small>Get connected</small><h3>Wi-Fi</h3><p className="flow-label">Network</p><div className="flow-value">{available(guide.wifiName)}</div>{guide.wifiName?<CopyButton value={guide.wifiName}/>:null}<p className="flow-label">Password</p><div className="flow-value clear-value">{available(guide.wifiPassword)}</div>{guide.wifiPassword?<CopyButton value={guide.wifiPassword}/>:null}</div></article>
     </div></section>
 
-    <ApartmentGallery gallery={guide.gallery || []} propertyName={guide.propertyName} />
+    <ApartmentGallery gallery={guide.gallery && guide.gallery.length > 0 ? guide.gallery : defaultGallery} propertyName={guide.propertyName} />
 
     <section className="manual-section manual-dark" id="essentials"><div className="manual-heading"><p className="eyebrow light">Settle in</p><h2>The essentials.</h2></div><div className="essential-grid"><article><span>Wi-Fi network</span><strong>{available(guide.wifiName)}</strong>{guide.wifiName?<CopyButton value={guide.wifiName}/>:null}</article><article><span>Wi-Fi password</span><strong className="clear-value">{available(guide.wifiPassword)}</strong>{guide.wifiPassword?<CopyButton value={guide.wifiPassword}/>:null}</article><article><span>Your host</span><div className="host-essential-row">{guide.hostPhotoUrl?<div className="host-essential-avatar"><Image src={guide.hostPhotoUrl} alt={guide.hostName||"Your host"} width={52} height={52} className="host-avatar-img"/></div>:null}<div><strong>{guide.hostName||"Your host"}</strong>{guide.hostPhone?<a href={`tel:${phone}`}>{guide.hostPhone} ↗</a>:<small>Phone not yet added</small>}</div></div></article><article><span>Parking</span><p>{available(guide.parking)}</p></article></div></section>
 

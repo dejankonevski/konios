@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import type { GalleryItem } from "@/lib/guest-guide";
+import { defaultGallery } from "@/lib/guest-guide";
 
 type Props = {
   gallery: GalleryItem[];
@@ -10,6 +11,7 @@ type Props = {
 };
 
 export default function ApartmentGallery({ gallery, propertyName }: Props) {
+  const items = gallery && gallery.length > 0 ? gallery : defaultGallery;
   const [isOpen, setIsOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const [copied, setCopied] = useState(false);
@@ -20,17 +22,15 @@ export default function ApartmentGallery({ gallery, propertyName }: Props) {
       if (!isOpen) return;
       if (e.key === "Escape") setIsOpen(false);
       if (e.key === "ArrowRight")
-        setActiveIndex((prev) => (prev + 1) % gallery.length);
+        setActiveIndex((prev) => (prev + 1) % items.length);
       if (e.key === "ArrowLeft")
-        setActiveIndex((prev) => (prev - 1 + gallery.length) % gallery.length);
+        setActiveIndex((prev) => (prev - 1 + items.length) % items.length);
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, gallery.length]);
+  }, [isOpen, items.length]);
 
-  if (!gallery || gallery.length === 0) return null;
-
-  const currentPhoto = gallery[activeIndex] || gallery[0];
+  const currentPhoto = items[activeIndex] || items[0];
 
   function getFullImageUrl(url: string) {
     if (url.startsWith("http")) return url;
@@ -66,8 +66,8 @@ export default function ApartmentGallery({ gallery, propertyName }: Props) {
     setTimeout(() => setCopied(false), 2200);
   }
 
-  const primaryPhoto = gallery[0];
-  const sidePhotos = gallery.slice(1, 5);
+  const primaryPhoto = items[0];
+  const sidePhotos = items.slice(1, 5);
 
   return (
     <section className="manual-section gallery-section" id="gallery">
@@ -122,7 +122,7 @@ export default function ApartmentGallery({ gallery, propertyName }: Props) {
             setIsOpen(true);
           }}
         >
-          📷 View all {gallery.length} photos
+          📷 View all {items.length} photos
         </button>
       </div>
 
@@ -141,7 +141,7 @@ export default function ApartmentGallery({ gallery, propertyName }: Props) {
               <button
                 className="lightbox-nav prev"
                 onClick={() =>
-                  setActiveIndex((prev) => (prev - 1 + gallery.length) % gallery.length)
+                  setActiveIndex((prev) => (prev - 1 + items.length) % items.length)
                 }
               >
                 ‹
@@ -159,7 +159,7 @@ export default function ApartmentGallery({ gallery, propertyName }: Props) {
 
               <button
                 className="lightbox-nav next"
-                onClick={() => setActiveIndex((prev) => (prev + 1) % gallery.length)}
+                onClick={() => setActiveIndex((prev) => (prev + 1) % items.length)}
               >
                 ›
               </button>
@@ -172,7 +172,7 @@ export default function ApartmentGallery({ gallery, propertyName }: Props) {
                 ) : null}
                 <h4>{currentPhoto.title}</h4>
                 <small>
-                  Photo {activeIndex + 1} of {gallery.length}
+                  Photo {activeIndex + 1} of {items.length}
                 </small>
               </div>
 
