@@ -81,7 +81,7 @@ export const defaultFaqs: FaqItem[] = [
   {
     id: "faq-6",
     question: "How do I call a reliable taxi in Skopje?",
-    answer: "We recommend downloading the Wizi app or calling Nashe Takvi at 15152 (or +389 70 813 037 for airport taxi). For street taxis, make sure they run the meter.",
+    answer: "We recommend downloading the Wizi app or calling Nashe Taxi at 15152 (or +389 70 813 037 for airport taxi). For street taxis, make sure they run the meter.",
     category: "Local Area",
   },
 ];
