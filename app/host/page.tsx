@@ -111,6 +111,23 @@ export default function HostPage() {
     );
   }, [start, end, bookings]);
 
+  const overviewList = useMemo(() => {
+    const activeStays = bookings
+      .filter((b) => b.accessStatus === "active")
+      .sort((a, b) => a.checkIn.localeCompare(b.checkIn));
+    const upcomingStays = bookings
+      .filter((b) => b.accessStatus === "upcoming")
+      .sort((a, b) => a.checkIn.localeCompare(b.checkIn));
+    return [...activeStays, ...upcomingStays];
+  }, [bookings]);
+
+  const nextArrivalId = useMemo(() => {
+    const firstUpcoming = bookings
+      .filter((b) => b.accessStatus === "upcoming")
+      .sort((a, b) => a.checkIn.localeCompare(b.checkIn))[0];
+    return firstUpcoming?.id;
+  }, [bookings]);
+
   async function loadBookings() {
     const response = await fetch("/api/host/code", { cache: "no-store" });
     if (response.ok) {
@@ -480,123 +497,110 @@ export default function HostPage() {
               </div>
               <button onClick={() => setView("bookings")}>View all →</button>
             </div>
-            {arrivals.length === 0 ? (
-              <div className="empty-state host-card">
-                <strong>No upcoming arrivals scheduled.</strong>
-                <span>Create a reservation to generate access codes.</span>
+            <div className="booking-table arrivals-unified-table">
+              <div className="booking-table-head">
+                <span>Guest</span>
+                <span>Stay</span>
+                <span>Source</span>
+                <span>Status / Timing</span>
+                <span>Code</span>
+                <span />
               </div>
-            ) : (
-              <div className="next-arrivals-hero-section">
-                {(() => {
-                  const hero = arrivals[0];
-                  const daysBadge = getDaysUntilLabel(hero.checkIn);
+              {overviewList.length === 0 ? (
+                <div className="empty-state">
+                  <strong>No active or upcoming arrivals.</strong>
+                  <span>Create a reservation and it will appear automatically.</span>
+                </div>
+              ) : (
+                overviewList.map((b) => {
+                  const isActive = b.accessStatus === "active";
+                  const isNextArrival = b.id === nextArrivalId;
+                  const countdown = isActive
+                    ? "Active now"
+                    : getDaysUntilLabel(b.checkIn);
+
+                  const rowClass = [
+                    "booking-table-row",
+                    isActive ? "is-active-row" : "",
+                    isNextArrival ? "is-next-hero-row" : "is-subsequent-row",
+                  ]
+                    .filter(Boolean)
+                    .join(" ");
+
                   return (
-                    <article className="hero-arrival-card">
-                      <div className="hero-arrival-header">
-                        <div className="hero-countdown-badge">
-                          <span className="badge-dot" />
-                          <strong>{daysBadge}</strong>
+                    <article key={b.id} className={rowClass}>
+                      <div className="guest-cell">
+                        <span className={`guest-avatar ${isNextArrival ? "hero-avatar-mid" : ""}`}>
+                          {b.firstName[0]}
+                          {b.lastName[0]}
+                        </span>
+                        <div>
+                          {isActive && (
+                            <span className="row-tag active-tag">● Currently staying</span>
+                          )}
+                          {isNextArrival && (
+                            <span className="row-tag next-tag">✦ Closest upcoming arrival</span>
+                          )}
+                          <strong className={isNextArrival ? "hero-name-txt" : ""}>
+                            {b.firstName} {b.lastName}
+                          </strong>
+                          <small>
+                            {b.guests} {b.guests === 1 ? "guest" : "guests"}
+                          </small>
                         </div>
-                        <span className={`status-pill ${hero.accessStatus}`}>
-                          {hero.accessStatus}
+                      </div>
+
+                      <div className="stay-cell">
+                        <strong className={isNextArrival ? "hero-date-txt" : ""}>
+                          {formatShort(b.checkIn)}
+                        </strong>
+                        <small>to {formatShort(b.checkOut)}</small>
+                      </div>
+
+                      <div className="source-cell">
+                        <span
+                          className={`source-dot ${b.source.toLowerCase().replace(".com", "").replace(" ", "-")}`}
+                        />
+                        <span>{b.source}</span>
+                      </div>
+
+                      <div className="timing-cell">
+                        <span
+                          className={`countdown-pill ${
+                            isActive
+                              ? "chip-active"
+                              : isNextArrival
+                                ? "chip-next-hero"
+                                : "chip-subsequent"
+                          }`}
+                        >
+                          {countdown}
                         </span>
                       </div>
 
-                      <div className="hero-arrival-main">
-                        <div className="hero-guest-identity">
-                          <span className="guest-avatar hero-avatar">
-                            {hero.firstName[0]}
-                            {hero.lastName[0]}
-                          </span>
-                          <div>
-                            <span className="hero-card-label">Closest Upcoming Guest</span>
-                            <h3>
-                              {hero.firstName} {hero.lastName}
-                            </h3>
-                            <p>
-                              {hero.guests} {hero.guests === 1 ? "guest" : "guests"} ·{" "}
-                              <span
-                                className={`source-dot ${hero.source.toLowerCase().replace(".com", "").replace(" ", "-")}`}
-                              />
-                              {hero.source}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="hero-stay-info">
-                          <span>Check-in stay</span>
-                          <strong>{formatShort(hero.checkIn)}</strong>
-                          <small>to {formatShort(hero.checkOut)}</small>
-                        </div>
-
-                        <div className="hero-code-box">
-                          <span>Access code</span>
-                          <button
-                            className="hero-code-btn"
-                            onClick={() => navigator.clipboard.writeText(hero.code)}
-                            title="Click to copy door code"
-                          >
-                            <strong>{hero.code}</strong>
-                            <small>Copy ⧉</small>
-                          </button>
-                        </div>
+                      <div className="code-cell">
+                        <button
+                          className={`code-chip ${isNextArrival ? "hero-code-chip-inline" : ""}`}
+                          onClick={() => navigator.clipboard.writeText(b.code)}
+                          title="Click to copy door code"
+                        >
+                          <strong>{b.code}</strong> <span>⧉</span>
+                        </button>
                       </div>
 
-                      <div className="hero-arrival-actions">
-                        <button onClick={() => changeBooking(hero, "toggle")}>
-                          {hero.revoked ? "Restore access" : "Revoke code"}
+                      <div className="row-actions">
+                        <button onClick={() => changeBooking(b, "toggle")}>
+                          {b.revoked ? "Restore" : "Revoke"}
                         </button>
-                        <button
-                          className="danger"
-                          onClick={() => changeBooking(hero, "delete")}
-                        >
+                        <button className="danger" onClick={() => changeBooking(b, "delete")}>
                           Delete
                         </button>
                       </div>
                     </article>
                   );
-                })()}
-
-                {arrivals.length > 1 && (
-                  <div className="later-arrivals-block">
-                    <h4>Subsequent upcoming arrivals</h4>
-                    <div className="later-arrivals-grid">
-                      {arrivals.slice(1).map((b) => (
-                        <article key={b.id} className="later-arrival-card">
-                          <div className="later-card-top">
-                            <span className="later-countdown">
-                              {getDaysUntilLabel(b.checkIn)}
-                            </span>
-                            <span
-                              className={`source-dot ${b.source.toLowerCase().replace(".com", "").replace(" ", "-")}`}
-                            />
-                          </div>
-                          <div className="later-card-body">
-                            <strong>
-                              {b.firstName} {b.lastName}
-                            </strong>
-                            <small>
-                              {formatShort(b.checkIn)} → {formatShort(b.checkOut)}
-                            </small>
-                          </div>
-                          <div className="later-card-foot">
-                            <button
-                              className="code-chip"
-                              onClick={() => navigator.clipboard.writeText(b.code)}
-                            >
-                              {b.code} ⧉
-                            </button>
-                            <button onClick={() => changeBooking(b, "toggle")}>
-                              {b.revoked ? "Restore" : "Revoke"}
-                            </button>
-                          </div>
-                        </article>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+                })
+              )}
+            </div>
             <div className="pro-tip">
               <span>✦</span>
               <div>

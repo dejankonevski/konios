@@ -603,6 +603,35 @@ footer>div { display:flex; justify-content:flex-end; gap:30px; }
 .hero-host-copy h3 { margin: 0; font-family: var(--font-sans); font-size: 1.25rem; font-weight: 700; color: #1e293b; }
 .hero-host-copy p { margin: 0; font-size: .88rem; line-height: 1.55; color: #475569; font-style: italic; }
 
+/* Unified Arrivals Table List with Next Hero Row & Active Guests on Top */
+.arrivals-unified-table .booking-table-row { display: grid; grid-template-columns: 1.4fr 1.15fr .8fr 1fr .85fr .7fr; gap: 16px; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--admin-line); transition: background .15s ease; }
+.arrivals-unified-table .booking-table-row:last-child { border-bottom: 0; }
+
+.arrivals-unified-table .is-active-row { background: #f0fdf4!important; border-left: 4px solid #16a34a!important; }
+.arrivals-unified-table .is-next-hero-row { background: linear-gradient(135deg, #eff6ff 0%, #f8fafc 100%)!important; border-left: 5px solid #2563eb!important; padding: 22px 20px!important; box-shadow: 0 4px 18px rgba(37,99,235,.06); }
+.arrivals-unified-table .is-subsequent-row:hover { background: #fafcff; }
+
+.row-tag { display: inline-block; font-size: .6rem; text-transform: uppercase; letter-spacing: .08em; font-weight: 700; margin-bottom: 3px; }
+.row-tag.active-tag { color: #16a34a; }
+.row-tag.next-tag { color: #2563eb; }
+
+.hero-avatar-mid { width: 44px!important; height: 44px!important; font-size: .95rem!important; background: #dbeafe!important; color: #1d4ed8!important; }
+.hero-name-txt { font-size: 1.18rem!important; font-weight: 800!important; color: var(--admin-navy)!important; }
+.hero-date-txt { font-size: 1.05rem!important; font-weight: 700!important; color: var(--admin-navy)!important; }
+
+.countdown-pill { display: inline-flex; align-items: center; padding: 6px 12px; border-radius: 99px; font-size: .76rem; font-weight: 700; }
+.countdown-pill.chip-active { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
+.countdown-pill.chip-next-hero { background: #2563eb; color: #fff; font-size: .88rem; font-weight: 800; padding: 8px 16px; box-shadow: 0 4px 12px rgba(37,99,235,.25); }
+.countdown-pill.chip-subsequent { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+
+.hero-code-chip-inline { border-color: #93c5fd!important; background: #fff!important; box-shadow: 0 4px 12px rgba(37,99,235,.12)!important; padding: 9px 12px!important; }
+.hero-code-chip-inline strong { font-size: 1.15rem!important; color: #1d4ed8!important; }
+
+@media(max-width: 950px) {
+  .arrivals-unified-table .booking-table-row { grid-template-columns: 1fr auto; gap: 10px; padding: 14px; }
+  .arrivals-unified-table .stay-cell, .arrivals-unified-table .source-cell { display: none; }
+}
+
 @media(max-width: 600px) {
   .hero-host-banner { flex-direction: column; align-items: flex-start; gap: 16px; padding: 20px; }
   .hero-host-avatar { width: 85px; height: 85px; }
