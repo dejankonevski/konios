@@ -10,6 +10,7 @@ export default function GalleryManager() {
   const [status, setStatus] = useState("Loading gallery…");
   const [search, setSearch] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   // Add form state
   const [isAdding, setIsAdding] = useState(false);
@@ -65,6 +66,42 @@ export default function GalleryManager() {
     }
   }
 
+  async function handleFileUpload(file: File, isEdit = false) {
+    setUploading(true);
+    setStatus("Uploading image file…");
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch("/api/host/upload", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setStatus(data.error || "Upload failed");
+        setUploading(false);
+        return;
+      }
+
+      if (isEdit) {
+        setEditUrl(data.url);
+      } else {
+        setNewUrl(data.url);
+        if (!newTitle) {
+          const nameWithoutExt = file.name.replace(/\.[^/.]+$/, "");
+          setNewTitle(nameWithoutExt.replace(/[-_]/g, " "));
+        }
+      }
+      setStatus("Image uploaded successfully.");
+      setTimeout(() => setStatus(""), 2000);
+    } catch {
+      setStatus("Failed to upload image file.");
+    } finally {
+      setUploading(false);
+    }
+  }
+
   function getFullUrl(url: string) {
     if (url.startsWith("http")) return url;
     return typeof window !== "undefined" ? `${window.location.origin}${url}` : url;
@@ -75,6 +112,38 @@ export default function GalleryManager() {
     navigator.clipboard.writeText(full);
     setCopiedId(photo.id);
     setTimeout(() => setCopiedId(null), 2000);
+  }
+
+  async function handleShareImageFile(photo: GalleryItem) {
+    try {
+      setStatus("Preparing image file for sharing…");
+      const response = await fetch(photo.url);
+      const blob = await response.blob();
+      const mime = blob.type || "image/jpeg";
+      const ext = mime.split("/")[1] || "jpg";
+      const cleanTitle = photo.title.replace(/[^a-zA-Z0-9]/g, "_");
+      const filename = `${cleanTitle}.${ext}`;
+      const file = new File([blob], filename, { type: mime });
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          title: photo.title,
+          text: `${photo.title} - ${guide?.propertyName || "Konios House"}`,
+          files: [file],
+        });
+        setStatus("");
+      } else {
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = filename;
+        a.click();
+        setStatus("Image downloaded! You can now send the image file.");
+        setTimeout(() => setStatus(""), 3500);
+      }
+    } catch {
+      setStatus("Could not share image file directly.");
+      setTimeout(() => setStatus(""), 3000);
+    }
   }
 
   function handleAdd(e: FormEvent) {
@@ -139,28 +208,58 @@ export default function GalleryManager() {
           <p className="eyebrow">Apartment showcase</p>
           <h2>Apartment Photo Gallery</h2>
           <p>
-            Manage high-resolution apartment photos. Share direct image links with
-            guests via WhatsApp, Viber, or SMS.
+            Upload high-resolution apartment photos, edit titles/categories, and share actual image files directly.
           </p>
         </div>
         <button className="quick-add" onClick={() => setIsAdding(!isAdding)}>
-          {isAdding ? "Cancel" : "＋ Add photo"}
+          {isAdding ? "Cancel" : "＋ Upload photo"}
         </button>
       </div>
 
       {status ? <div className="status-toast">{status}</div> : null}
 
       {isAdding && (
-        <form className="template-form host-card" onSubmit={handleAdd}>
-          <h3>Add new apartment photo</h3>
+        <form className="template-form gallery-upload-card" onSubmit={handleAdd}>
+          <h3>Upload new apartment photo</h3>
+          
+          <div className="upload-dropzone">
+            <label className="file-picker-label">
+              <span>📷 Select image file from your device</span>
+              <small>Supports JPG, PNG, WebP (up to 10MB)</small>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) handleFileUpload(f);
+                }}
+                disabled={uploading}
+              />
+            </label>
+            {uploading ? <p className="uploading-txt">Uploading image file…</p> : null}
+            {newUrl ? (
+              <div className="upload-preview">
+                <Image
+                  src={newUrl}
+                  alt="Preview"
+                  width={140}
+                  height={90}
+                  style={{ objectFit: "cover", borderRadius: 8 }}
+                  unoptimized
+                />
+                <span className="preview-ok">✓ Image ready</span>
+              </div>
+            ) : null}
+          </div>
+
           <div className="host-name-row">
             <label>
-              Photo URL / path
+              Photo title / caption
               <input
                 required
-                value={newUrl}
-                onChange={(e) => setNewUrl(e.target.value)}
-                placeholder="e.g. /gallery/balcony.jpg or https://..."
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
+                placeholder="e.g. Sunny Balcony with City View"
               />
             </label>
             <label>
@@ -172,18 +271,19 @@ export default function GalleryManager() {
               />
             </label>
           </div>
+
           <label>
-            Photo caption / title
+            Or paste image URL / path directly
             <input
-              required
-              value={newTitle}
-              onChange={(e) => setNewTitle(e.target.value)}
-              placeholder="e.g. Sunny Balcony with City View"
+              value={newUrl}
+              onChange={(e) => setNewUrl(e.target.value)}
+              placeholder="e.g. /gallery/balcony.jpg or https://..."
             />
           </label>
+
           <div className="form-actions">
-            <button type="submit" className="submit-button">
-              Save photo ↗
+            <button type="submit" className="submit-button" disabled={uploading || !newUrl}>
+              Save photo to gallery ↗
             </button>
             <button
               type="button"
@@ -211,7 +311,7 @@ export default function GalleryManager() {
         {filtered.length === 0 ? (
           <div className="empty-state">
             <strong>No photos found.</strong>
-            <span>Add a photo above to populate the apartment gallery.</span>
+            <span>Upload a photo above to populate the apartment gallery.</span>
           </div>
         ) : (
           filtered.map((photo) => (
@@ -230,6 +330,17 @@ export default function GalleryManager() {
               <div className="gallery-admin-content">
                 {editingId === photo.id ? (
                   <form onSubmit={saveEdit} className="template-edit-form">
+                    <label className="edit-file-picker">
+                      <span>📷 Replace image file</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) handleFileUpload(f, true);
+                        }}
+                      />
+                    </label>
                     <input
                       required
                       value={editTitle}
@@ -279,12 +390,19 @@ export default function GalleryManager() {
                     <h3>{photo.title}</h3>
 
                     <div className="host-share-bar">
+                      <button
+                        className="quick-share-link primary-share-file"
+                        onClick={() => handleShareImageFile(photo)}
+                        title="Share actual image file via Viber, WhatsApp, SMS, or Save"
+                      >
+                        🖼️ Share Image File
+                      </button>
                       <a
                         className="quick-share-link whatsapp"
                         href={`https://api.whatsapp.com/send?text=${encodeURIComponent(`Photo of ${guide.propertyName} (${photo.title}): ${getFullUrl(photo.url)}`)}`}
                         target="_blank"
                         rel="noreferrer"
-                        title="Share on WhatsApp"
+                        title="Share link on WhatsApp"
                       >
                         WhatsApp
                       </a>
@@ -293,16 +411,9 @@ export default function GalleryManager() {
                         href={`viber://forward?text=${encodeURIComponent(`Photo of ${guide.propertyName} (${photo.title}): ${getFullUrl(photo.url)}`)}`}
                         target="_blank"
                         rel="noreferrer"
-                        title="Share on Viber"
+                        title="Share link on Viber"
                       >
                         Viber
-                      </a>
-                      <a
-                        className="quick-share-link sms"
-                        href={`sms:?&body=${encodeURIComponent(`Photo of ${guide.propertyName} (${photo.title}): ${getFullUrl(photo.url)}`)}`}
-                        title="Share via iMessage / SMS"
-                      >
-                        SMS
                       </a>
                       <button
                         className="quick-share-link copy"

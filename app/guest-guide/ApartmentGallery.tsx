@@ -45,20 +45,32 @@ export default function ApartmentGallery({ gallery, propertyName }: Props) {
     return `Check out this photo of ${propertyName} (${photo.title}): ${fullUrl}`;
   }
 
-  async function handleNativeShare(photo: GalleryItem) {
-    const shareText = getShareText(photo);
-    if (navigator.share) {
-      try {
+
+
+  async function handleShareImageFile(photo: GalleryItem) {
+    try {
+      const response = await fetch(photo.url);
+      const blob = await response.blob();
+      const mime = blob.type || "image/jpeg";
+      const ext = mime.split("/")[1] || "jpg";
+      const cleanTitle = photo.title.replace(/[^a-zA-Z0-9]/g, "_");
+      const filename = `${cleanTitle}.${ext}`;
+      const file = new File([blob], filename, { type: mime });
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({
-          title: `${propertyName} - ${photo.title}`,
-          text: shareText,
-          url: getFullImageUrl(photo.url),
+          title: photo.title,
+          text: `${photo.title} - ${propertyName}`,
+          files: [file],
         });
-      } catch {
-        // User cancelled share
+      } else {
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = filename;
+        a.click();
       }
-    } else {
-      setShowShareModal(true);
+    } catch (err) {
+      console.error("Image file share failed:", err);
     }
   }
 
@@ -200,13 +212,20 @@ export default function ApartmentGallery({ gallery, propertyName }: Props) {
                 </div>
 
                 <div className="share-options-grid">
+                  <button
+                    className="share-opt primary-share-opt"
+                    onClick={() => handleShareImageFile(currentPhoto)}
+                  >
+                    🖼️ Share Actual Image File
+                  </button>
+
                   <a
                     className="share-opt whatsapp"
                     href={`https://api.whatsapp.com/send?text=${encodeURIComponent(getShareText(currentPhoto))}`}
                     target="_blank"
                     rel="noreferrer"
                   >
-                    💬 WhatsApp
+                    💬 WhatsApp Link
                   </a>
 
                   <a
@@ -215,14 +234,7 @@ export default function ApartmentGallery({ gallery, propertyName }: Props) {
                     target="_blank"
                     rel="noreferrer"
                   >
-                    🟣 Viber
-                  </a>
-
-                  <a
-                    className="share-opt imessage"
-                    href={`sms:?&body=${encodeURIComponent(getShareText(currentPhoto))}`}
-                  >
-                    💬 iMessage / SMS
+                    🟣 Viber Link
                   </a>
 
                   <button
@@ -230,13 +242,6 @@ export default function ApartmentGallery({ gallery, propertyName }: Props) {
                     onClick={() => handleCopyLink(currentPhoto)}
                   >
                     {copied ? "Link Copied ✓" : "🔗 Copy Direct Link"}
-                  </button>
-
-                  <button
-                    className="share-opt native"
-                    onClick={() => handleNativeShare(currentPhoto)}
-                  >
-                    📱 System Share
                   </button>
                 </div>
               </div>
