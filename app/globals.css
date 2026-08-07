@@ -677,21 +677,43 @@ footer>div { display:flex; justify-content:flex-end; gap:30px; }
 .contact-chip.whatsapp { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
 .contact-chip.whatsapp:hover { background: #dcfce7; transform: translateY(-1px); }
 .contact-chip.call { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
-.contact-chip.call:hover { background: #dbeafe; transform: translateY(-1px); }
-
-/* Edit Guest Modal Overlay */
+.contact-chip.call:hover { background: #dbeafe; transform: translateY(-1px); }/* Edit Guest Modal Overlay & Clean High-Contrast Form Styling */
 .edit-modal-overlay { position: fixed; inset: 0; z-index: 9999; background: rgba(15,23,42,.65); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; padding: 20px; }
-.edit-modal-card { width: 100%; max-width: 620px; max-height: 90vh; overflow-y: auto; background: #fff; border-radius: 20px; padding: 30px; box-shadow: 0 25px 60px rgba(0,0,0,.3); color: var(--admin-navy); }
-.edit-modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; padding-bottom: 14px; border-bottom: 1px solid #e2e8f0; }
-.edit-modal-head h3 { margin: 0; font-size: 1.35rem; font-weight: 800; color: var(--admin-navy); }
+.edit-modal-card { width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto; background: #ffffff!important; border-radius: 20px; padding: 32px; box-shadow: 0 25px 60px rgba(0,0,0,.35); color: #0f172a!important; }
+.edit-modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid #e2e8f0; }
+.edit-modal-head h3 { margin: 0; font-size: 1.4rem; font-weight: 800; color: #0f172a!important; }
 .close-modal-btn { border: 0; background: #f1f5f9; width: 36px; height: 36px; border-radius: 50%; font-size: 1.1rem; cursor: pointer; display: grid; place-items: center; color: #64748b; transition: background .15s; }
 .close-modal-btn:hover { background: #e2e8f0; color: #0f172a; }
 
-.modal-phone-actions { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
-.modal-phone-actions .quick-contact { font-size: .78rem; font-weight: 700; padding: 6px 12px; border-radius: 8px; text-decoration: none; }
+.edit-modal-form { display: flex; flex-direction: column; gap: 18px; }
+.modal-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; width: 100%; }
+.form-group { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+.form-group.full-width { grid-column: 1 / -1; }
+
+.form-group label { font-size: .84rem!important; font-weight: 700!important; color: #334155!important; margin: 0!important; text-transform: none!important; letter-spacing: normal!important; display: block!important; }
+.form-group input,
+.form-group select,
+.form-group textarea { width: 100%!important; background: #f8fafc!important; border: 1px solid #cbd5e1!important; border-radius: 10px!important; padding: 12px 14px!important; font-size: .95rem!important; color: #0f172a!important; font-family: inherit!important; outline: none; transition: border-color .15s, box-shadow .15s; box-shadow: none!important; }
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus { border-color: #2563eb!important; box-shadow: 0 0 0 3px rgba(37,99,235,.15)!important; background: #fff!important; }
+
+.phone-input-wrap { display: flex; flex-direction: column; gap: 8px; }
+.modal-phone-actions { display: flex; align-items: center; gap: 8px; }
+.modal-phone-actions .quick-contact { font-size: .78rem; font-weight: 700; padding: 6px 14px; border-radius: 8px; text-decoration: none; }
 .modal-phone-actions .quick-contact.whatsapp { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
 .modal-phone-actions .quick-contact.call { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
-.modal-actions { display: flex; align-items: center; gap: 12px; margin-top: 24px; padding-top: 16px; border-top: 1px solid #e2e8f0; }
+
+.modal-actions { display: flex; align-items: center; justify-content: flex-start; gap: 14px; margin-top: 10px; padding-top: 18px; border-top: 1px solid #e2e8f0; }
+.primary-modal-btn { padding: 12px 24px; border-radius: 12px; border: 0; background: #2563eb!important; color: #ffffff!important; font-weight: 800!important; font-size: .92rem!important; cursor: pointer; transition: background .18s, transform .15s; box-shadow: 0 4px 14px rgba(37,99,235,.25); }
+.primary-modal-btn:hover { background: #1d4ed8!important; transform: translateY(-1px); }
+.cancel-modal-btn { padding: 12px 20px; border-radius: 12px; border: 1px solid #cbd5e1; background: #f8fafc; color: #475569; font-weight: 700; font-size: .92rem; cursor: pointer; transition: background .15s; }
+.cancel-modal-btn:hover { background: #f1f5f9; color: #0f172a; }
+
+@media(max-width: 600px) {
+  .modal-field-row { grid-template-columns: 1fr; gap: 14px; }
+  .edit-modal-card { padding: 22px; }
+}
 
 .arrivals-unified-table .booking-table-row.interactive-row { cursor: pointer; }
 .arrivals-unified-table .booking-table-row.interactive-row:hover { background: #f1f5f9; }

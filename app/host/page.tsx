@@ -1037,40 +1037,43 @@ export default function HostPage() {
               </button>
             </div>
 
-            <form onSubmit={handleSaveEdit}>
+            <form onSubmit={handleSaveEdit} className="edit-modal-form">
               {editError && (
                 <div className="form-error alert" role="alert">
                   {editError}
                 </div>
               )}
 
-              <div className="host-name-row">
-                <label>
-                  First name
+              <div className="modal-field-row">
+                <div className="form-group">
+                  <label htmlFor="edit-first-name">First name</label>
                   <input
+                    id="edit-first-name"
                     required
                     value={editingBooking.firstName}
                     onChange={(e) =>
                       setEditingBooking({ ...editingBooking, firstName: e.target.value })
                     }
                   />
-                </label>
-                <label>
-                  Surname
+                </div>
+                <div className="form-group">
+                  <label htmlFor="edit-last-name">Surname</label>
                   <input
+                    id="edit-last-name"
                     required
                     value={editingBooking.lastName}
                     onChange={(e) =>
                       setEditingBooking({ ...editingBooking, lastName: e.target.value })
                     }
                   />
-                </label>
+                </div>
               </div>
 
-              <div className="host-name-row compact-fields">
-                <label>
-                  Number of Guests
+              <div className="modal-field-row">
+                <div className="form-group">
+                  <label htmlFor="edit-guests">Number of Guests</label>
                   <input
+                    id="edit-guests"
                     required
                     type="number"
                     min="1"
@@ -1083,10 +1086,11 @@ export default function HostPage() {
                       })
                     }
                   />
-                </label>
-                <label>
-                  Booking Source
+                </div>
+                <div className="form-group">
+                  <label htmlFor="edit-source">Booking Source</label>
                   <select
+                    id="edit-source"
                     value={editingBooking.source}
                     onChange={(e) =>
                       setEditingBooking({ ...editingBooking, source: e.target.value })
@@ -1097,42 +1101,49 @@ export default function HostPage() {
                     <option>Direct</option>
                     <option>Other</option>
                   </select>
-                </label>
+                </div>
               </div>
 
-              <div className="host-name-row">
-                <label>
-                  Phone Number (WhatsApp / Call)
-                  <input
-                    type="tel"
-                    placeholder="e.g. +389 70 123 456"
-                    value={editingBooking.phone || ""}
-                    onChange={(e) =>
-                      setEditingBooking({ ...editingBooking, phone: e.target.value })
-                    }
-                  />
-                </label>
-                {editingBooking.phone ? (
-                  <div className="modal-phone-actions">
-                    <a
-                      className="quick-contact whatsapp"
-                      href={`https://api.whatsapp.com/send?phone=${encodeURIComponent(editingBooking.phone)}`}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      💬 WhatsApp
-                    </a>
-                    <a className="quick-contact call" href={`tel:${editingBooking.phone}`}>
-                      📞 Call
-                    </a>
+              <div className="modal-field-row">
+                <div className="form-group full-width">
+                  <label htmlFor="edit-phone">Phone Number (WhatsApp / Call)</label>
+                  <div className="phone-input-wrap">
+                    <input
+                      id="edit-phone"
+                      type="tel"
+                      placeholder="e.g. +389 70 123 456"
+                      value={editingBooking.phone || ""}
+                      onChange={(e) =>
+                        setEditingBooking({ ...editingBooking, phone: e.target.value })
+                      }
+                    />
+                    {editingBooking.phone ? (
+                      <div className="modal-phone-actions">
+                        <a
+                          className="quick-contact whatsapp"
+                          href={`https://api.whatsapp.com/send?phone=${encodeURIComponent(editingBooking.phone)}`}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          💬 WhatsApp
+                        </a>
+                        <a
+                          className="quick-contact call"
+                          href={`tel:${editingBooking.phone}`}
+                        >
+                          📞 Call
+                        </a>
+                      </div>
+                    ) : null}
                   </div>
-                ) : null}
+                </div>
               </div>
 
-              <div className="host-name-row">
-                <label>
-                  Check-in Date
+              <div className="modal-field-row">
+                <div className="form-group">
+                  <label htmlFor="edit-checkin">Check-in Date</label>
                   <input
+                    id="edit-checkin"
                     required
                     type="date"
                     value={editingBooking.checkIn}
@@ -1140,10 +1151,11 @@ export default function HostPage() {
                       setEditingBooking({ ...editingBooking, checkIn: e.target.value })
                     }
                   />
-                </label>
-                <label>
-                  Check-out Date
+                </div>
+                <div className="form-group">
+                  <label htmlFor="edit-checkout">Check-out Date</label>
                   <input
+                    id="edit-checkout"
                     required
                     type="date"
                     value={editingBooking.checkOut}
@@ -1151,28 +1163,29 @@ export default function HostPage() {
                       setEditingBooking({ ...editingBooking, checkOut: e.target.value })
                     }
                   />
-                </label>
+                </div>
               </div>
 
-              <label>
-                Notes / Special requests
+              <div className="form-group full-width">
+                <label htmlFor="edit-notes">Notes / Special requests</label>
                 <textarea
-                  rows={2}
+                  id="edit-notes"
+                  rows={3}
                   value={editingBooking.notes || ""}
                   onChange={(e) =>
                     setEditingBooking({ ...editingBooking, notes: e.target.value })
                   }
                   placeholder="e.g. Late check-in after 20:00, extra towels requested"
                 />
-              </label>
+              </div>
 
               <div className="modal-actions">
-                <button type="submit" className="submit-button" disabled={editSaving}>
+                <button type="submit" className="primary-modal-btn" disabled={editSaving}>
                   {editSaving ? "Saving changes…" : "Save Changes ↗"}
                 </button>
                 <button
                   type="button"
-                  className="text-reset"
+                  className="cancel-modal-btn"
                   onClick={() => setEditingBooking(null)}
                 >
                   Cancel
