@@ -20,6 +20,7 @@ export async function PUT(request: Request) {
     ...input,
     messageTemplates: Array.isArray(input.messageTemplates) ? input.messageTemplates : current.messageTemplates,
     faqs: Array.isArray(input.faqs) ? input.faqs : current.faqs,
+    gallery: Array.isArray(input.gallery) ? input.gallery : current.gallery,
   };
   if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(guide.checkInTime) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(guide.checkOutTime)) return Response.json({ error: "Choose valid check-in and checkout times." }, { status: 400 });
   return Response.json({ guide: await saveGuestGuide(guide) });

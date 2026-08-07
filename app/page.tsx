@@ -4,6 +4,7 @@ import Image from "next/image";
 import { bookingState, getBookingByCode } from "@/lib/bookings";
 import { getGuestGuide } from "@/lib/guest-guide";
 import CopyButton from "@/app/guest-guide/CopyButton";
+import ApartmentGallery from "@/app/guest-guide/ApartmentGallery";
 
 const restaurants = [
   ["Gradska Kafeana Dvor", "Local dining", "Mention you are a guest of Dejan and Ivana for 10% off. Reserve ahead on weekends.", "/guide-places/gradska-kafeana-dvor.jpg"],
@@ -37,7 +38,7 @@ export default async function Home(){
   const phone=guide.hostPhone.replace(/[^+\d]/g,"");
   const apartmentInstructions = [["Air conditioning",guide.airConditioning],["Heating",guide.heating],["Hot water",guide.hotWater],["Rubbish & recycling",guide.rubbish]].filter(([,copy])=>copy.trim());
   return <main className="guest-manual" id="top">
-    <header className="manual-header"><a className="brand" href="#top"><span className="brand-mark">K</span><span>{guide.propertyName}</span></a><nav aria-label="Guide sections"><a href="#arrival">Arrival</a><a href="#essentials">Essentials</a>{apartmentInstructions.length>0?<a href="#apartment">Apartment</a>:null}<a href="#explore">Explore</a>{guide.faqs&&guide.faqs.length>0?<a href="#faq">FAQ</a>:null}<a href="#checkout">Checkout</a></nav><span className="manual-stay">{dateLabel(booking.checkIn)} - {dateLabel(booking.checkOut)}</span></header>
+    <header className="manual-header"><a className="brand" href="#top"><span className="brand-mark">K</span><span>{guide.propertyName}</span></a><nav aria-label="Guide sections"><a href="#arrival">Arrival</a><a href="#gallery">Photos</a><a href="#essentials">Essentials</a>{apartmentInstructions.length>0?<a href="#apartment">Apartment</a>:null}<a href="#explore">Explore</a>{guide.faqs&&guide.faqs.length>0?<a href="#faq">FAQ</a>:null}<a href="#checkout">Checkout</a></nav><span className="manual-stay">{dateLabel(booking.checkIn)} - {dateLabel(booking.checkOut)}</span></header>
 
     <section className="manual-hero"><div><p className="eyebrow">Your private guest guide</p><h1>Welcome,<br/>{booking.firstName}.</h1><p>Everything you need for an easy arrival and a comfortable stay in Skopje, collected in one place.</p></div><aside><span>Your stay</span><div className="stay-date"><b>Check-in</b><strong>{dateLabel(booking.checkIn)}</strong><i><em>{guide.checkInTime}</em> arrival time</i></div><span className="stay-rule"/><div className="stay-date"><b>Checkout</b><strong>{dateLabel(booking.checkOut)}</strong><i><em>{guide.checkOutTime}</em> departure time</i></div>{guide.hostPhone?<a href={`tel:${phone}`}>Call {guide.hostName||"your host"} ↗</a>:null}</aside></section>
 
@@ -51,6 +52,8 @@ export default async function Home(){
       <article><span>05</span><div><div className="arrival-photo"><Image src="/self-checkin-guide.png" alt="Keybox beside apartment 32" fill sizes="300px" style={{objectPosition:"center 98%"}}/></div><small>Collect the key</small><h3>Keybox code</h3><div className="access-number">{available(guide.lockboxCode)}</div>{guide.lockboxCode?<CopyButton value={guide.lockboxCode}/>:null}<p>{available(guide.lockboxInstructions)}</p></div></article>
       <article><span>06</span><div><div className="arrival-photo"><Image src="/apartment-main.png" alt="Konios House apartment interior" fill sizes="300px"/></div><small>Get connected</small><h3>Wi-Fi</h3><p className="flow-label">Network</p><div className="flow-value">{available(guide.wifiName)}</div>{guide.wifiName?<CopyButton value={guide.wifiName}/>:null}<p className="flow-label">Password</p><div className="flow-value clear-value">{available(guide.wifiPassword)}</div>{guide.wifiPassword?<CopyButton value={guide.wifiPassword}/>:null}</div></article>
     </div></section>
+
+    <ApartmentGallery gallery={guide.gallery || []} propertyName={guide.propertyName} />
 
     <section className="manual-section manual-dark" id="essentials"><div className="manual-heading"><p className="eyebrow light">Settle in</p><h2>The essentials.</h2></div><div className="essential-grid"><article><span>Wi-Fi network</span><strong>{available(guide.wifiName)}</strong>{guide.wifiName?<CopyButton value={guide.wifiName}/>:null}</article><article><span>Wi-Fi password</span><strong className="clear-value">{available(guide.wifiPassword)}</strong>{guide.wifiPassword?<CopyButton value={guide.wifiPassword}/>:null}</article><article><span>Your host</span><div className="host-essential-row">{guide.hostPhotoUrl?<div className="host-essential-avatar"><Image src={guide.hostPhotoUrl} alt={guide.hostName||"Your host"} width={52} height={52} className="host-avatar-img"/></div>:null}<div><strong>{guide.hostName||"Your host"}</strong>{guide.hostPhone?<a href={`tel:${phone}`}>{guide.hostPhone} ↗</a>:<small>Phone not yet added</small>}</div></div></article><article><span>Parking</span><p>{available(guide.parking)}</p></article></div></section>
 

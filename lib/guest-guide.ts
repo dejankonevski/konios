@@ -86,6 +86,46 @@ export const defaultFaqs: FaqItem[] = [
   },
 ];
 
+export type GalleryItem = {
+  id: string;
+  url: string;
+  title: string;
+  category?: string;
+};
+
+export const defaultGallery: GalleryItem[] = [
+  {
+    id: "gal-1",
+    url: "/gallery/living-room.jpg",
+    title: "Spacious Living Room",
+    category: "Living Room",
+  },
+  {
+    id: "gal-2",
+    url: "/gallery/bedroom.jpg",
+    title: "Master Bedroom & King Bed",
+    category: "Bedroom",
+  },
+  {
+    id: "gal-3",
+    url: "/gallery/kitchen.jpg",
+    title: "Modern Fully-Equipped Kitchen",
+    category: "Kitchen",
+  },
+  {
+    id: "gal-4",
+    url: "/apartment-main.png",
+    title: "Living Area & Dining Nook",
+    category: "Interior",
+  },
+  {
+    id: "gal-5",
+    url: "/self-checkin-guide.png",
+    title: "Building Entrance & Keybox",
+    category: "Access",
+  },
+];
+
 export type GuestGuide = {
   checkInTime: string; checkOutTime: string;
   propertyName: string; address: string; mapsUrl: string; floor: string; apartmentNumber: string;
@@ -95,6 +135,7 @@ export type GuestGuide = {
   quietHours: string; houseRules: string; checkoutInstructions: string; emergencyPhone: string;
   messageTemplates: MessageTemplate[];
   faqs: FaqItem[];
+  gallery: GalleryItem[];
 };
 
 export const defaultGuestGuide: GuestGuide = {
@@ -107,6 +148,7 @@ export const defaultGuestGuide: GuestGuide = {
   checkoutInstructions: "Turn off lights and air conditioning, close the windows, lock the apartment, and return the key to the lockbox.", emergencyPhone: "112",
   messageTemplates: defaultMessageTemplates,
   faqs: defaultFaqs,
+  gallery: defaultGallery,
 };
 
 export async function getGuestGuide() {
@@ -118,6 +160,9 @@ export async function getGuestGuide() {
   }
   if (!merged.faqs || !Array.isArray(merged.faqs) || merged.faqs.length === 0) {
     merged.faqs = defaultFaqs;
+  }
+  if (!merged.gallery || !Array.isArray(merged.gallery) || merged.gallery.length === 0) {
+    merged.gallery = defaultGallery;
   }
   return merged;
 }

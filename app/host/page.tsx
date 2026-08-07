@@ -7,6 +7,7 @@ import Link from "next/link";
 import GuideEditor from "./GuideEditor";
 import TemplateManager from "./TemplateManager";
 import FaqManager from "./FaqManager";
+import GalleryManager from "./GalleryManager";
 
 type Booking = {
   id: string;
@@ -68,7 +69,7 @@ export default function HostPage() {
     [error, setError] = useState(""),
     [copied, setCopied] = useState(false);
   const [view, setView] = useState<
-    "overview" | "bookings" | "new" | "guide" | "templates" | "faqs"
+    "overview" | "bookings" | "new" | "guide" | "templates" | "faqs" | "gallery"
   >("overview"),
     [bookings, setBookings] = useState<Booking[]>([]),
     [search, setSearch] = useState("");
@@ -374,6 +375,12 @@ export default function HostPage() {
           >
             <span>❓</span>FAQs
           </button>
+          <button
+            className={view === "gallery" ? "active" : ""}
+            onClick={() => setView("gallery")}
+          >
+            <span>🖼</span>Gallery
+          </button>
         </nav>
         <div className="sidebar-foot">
           <span>Access window</span>
@@ -396,7 +403,9 @@ export default function HostPage() {
                       ? "Message templates"
                       : view === "faqs"
                         ? "Frequent answers (FAQs)"
-                        : "New booking"}
+                        : view === "gallery"
+                          ? "Photo gallery"
+                          : "New booking"}
             </h1>
           </div>
           <button
@@ -704,6 +713,7 @@ export default function HostPage() {
         {view === "guide" && <GuideEditor />}
         {view === "templates" && <TemplateManager />}
         {view === "faqs" && <FaqManager />}
+        {view === "gallery" && <GalleryManager />}
       </section>
     </main>
   );
