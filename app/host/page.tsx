@@ -292,12 +292,12 @@ export default function HostPage() {
     .sort((a, b) => a.checkIn.localeCompare(b.checkIn))
     .slice(0, 4);
   const rows = (items: Booking[]) => (
-    <div className="booking-table">
+    <div className="booking-table arrivals-unified-table">
       <div className="booking-table-head">
         <span>Guest</span>
         <span>Stay</span>
         <span>Source</span>
-        <span>Access</span>
+        <span>Status / Timing</span>
         <span>Code</span>
         <span />
       </div>
@@ -307,56 +307,93 @@ export default function HostPage() {
           <span>Create a reservation and it will appear automatically.</span>
         </div>
       ) : (
-        items.map((b) => (
-          <article key={b.id}>
-            <div className="guest-cell">
-              <span className="guest-avatar">
-                {b.firstName[0]}
-                {b.lastName[0]}
-              </span>
-              <div>
-                <strong>
-                  {b.firstName} {b.lastName}
-                </strong>
-                <small>
-                  {b.guests} {b.guests === 1 ? "guest" : "guests"}
-                </small>
+        items.map((b) => {
+          const isActive = b.accessStatus === "active";
+          const isNextArrival = b.id === nextArrivalId;
+          const countdown = isActive
+            ? "Active now"
+            : getDaysUntilLabel(b.checkIn);
+
+          const rowClass = [
+            "booking-table-row",
+            isActive ? "is-active-row" : "",
+            isNextArrival ? "is-next-hero-row" : "is-subsequent-row",
+          ]
+            .filter(Boolean)
+            .join(" ");
+
+          return (
+            <article key={b.id} className={rowClass}>
+              <div className="guest-cell">
+                <span className={`guest-avatar ${isNextArrival ? "hero-avatar-mid" : ""}`}>
+                  {b.firstName[0]}
+                  {b.lastName[0]}
+                </span>
+                <div className="guest-info-block">
+                  <h4 className={isNextArrival ? "hero-name-txt" : "guest-fullname"}>
+                    {b.firstName} {b.lastName}
+                  </h4>
+                  {isActive && (
+                    <span className="row-tag active-tag">● Currently staying</span>
+                  )}
+                  {isNextArrival && (
+                    <span className="row-tag next-tag">✦ Closest upcoming arrival</span>
+                  )}
+                  <small className="guest-count-sub">
+                    {b.guests} {b.guests === 1 ? "guest" : "guests"}
+                  </small>
+                </div>
               </div>
-            </div>
-            <div>
-              <strong>{formatShort(b.checkIn)}</strong>
-              <small>to {formatShort(b.checkOut)}</small>
-            </div>
-            <div>
-              <span
-                className={`source-dot ${b.source.toLowerCase().replace(".com", "").replace(" ", "-")}`}
-              />
-              {b.source}
-            </div>
-            <div>
-              <span className={`status-pill ${b.accessStatus}`}>
-                {b.accessStatus}
-              </span>
-            </div>
-            <button
-              className="code-chip"
-              onClick={() => navigator.clipboard.writeText(b.code)}
-            >
-              {b.code} <span>⧉</span>
-            </button>
-            <div className="row-actions">
-              <button onClick={() => changeBooking(b, "toggle")}>
-                {b.revoked ? "Restore" : "Revoke"}
-              </button>
-              <button
-                className="danger"
-                onClick={() => changeBooking(b, "delete")}
-              >
-                Delete
-              </button>
-            </div>
-          </article>
-        ))
+
+              <div className="stay-cell">
+                <strong className={isNextArrival ? "hero-date-txt" : "stay-date-txt"}>
+                  {formatShort(b.checkIn)}
+                </strong>
+                <small className="stay-sub-txt">to {formatShort(b.checkOut)}</small>
+              </div>
+
+              <div className="source-cell">
+                <span
+                  className={`source-dot ${b.source.toLowerCase().replace(".com", "").replace(" ", "-")}`}
+                />
+                <span>{b.source}</span>
+              </div>
+
+              <div className="timing-cell">
+                <span
+                  className={`countdown-pill ${
+                    isActive
+                      ? "chip-active"
+                      : isNextArrival
+                        ? "chip-next-hero"
+                        : "chip-subsequent"
+                  }`}
+                >
+                  {countdown}
+                </span>
+              </div>
+
+              <div className="code-cell">
+                <button
+                  className={`code-chip ${isNextArrival ? "hero-code-chip-inline" : ""}`}
+                  onClick={() => navigator.clipboard.writeText(b.code)}
+                  title="Click to copy door code"
+                >
+                  <strong>{b.code}</strong> <span>⧉</span>
+                </button>
+              </div>
+
+              <div className="row-actions">
+                <button onClick={() => changeBooking(b, "toggle")}>
+                  {b.revoked ? "Restore" : "Revoke"}
+                </button>
+                <button className="danger" onClick={() => changeBooking(b, "delete")}>
+                  Delete
+                </button>
+              </div>
+            </article>
+          );
+        })
       )}
     </div>
   );
