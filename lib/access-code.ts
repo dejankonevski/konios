@@ -37,6 +37,19 @@ export async function createGuestCode(pass: GuestPass) {
   return `${payload}.${await signature(payload)}`;
 }
 
+export async function createHostToken() {
+  return signature("konios-host-session");
+}
+
+export async function verifyHostToken(token?: string) {
+  if (!token) return false;
+  const expected = await createHostToken();
+  if (token.length !== expected.length) return false;
+  let mismatch = 0;
+  for (let index = 0; index < token.length; index += 1) mismatch |= token.charCodeAt(index) ^ expected.charCodeAt(index);
+  return mismatch === 0;
+}
+
 export async function verifyGuestCode(code: string): Promise<GuestPass | null> {
   try {
     const [payload, suppliedSignature, extra] = code.trim().split(".");

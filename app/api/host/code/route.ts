@@ -1,17 +1,10 @@
-import { createGuestCode } from "@/lib/access-code";
-
-function safeEqual(left: string, right: string) {
-  if (left.length !== right.length) return false;
-  let mismatch = 0;
-  for (let index = 0; index < left.length; index += 1) mismatch |= left.charCodeAt(index) ^ right.charCodeAt(index);
-  return mismatch === 0;
-}
+import { cookies } from "next/headers";
+import { createGuestCode, verifyHostToken } from "@/lib/access-code";
 
 export async function POST(request: Request) {
   const data = (await request.json()) as Record<string, string>;
-  const adminPassword = process.env.ADMIN_PASSWORD;
-  if (!adminPassword) return Response.json({ error: "Host access is not configured." }, { status: 503 });
-  if (!data.password || !safeEqual(data.password, adminPassword)) return Response.json({ error: "Incorrect host password." }, { status: 401 });
+  const hostToken = (await cookies()).get("konios_host")?.value;
+  if (!(await verifyHostToken(hostToken))) return Response.json({ error: "Your host session has expired. Sign in again." }, { status: 401 });
 
   const firstName = data.firstName?.trim();
   const lastName = data.lastName?.trim();
