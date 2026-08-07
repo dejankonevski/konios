@@ -2,7 +2,7 @@
 
 /* eslint-disable @next/next/no-html-link-for-pages, react-hooks/refs */
 
-import { FormEvent, PointerEvent, useMemo, useRef, useState } from "react";
+import { FormEvent, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import GuideEditor from "./GuideEditor";
 import TemplateManager from "./TemplateManager";
@@ -93,10 +93,10 @@ export default function HostPage() {
     [start, setStart] = useState<string>(),
     [end, setEnd] = useState<string>(),
     [hoverDate, setHoverDate] = useState<string>(),
-    [selecting, setSelecting] = useState(false),
     [result, setResult] = useState<Generated | null>(null);
-  const anchor = useRef<string | undefined>(undefined),
-    dragged = useRef(false);
+  const dragStartRef = useRef<string | null>(null);
+  const isDraggingRef = useRef(false);
+  const pointerDownPosRef = useRef<{ x: number; y: number } | null>(null);
   const months = useMemo(() => {
     const now = new Date();
     return [0, 1].map(
@@ -152,12 +152,11 @@ export default function HostPage() {
   }
 
   function handleDateClick(value: string) {
-    if (dragged.current) return;
     if (!start || (start && end)) {
       setStart(value);
       setEnd(undefined);
-    } else if (start && !end) {
-      if (value < start) {
+    } else {
+      if (value <= start) {
         setStart(value);
         setEnd(undefined);
       } else {
@@ -166,35 +165,33 @@ export default function HostPage() {
     }
   }
 
-  function beginRange(value: string, event: PointerEvent<HTMLButtonElement>) {
-    event.currentTarget.setPointerCapture(event.pointerId);
-    dragged.current = false;
-    setSelecting(true);
-    anchor.current = value;
+  function handlePointerDown(value: string, event: React.PointerEvent<HTMLButtonElement>) {
+    dragStartRef.current = value;
+    isDraggingRef.current = false;
+    pointerDownPosRef.current = { x: event.clientX, y: event.clientY };
   }
-  function moveRange(event: PointerEvent<HTMLButtonElement>) {
-    const value = document
-      .elementFromPoint(event.clientX, event.clientY)
-      ?.closest<HTMLButtonElement>("[data-date]")?.dataset.date;
-    if (value && value !== hoverDate) {
-      setHoverDate(value);
-    }
-    if (!selecting || !anchor.current || !value) return;
-    if (value !== anchor.current) {
-      dragged.current = true;
-      const [first, last] = [anchor.current, value].sort();
-      setStart(first);
-      setEnd(last);
+
+  function handlePointerMove(value: string, event: React.PointerEvent<HTMLButtonElement>) {
+    setHoverDate(value);
+    if (event.buttons === 1 && dragStartRef.current && pointerDownPosRef.current) {
+      const dx = Math.abs(event.clientX - pointerDownPosRef.current.x);
+      const dy = Math.abs(event.clientY - pointerDownPosRef.current.y);
+      if (dx > 6 || dy > 6) {
+        isDraggingRef.current = true;
+        const [s, eVal] = [dragStartRef.current, value].sort();
+        setStart(s);
+        setEnd(eVal);
+      }
     }
   }
-  function finishRange(value: string) {
-    if (selecting) {
-      setSelecting(false);
-    }
-    if (!dragged.current) {
+
+  function handlePointerUp(value: string) {
+    if (!isDraggingRef.current) {
       handleDateClick(value);
     }
-    anchor.current = undefined;
+    dragStartRef.current = null;
+    pointerDownPosRef.current = null;
+    isDraggingRef.current = false;
   }
   async function generate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -726,10 +723,7 @@ export default function HostPage() {
                   )}
                   <div
                     className="calendar-shell"
-                    onPointerLeave={() => {
-                      if (selecting) setSelecting(false);
-                      setHoverDate(undefined);
-                    }}
+                    onPointerLeave={() => setHoverDate(undefined)}
                   >
                     <button
                       type="button"
@@ -806,9 +800,9 @@ export default function HostPage() {
                                         ? `Booked: ${existingBooking.firstName} ${existingBooking.lastName} (${existingBooking.checkIn} to ${existingBooking.checkOut})`
                                         : undefined
                                     }
-                                    onPointerDown={(e) => beginRange(value, e)}
-                                    onPointerMove={moveRange}
-                                    onPointerUp={() => finishRange(value)}
+                                    onPointerDown={(e) => handlePointerDown(value, e)}
+                                    onPointerEnter={(e) => handlePointerMove(value, e)}
+                                    onPointerUp={() => handlePointerUp(value)}
                                   >
                                     {date.getDate()}
                                   </button>
