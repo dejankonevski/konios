@@ -159,7 +159,7 @@ footer>div { display:flex; justify-content:flex-end; gap:30px; }
 
 /* Private guest gate and host desk */
 .gate-page { min-height:100svh; display:grid; grid-template-columns:1.15fr .85fr; background:var(--ink); }
-.gate-image { background:linear-gradient(0deg,rgba(22,28,23,.15),rgba(22,28,23,.15)),url('https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?auto=format&fit=crop&w=1600&q=88') center/cover; }
+.gate-image { background:linear-gradient(0deg,rgba(22,28,23,.15),rgba(22,28,23,.15)),url('/apartment-main.png') center/cover; }
 .gate-panel { color:var(--white); padding:50px clamp(30px,6vw,100px); display:flex; flex-direction:column; justify-content:space-between; }
 .gate-content { max-width:520px; margin:70px 0; }
 .gate-content h1,.host-intro h1 { font-size:clamp(4rem,7vw,7rem); line-height:.82; letter-spacing:-.05em; margin:0 0 32px; }

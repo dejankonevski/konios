@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 
 const photos = [
-  { src: "https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?auto=format&fit=crop&w=1800&q=88", alt: "Sunlit living room with warm neutral furnishings" },
+  { src: "/apartment-main.png", alt: "Konios House living room and bedroom" },
   { src: "https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?auto=format&fit=crop&w=1200&q=86", alt: "Minimal modern apartment lounge" },
   { src: "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1200&q=86", alt: "Open-plan dining space" },
   { src: "https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&w=1200&q=86", alt: "Calm, comfortable bedroom" },
