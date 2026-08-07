@@ -3,10 +3,12 @@
 import { FormEvent, useEffect, useState } from "react";
 import type { GuestGuide } from "@/lib/guest-guide";
 
-const groups: { title: string; note: string; fields: [keyof GuestGuide, string, "input" | "textarea"][] }[] = [
+type GuideFieldKey = { [K in keyof GuestGuide]: GuestGuide[K] extends string ? K : never }[keyof GuestGuide];
+
+const groups: { title: string; note: string; fields: [GuideFieldKey, string, "input" | "textarea"][] }[] = [
   { title:"Stay timing", note:"These times control both what guests see and exactly when their access code starts and expires.", fields:[["checkInTime","Default check-in time","input"],["checkOutTime","Default checkout time","input"]] },
   { title:"Arrival & access", note:"Everything guests need between the street and the apartment door.", fields:[["propertyName","Property name","input"],["address","Full address","input"],["mapsUrl","Google or Apple Maps link","input"],["directions","How to recognise the building / main entrance","textarea"],["parkingSpace","Parking space number","input"],["parking","Parking instructions","textarea"],["buildingCode","Building entrance code","input"],["buildingEntryInstructions","Building entry steps","textarea"],["floor","Floor","input"],["apartmentNumber","Apartment number / door","input"],["apartmentDirections","Directions from entrance to apartment","textarea"],["lockboxCode","Key lockbox code","input"],["lockboxInstructions","Where the lockbox is and how to use it","textarea"]] },
-  { title:"Stay essentials", note:"The details guests usually ask for first.", fields:[["wifiName","Wi-Fi network","input"],["wifiPassword","Wi-Fi password","input"],["hostName","Host name","input"],["hostPhone","Host phone with country code","input"]] },
+  { title:"Stay essentials", note:"The details guests usually ask for first.", fields:[["wifiName","Wi-Fi network","input"],["wifiPassword","Wi-Fi password","input"],["hostName","Host name(s)","input"],["hostPhone","Host phone with country code","input"],["hostPhotoUrl","Host profile image URL / path","input"],["welcomeMessage","Welcome message for guest","textarea"]] },
   { title:"Using the apartment", note:"Short, clear instructions prevent most support messages.", fields:[["airConditioning","Air conditioning","textarea"],["heating","Heating","textarea"],["hotWater","Hot water","textarea"],["rubbish","Rubbish and recycling","textarea"]] },
   { title:"Rules, safety & checkout", note:"Set expectations and make departure effortless.", fields:[["quietHours","Quiet hours","input"],["houseRules","House rules","textarea"],["checkoutInstructions","Checkout checklist","textarea"],["emergencyPhone","Emergency number","input"]] },
 ];

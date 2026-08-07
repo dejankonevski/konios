@@ -5,6 +5,8 @@
 import { FormEvent, PointerEvent, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import GuideEditor from "./GuideEditor";
+import TemplateManager from "./TemplateManager";
+import FaqManager from "./FaqManager";
 
 type Booking = {
   id: string;
@@ -65,9 +67,9 @@ export default function HostPage() {
     [password, setPassword] = useState(""),
     [error, setError] = useState(""),
     [copied, setCopied] = useState(false);
-  const [view, setView] = useState<"overview" | "bookings" | "new" | "guide">(
-      "overview",
-    ),
+  const [view, setView] = useState<
+    "overview" | "bookings" | "new" | "guide" | "templates" | "faqs"
+  >("overview"),
     [bookings, setBookings] = useState<Booking[]>([]),
     [search, setSearch] = useState("");
   const [times, setTimes] = useState({
@@ -345,6 +347,18 @@ export default function HostPage() {
           >
             <span>⌘</span>Guest guide
           </button>
+          <button
+            className={view === "templates" ? "active" : ""}
+            onClick={() => setView("templates")}
+          >
+            <span>✉</span>Templates
+          </button>
+          <button
+            className={view === "faqs" ? "active" : ""}
+            onClick={() => setView("faqs")}
+          >
+            <span>❓</span>FAQs
+          </button>
         </nav>
         <div className="sidebar-foot">
           <span>Access window</span>
@@ -363,7 +377,11 @@ export default function HostPage() {
                   ? "All bookings"
                   : view === "guide"
                     ? "Guest guide"
-                    : "New booking"}
+                    : view === "templates"
+                      ? "Message templates"
+                      : view === "faqs"
+                        ? "Frequent answers (FAQs)"
+                        : "New booking"}
             </h1>
           </div>
           <button
@@ -632,6 +650,8 @@ export default function HostPage() {
           </div>
         )}
         {view === "guide" && <GuideEditor />}
+        {view === "templates" && <TemplateManager />}
+        {view === "faqs" && <FaqManager />}
       </section>
     </main>
   );
