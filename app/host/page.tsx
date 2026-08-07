@@ -168,6 +168,27 @@ export default function HostPage() {
     return firstUpcoming?.id;
   }, [bookings]);
 
+  const sortedBookings = useMemo(() => {
+    const activeStays = bookings
+      .filter((b) => b.accessStatus === "active")
+      .sort((a, b) => a.checkIn.localeCompare(b.checkIn));
+    const upcomingStays = bookings
+      .filter((b) => b.accessStatus === "upcoming")
+      .sort((a, b) => a.checkIn.localeCompare(b.checkIn));
+    const otherStays = bookings
+      .filter((b) => b.accessStatus !== "active" && b.accessStatus !== "upcoming")
+      .sort((a, b) => b.checkIn.localeCompare(a.checkIn));
+    return [...activeStays, ...upcomingStays, ...otherStays];
+  }, [bookings]);
+
+  const visible = useMemo(() => {
+    return sortedBookings.filter((b) =>
+      `${b.firstName} ${b.lastName} ${b.code} ${b.phone || ""} ${b.source}`
+        .toLowerCase()
+        .includes(search.toLowerCase())
+    );
+  }, [sortedBookings, search]);
+
   async function loadBookings() {
     const response = await fetch("/api/host/code", { cache: "no-store" });
     if (response.ok) {
@@ -320,11 +341,6 @@ export default function HostPage() {
       </main>
     );
 
-  const visible = bookings.filter((b) =>
-    `${b.firstName} ${b.lastName} ${b.code}`
-      .toLowerCase()
-      .includes(search.toLowerCase()),
-  );
   const active = bookings.filter((b) => b.accessStatus === "active").length,
     upcoming = bookings.filter((b) => b.accessStatus === "upcoming").length;
   const arrivals = bookings
@@ -363,7 +379,12 @@ export default function HostPage() {
             .join(" ");
 
           return (
-            <article key={b.id} className={rowClass}>
+            <article
+              key={b.id}
+              className={`${rowClass} interactive-row`}
+              onClick={() => setEditingBooking(b)}
+              title="Click to view and edit reservation details"
+            >
               <div className="guest-cell">
                 <span className={`guest-avatar ${isNextArrival ? "hero-avatar-mid" : ""}`}>
                   {b.firstName[0]}
@@ -384,7 +405,7 @@ export default function HostPage() {
                       {b.guests} {b.guests === 1 ? "guest" : "guests"}
                     </small>
                     {b.phone ? (
-                      <span className="guest-phone-badge">
+                      <span className="guest-phone-badge" onClick={(e) => e.stopPropagation()}>
                         📞 {b.phone}
                         <a
                           className="contact-chip whatsapp"
@@ -392,6 +413,7 @@ export default function HostPage() {
                           target="_blank"
                           rel="noreferrer"
                           title="Message guest on WhatsApp"
+                          onClick={(e) => e.stopPropagation()}
                         >
                           WhatsApp
                         </a>
@@ -399,6 +421,7 @@ export default function HostPage() {
                           className="contact-chip call"
                           href={`tel:${b.phone}`}
                           title="Call guest"
+                          onClick={(e) => e.stopPropagation()}
                         >
                           Call
                         </a>
@@ -439,21 +462,41 @@ export default function HostPage() {
               <div className="code-cell">
                 <button
                   className={`code-chip ${isNextArrival ? "hero-code-chip-inline" : ""}`}
-                  onClick={() => navigator.clipboard.writeText(b.code)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigator.clipboard.writeText(b.code);
+                  }}
                   title="Click to copy door code"
                 >
                   <strong>{b.code}</strong> <span>⧉</span>
                 </button>
               </div>
 
-              <div className="row-actions">
-                <button onClick={() => setEditingBooking(b)} title="Edit guest details & stay">
+              <div className="row-actions" onClick={(e) => e.stopPropagation()}>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setEditingBooking(b);
+                  }}
+                  title="Edit guest details & stay"
+                >
                   ✏️ Edit
                 </button>
-                <button onClick={() => changeBooking(b, "toggle")}>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    changeBooking(b, "toggle");
+                  }}
+                >
                   {b.revoked ? "Restore" : "Revoke"}
                 </button>
-                <button className="danger" onClick={() => changeBooking(b, "delete")}>
+                <button
+                  className="danger"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    changeBooking(b, "delete");
+                  }}
+                >
                   Delete
                 </button>
               </div>

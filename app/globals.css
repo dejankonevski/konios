@@ -693,4 +693,9 @@ footer>div { display:flex; justify-content:flex-end; gap:30px; }
 .modal-phone-actions .quick-contact.call { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
 .modal-actions { display: flex; align-items: center; gap: 12px; margin-top: 24px; padding-top: 16px; border-top: 1px solid #e2e8f0; }
 
+.arrivals-unified-table .booking-table-row.interactive-row { cursor: pointer; }
+.arrivals-unified-table .booking-table-row.interactive-row:hover { background: #f1f5f9; }
+.arrivals-unified-table .is-active-row.interactive-row:hover { background: #e6fdf0!important; }
+.arrivals-unified-table .is-next-hero-row.interactive-row:hover { background: linear-gradient(135deg, #e4f0ff 0%, #f4f8ff 100%)!important; }
+
 
