@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { verifyHostToken } from "@/lib/access-code";
 
 export async function POST(request: Request) {
   try {
-    const password = (await cookies()).get("konios_admin")?.value;
-    const expected = process.env.HOST_PASSWORD || "dejan2026";
-    if (password !== expected) {
+    const isAuthorised = await verifyHostToken((await cookies()).get("konios_host")?.value);
+    if (!isAuthorised) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
