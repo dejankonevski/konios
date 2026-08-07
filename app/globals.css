@@ -732,4 +732,21 @@ footer>div { display:flex; justify-content:flex-end; gap:30px; }
 .arrivals-unified-table .is-active-row.interactive-row:hover { background: #e6fdf0!important; }
 .arrivals-unified-table .is-next-hero-row.interactive-row:hover { background: linear-gradient(135deg, #e4f0ff 0%, #f4f8ff 100%)!important; }
 
+/* Header Multi-Lingual Switcher */
+.header-actions { display: flex; align-items: center; gap: 14px; }
+.lang-dropdown-wrapper { position: relative; display: inline-flex; align-items: center; }
+.lang-current-pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 99px; font-weight: 800; font-size: .8rem; color: #1d4ed8; cursor: pointer; transition: background .15s; }
+.lang-dropdown-wrapper:hover .lang-current-pill { background: #dbeafe; }
+.lang-flag { font-size: .95rem; }
+.lang-code-txt { font-weight: 800; letter-spacing: .04em; }
+.dropdown-caret { font-size: .7rem; color: #3b82f6; }
+
+.lang-select-native { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; font-size: 1rem; }
+
+/* Hide Google Translate top bar & frame overlays */
+.goog-te-banner-frame { display: none!important; }
+body { top: 0!important; position: static!important; }
+#goog-gt-tt, .goog-te-balloon-frame { display: none!important; }
+.goog-text-highlight { background-color: transparent!important; box-shadow: none!important; }
+
 
