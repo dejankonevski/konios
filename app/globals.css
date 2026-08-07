@@ -347,3 +347,5 @@ footer>div { display:flex; justify-content:flex-end; gap:30px; }
 
 @media(max-width:1100px){.arrival-steps{gap:0;overflow-x:auto;padding-top:5px}.arrival-steps article{padding:0 10px 20px;scroll-snap-align:center}.arrival-steps:before{display:block;left:130px;right:auto;width:1040px}}
 @media(max-width:600px){.manual-hero{background:linear-gradient(rgba(255,255,255,.9),rgba(255,255,255,.94)),url('/apartment-main.png') center/cover}.arrival-steps{grid-template-columns:repeat(5,min(84vw,330px));padding-left:4px}.arrival-steps article{min-height:390px}.arrival-steps article>div{padding:24px 20px}.essential-grid{gap:12px}.transport-panel{background:#f1f8f6}.help-strip{padding-left:24px;padding-right:24px}}
+
+.arrival-steps .instruction-lines{margin-top:16px;padding-top:13px;border-top:1px solid #e5ebe7;white-space:pre-line;text-align:left}
