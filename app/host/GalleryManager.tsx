@@ -223,6 +223,7 @@ export default function GalleryManager() {
                   fill
                   sizes="300px"
                   style={{ objectFit: "cover" }}
+                  unoptimized
                 />
               </div>
 

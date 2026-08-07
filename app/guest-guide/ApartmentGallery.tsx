@@ -11,7 +11,10 @@ type Props = {
 };
 
 export default function ApartmentGallery({ gallery, propertyName }: Props) {
-  const items = gallery && gallery.length > 0 ? gallery : defaultGallery;
+  const valid = (gallery || []).filter(
+    (item) => item && typeof item.url === "string" && item.url.trim().length > 0
+  );
+  const items = valid.length > 0 ? valid : defaultGallery;
   const [isOpen, setIsOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const [copied, setCopied] = useState(false);
@@ -85,6 +88,7 @@ export default function ApartmentGallery({ gallery, propertyName }: Props) {
             fill
             sizes="(max-width: 900px) 100vw, 60vw"
             priority
+            unoptimized
           />
           <div className="mosaic-caption">
             <span>{primaryPhoto.category || "Featured"}</span>
@@ -108,6 +112,7 @@ export default function ApartmentGallery({ gallery, propertyName }: Props) {
                 alt={photo.title}
                 fill
                 sizes="(max-width: 900px) 50vw, 20vw"
+                unoptimized
               />
               <span className="mosaic-sub-title">{photo.title}</span>
             </div>
@@ -154,6 +159,7 @@ export default function ApartmentGallery({ gallery, propertyName }: Props) {
                   fill
                   sizes="100vw"
                   style={{ objectFit: "contain" }}
+                  unoptimized
                 />
               </div>
 
