@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { verifyHostToken } from "@/lib/access-code";
 import { bookingState, createBooking, listBookings } from "@/lib/bookings";
+import { getGuestGuide } from "@/lib/guest-guide";
 
 async function authorized() {
   return verifyHostToken((await cookies()).get("konios_host")?.value);
@@ -8,8 +9,9 @@ async function authorized() {
 
 export async function GET() {
   if (!(await authorized())) return Response.json({ error: "Unauthorized" }, { status: 401 });
-  const bookings = (await listBookings()).map((booking) => ({ ...booking, accessStatus: bookingState(booking).status }));
-  return Response.json({ bookings });
+  const [records, guide] = await Promise.all([listBookings(), getGuestGuide()]);
+  const bookings = records.map((booking) => ({ ...booking, accessStatus: bookingState(booking, new Date(), guide).status }));
+  return Response.json({ bookings, times: { checkInTime: guide.checkInTime, checkOutTime: guide.checkOutTime } });
 }
 
 export async function POST(request: Request) {

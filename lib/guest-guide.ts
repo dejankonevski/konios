@@ -1,6 +1,7 @@
 import { getRedis } from "@/lib/bookings";
 
 export type GuestGuide = {
+  checkInTime: string; checkOutTime: string;
   propertyName: string; address: string; mapsUrl: string; floor: string; apartmentNumber: string;
   directions: string; buildingCode: string; lockboxCode: string; lockboxInstructions: string;
   wifiName: string; wifiPassword: string; hostName: string; hostPhone: string; parking: string;
@@ -9,6 +10,7 @@ export type GuestGuide = {
 };
 
 export const defaultGuestGuide: GuestGuide = {
+  checkInTime: "10:00", checkOutTime: "10:00",
   propertyName: "Konios House", address: "", mapsUrl: "", floor: "", apartmentNumber: "",
   directions: "", buildingCode: "", lockboxCode: "", lockboxInstructions: "",
   wifiName: "", wifiPassword: "", hostName: "Dejan", hostPhone: "", parking: "",
