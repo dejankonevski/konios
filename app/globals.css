@@ -550,4 +550,49 @@ footer>div { display:flex; justify-content:flex-end; gap:30px; }
 .calendar-grid>button.is-booked-date { background: #f1f5f9; color: #94a3b8; text-decoration: line-through; text-decoration-color: #cbd5e1; }
 .calendar-grid>button.is-booked-date:not(.selected):hover { outline: 1px solid #cbd5e1; }
 
+/* Redesigned Next Arrivals Hero & Followers */
+.next-arrivals-hero-section { display: flex; flex-direction: column; gap: 24px; margin-top: 12px; }
+.hero-arrival-card { padding: 28px 32px; border-radius: 18px; border: 2px solid var(--admin-blue); background: linear-gradient(135deg, #ffffff 0%, #f0f7ff 100%); box-shadow: 0 12px 35px rgba(37,99,235,.12); display: flex; flex-direction: column; gap: 20px; position: relative; }
+.hero-arrival-header { display: flex; align-items: center; justify-content: space-between; }
+.hero-countdown-badge { display: inline-flex; align-items: center; gap: 8px; padding: 8px 18px; border-radius: 99px; background: #2563eb; color: #fff; font-size: 1.15rem; font-weight: 800; letter-spacing: -.02em; box-shadow: 0 4px 14px rgba(37,99,235,.35); }
+.badge-dot { width: 9px; height: 9px; border-radius: 50%; background: #4ade80; box-shadow: 0 0 0 3px rgba(74,222,128,.35); }
+.hero-arrival-main { display: grid; grid-template-columns: 1.2fr 1fr 1fr; align-items: center; gap: 24px; }
+.hero-guest-identity { display: flex; align-items: center; gap: 16px; }
+.hero-avatar { width: 56px; height: 56px; font-size: 1.3rem; border-radius: 16px; background: #dbeafe; color: #1d4ed8; display: grid; place-items: center; }
+.hero-card-label { font-size: .62rem; text-transform: uppercase; letter-spacing: .1em; font-weight: 700; color: #3b82f6; display: block; margin-bottom: 2px; }
+.hero-guest-identity h3 { margin: 0; font-size: 1.45rem; font-weight: 700; color: var(--admin-navy); }
+.hero-guest-identity p { margin: 2px 0 0; color: var(--admin-muted); font-size: .85rem; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+.hero-stay-info { display: flex; flex-direction: column; gap: 2px; }
+.hero-stay-info span { font-size: .65rem; text-transform: uppercase; letter-spacing: .08em; color: #64748b; font-weight: 700; }
+.hero-stay-info strong { font-size: 1.2rem; font-weight: 700; color: var(--admin-navy); }
+.hero-stay-info small { color: #64748b; font-size: .85rem; }
+.hero-code-box { display: flex; flex-direction: column; gap: 4px; }
+.hero-code-box span { font-size: .65rem; text-transform: uppercase; letter-spacing: .08em; color: #64748b; font-weight: 700; }
+.hero-code-btn { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-radius: 12px; border: 1.5px solid #bfdbfe; background: #fff; color: var(--admin-navy); cursor: pointer; transition: transform .18s, box-shadow .18s; box-shadow: 0 4px 12px rgba(37,99,235,.08); }
+.hero-code-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(37,99,235,.15); border-color: #2563eb; }
+.hero-code-btn strong { font-family: var(--font-sans); font-size: 1.35rem; letter-spacing: .08em; color: var(--admin-blue); }
+.hero-code-btn small { font-size: .7rem; font-weight: 700; color: #64748b; }
+.hero-arrival-actions { display: flex; align-items: center; justify-content: flex-end; gap: 12px; padding-top: 14px; border-top: 1px solid #e2e8f0; }
+.hero-arrival-actions button { padding: 8px 18px; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; color: #334155; font-size: .78rem; font-weight: 700; cursor: pointer; transition: background .15s; }
+.hero-arrival-actions button:hover { background: #f8fafc; }
+.hero-arrival-actions button.danger { color: #dc2626; border-color: #fca5a5; }
+.hero-arrival-actions button.danger:hover { background: #fef2f2; }
+
+.later-arrivals-block { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
+.later-arrivals-block h4 { margin: 0; font-size: .92rem; font-weight: 700; color: var(--admin-navy); text-transform: uppercase; letter-spacing: .05em; }
+.later-arrivals-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+.later-arrival-card { padding: 16px 18px; border-radius: 14px; border: 1px solid var(--admin-line); background: #fff; box-shadow: 0 4px 14px rgba(30,55,90,.04); display: flex; flex-direction: column; gap: 10px; }
+.later-card-top { display: flex; align-items: center; justify-content: space-between; }
+.later-countdown { padding: 4px 10px; border-radius: 99px; background: #eff6ff; color: #1d4ed8; font-size: .74rem; font-weight: 700; }
+.later-card-body strong { display: block; font-size: 1.05rem; font-weight: 700; color: var(--admin-navy); }
+.later-card-body small { color: #64748b; font-size: .78rem; font-weight: 600; }
+.later-card-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 4px; }
+.later-card-foot button { font-size: .72rem; font-weight: 700; }
+
+@media(max-width: 850px) {
+  .hero-arrival-main { grid-template-columns: 1fr; gap: 16px; }
+  .hero-arrival-card { padding: 20px; }
+  .hero-countdown-badge { font-size: 1rem; padding: 6px 14px; }
+}
+
 

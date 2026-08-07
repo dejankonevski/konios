@@ -63,6 +63,18 @@ function formatShort(value?: string) {
     : "Select date";
 }
 
+function getDaysUntilLabel(checkInDateStr: string): string {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = new Date(`${checkInDateStr}T00:00:00`);
+  const diffDays = Math.round(
+    (target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+  );
+  if (diffDays <= 0) return "Arriving today";
+  if (diffDays === 1) return "in 1 day";
+  return `in ${diffDays} days`;
+}
+
 export default function HostPage() {
   const [unlocked, setUnlocked] = useState(false),
     [password, setPassword] = useState(""),
@@ -468,7 +480,123 @@ export default function HostPage() {
               </div>
               <button onClick={() => setView("bookings")}>View all →</button>
             </div>
-            {rows(arrivals)}
+            {arrivals.length === 0 ? (
+              <div className="empty-state host-card">
+                <strong>No upcoming arrivals scheduled.</strong>
+                <span>Create a reservation to generate access codes.</span>
+              </div>
+            ) : (
+              <div className="next-arrivals-hero-section">
+                {(() => {
+                  const hero = arrivals[0];
+                  const daysBadge = getDaysUntilLabel(hero.checkIn);
+                  return (
+                    <article className="hero-arrival-card">
+                      <div className="hero-arrival-header">
+                        <div className="hero-countdown-badge">
+                          <span className="badge-dot" />
+                          <strong>{daysBadge}</strong>
+                        </div>
+                        <span className={`status-pill ${hero.accessStatus}`}>
+                          {hero.accessStatus}
+                        </span>
+                      </div>
+
+                      <div className="hero-arrival-main">
+                        <div className="hero-guest-identity">
+                          <span className="guest-avatar hero-avatar">
+                            {hero.firstName[0]}
+                            {hero.lastName[0]}
+                          </span>
+                          <div>
+                            <span className="hero-card-label">Closest Upcoming Guest</span>
+                            <h3>
+                              {hero.firstName} {hero.lastName}
+                            </h3>
+                            <p>
+                              {hero.guests} {hero.guests === 1 ? "guest" : "guests"} ·{" "}
+                              <span
+                                className={`source-dot ${hero.source.toLowerCase().replace(".com", "").replace(" ", "-")}`}
+                              />
+                              {hero.source}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="hero-stay-info">
+                          <span>Check-in stay</span>
+                          <strong>{formatShort(hero.checkIn)}</strong>
+                          <small>to {formatShort(hero.checkOut)}</small>
+                        </div>
+
+                        <div className="hero-code-box">
+                          <span>Access code</span>
+                          <button
+                            className="hero-code-btn"
+                            onClick={() => navigator.clipboard.writeText(hero.code)}
+                            title="Click to copy door code"
+                          >
+                            <strong>{hero.code}</strong>
+                            <small>Copy ⧉</small>
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="hero-arrival-actions">
+                        <button onClick={() => changeBooking(hero, "toggle")}>
+                          {hero.revoked ? "Restore access" : "Revoke code"}
+                        </button>
+                        <button
+                          className="danger"
+                          onClick={() => changeBooking(hero, "delete")}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })()}
+
+                {arrivals.length > 1 && (
+                  <div className="later-arrivals-block">
+                    <h4>Subsequent upcoming arrivals</h4>
+                    <div className="later-arrivals-grid">
+                      {arrivals.slice(1).map((b) => (
+                        <article key={b.id} className="later-arrival-card">
+                          <div className="later-card-top">
+                            <span className="later-countdown">
+                              {getDaysUntilLabel(b.checkIn)}
+                            </span>
+                            <span
+                              className={`source-dot ${b.source.toLowerCase().replace(".com", "").replace(" ", "-")}`}
+                            />
+                          </div>
+                          <div className="later-card-body">
+                            <strong>
+                              {b.firstName} {b.lastName}
+                            </strong>
+                            <small>
+                              {formatShort(b.checkIn)} → {formatShort(b.checkOut)}
+                            </small>
+                          </div>
+                          <div className="later-card-foot">
+                            <button
+                              className="code-chip"
+                              onClick={() => navigator.clipboard.writeText(b.code)}
+                            >
+                              {b.code} ⧉
+                            </button>
+                            <button onClick={() => changeBooking(b, "toggle")}>
+                              {b.revoked ? "Restore" : "Revoke"}
+                            </button>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
             <div className="pro-tip">
               <span>✦</span>
               <div>
