@@ -670,4 +670,27 @@ footer>div { display:flex; justify-content:flex-end; gap:30px; }
 .edit-file-picker { display: block; padding: 10px 14px; background: #eff6ff; border: 1px dashed #3b82f6; border-radius: 8px; color: #1d4ed8; font-weight: 700; font-size: .78rem; text-align: center; cursor: pointer; margin-bottom: 6px; }
 .edit-file-picker input[type="file"] { display: none!important; }
 
+/* Guest Phone Badge & Quick Contact Styling */
+.guest-sub-meta { display: flex; flex-direction: column; gap: 3px; margin-top: 2px; }
+.guest-phone-badge { font-size: .75rem; font-weight: 600; color: #475569; display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.contact-chip { font-size: .65rem; font-weight: 700; padding: 2px 7px; border-radius: 6px; text-decoration: none; display: inline-block; transition: transform .15s; }
+.contact-chip.whatsapp { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
+.contact-chip.whatsapp:hover { background: #dcfce7; transform: translateY(-1px); }
+.contact-chip.call { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+.contact-chip.call:hover { background: #dbeafe; transform: translateY(-1px); }
+
+/* Edit Guest Modal Overlay */
+.edit-modal-overlay { position: fixed; inset: 0; z-index: 9999; background: rgba(15,23,42,.65); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; padding: 20px; }
+.edit-modal-card { width: 100%; max-width: 620px; max-height: 90vh; overflow-y: auto; background: #fff; border-radius: 20px; padding: 30px; box-shadow: 0 25px 60px rgba(0,0,0,.3); color: var(--admin-navy); }
+.edit-modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; padding-bottom: 14px; border-bottom: 1px solid #e2e8f0; }
+.edit-modal-head h3 { margin: 0; font-size: 1.35rem; font-weight: 800; color: var(--admin-navy); }
+.close-modal-btn { border: 0; background: #f1f5f9; width: 36px; height: 36px; border-radius: 50%; font-size: 1.1rem; cursor: pointer; display: grid; place-items: center; color: #64748b; transition: background .15s; }
+.close-modal-btn:hover { background: #e2e8f0; color: #0f172a; }
+
+.modal-phone-actions { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.modal-phone-actions .quick-contact { font-size: .78rem; font-weight: 700; padding: 6px 12px; border-radius: 8px; text-decoration: none; }
+.modal-phone-actions .quick-contact.whatsapp { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
+.modal-phone-actions .quick-contact.call { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+.modal-actions { display: flex; align-items: center; gap: 12px; margin-top: 24px; padding-top: 16px; border-top: 1px solid #e2e8f0; }
+
 

@@ -9,6 +9,7 @@ export type Booking = {
   checkOut: string;
   guests: number;
   source: "Airbnb" | "Booking.com" | "Direct" | "Other";
+  phone?: string;
   notes: string;
   revoked: boolean;
   createdAt: number;
@@ -79,11 +80,14 @@ export async function listBookings() {
   return records.filter((record): record is Booking => Boolean(record));
 }
 
-export async function updateBooking(id: string, updates: Partial<Pick<Booking, "notes" | "revoked">>) {
+export async function updateBooking(
+  id: string,
+  updates: Partial<Omit<Booking, "id" | "code" | "createdAt">>
+) {
   const redis = getRedis();
   const booking = await redis.get<Booking>(`booking:${id}`);
   if (!booking) return null;
-  const updated = { ...booking, ...updates };
+  const updated: Booking = { ...booking, ...updates };
   await redis.set(`booking:${id}`, updated);
   return updated;
 }

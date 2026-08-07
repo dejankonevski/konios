@@ -40,6 +40,7 @@ export async function POST(request: Request) {
     firstName, lastName, checkIn, checkOut,
     guests: Math.max(1, Math.min(12, Number(data.guests) || 1)),
     source: (["Airbnb", "Booking.com", "Direct", "Other"].includes(data.source) ? data.source : "Other") as "Airbnb" | "Booking.com" | "Direct" | "Other",
+    phone: data.phone?.trim() ?? "",
     notes: data.notes?.trim() ?? "",
   });
   return Response.json({ ...booking, guest: `${firstName} ${lastName}` });

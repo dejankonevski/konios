@@ -1,6 +1,6 @@
 "use client";
 
-/* eslint-disable @next/next/no-html-link-for-pages, react-hooks/refs */
+/* eslint-disable @next/next/no-html-link-for-pages */
 
 import { FormEvent, useMemo, useRef, useState } from "react";
 import Link from "next/link";
@@ -18,6 +18,7 @@ type Booking = {
   checkOut: string;
   guests: number;
   source: string;
+  phone?: string;
   notes: string;
   revoked: boolean;
   createdAt: number;
@@ -94,9 +95,48 @@ export default function HostPage() {
     [end, setEnd] = useState<string>(),
     [hoverDate, setHoverDate] = useState<string>(),
     [result, setResult] = useState<Generated | null>(null);
+  const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
+  const [editError, setEditError] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
+
   const dragStartRef = useRef<string | null>(null);
   const isDraggingRef = useRef(false);
   const pointerDownPosRef = useRef<{ x: number; y: number } | null>(null);
+
+  async function handleSaveEdit(e: FormEvent) {
+    e.preventDefault();
+    if (!editingBooking) return;
+    setEditSaving(true);
+    setEditError("");
+    try {
+      const res = await fetch(`/api/host/bookings/${editingBooking.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName: editingBooking.firstName,
+          lastName: editingBooking.lastName,
+          guests: Number(editingBooking.guests),
+          phone: editingBooking.phone || "",
+          checkIn: editingBooking.checkIn,
+          checkOut: editingBooking.checkOut,
+          source: editingBooking.source,
+          notes: editingBooking.notes,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setEditError(data.error || "Failed to update reservation");
+        setEditSaving(false);
+        return;
+      }
+      setEditingBooking(null);
+      await loadBookings();
+    } catch {
+      setEditError("Failed to update reservation");
+    } finally {
+      setEditSaving(false);
+    }
+  }
   const months = useMemo(() => {
     const now = new Date();
     return [0, 1].map(
@@ -339,9 +379,32 @@ export default function HostPage() {
                   {isNextArrival && (
                     <span className="row-tag next-tag">✦ Closest upcoming arrival</span>
                   )}
-                  <small className="guest-count-sub">
-                    {b.guests} {b.guests === 1 ? "guest" : "guests"}
-                  </small>
+                  <div className="guest-sub-meta">
+                    <small className="guest-count-sub">
+                      {b.guests} {b.guests === 1 ? "guest" : "guests"}
+                    </small>
+                    {b.phone ? (
+                      <span className="guest-phone-badge">
+                        📞 {b.phone}
+                        <a
+                          className="contact-chip whatsapp"
+                          href={`https://api.whatsapp.com/send?phone=${encodeURIComponent(b.phone)}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          title="Message guest on WhatsApp"
+                        >
+                          WhatsApp
+                        </a>
+                        <a
+                          className="contact-chip call"
+                          href={`tel:${b.phone}`}
+                          title="Call guest"
+                        >
+                          Call
+                        </a>
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
               </div>
 
@@ -384,6 +447,9 @@ export default function HostPage() {
               </div>
 
               <div className="row-actions">
+                <button onClick={() => setEditingBooking(b)} title="Edit guest details & stay">
+                  ✏️ Edit
+                </button>
                 <button onClick={() => changeBooking(b, "toggle")}>
                   {b.revoked ? "Restore" : "Revoke"}
                 </button>
@@ -726,6 +792,10 @@ export default function HostPage() {
                         <option>Other</option>
                       </select>
                     </label>
+                    <label>
+                      Phone number (optional)
+                      <input name="phone" placeholder="e.g. +389 70 123 456" type="tel" />
+                    </label>
                   </div>
                   <div className="range-summary">
                     <div>
@@ -906,6 +976,169 @@ export default function HostPage() {
         {view === "faqs" && <FaqManager />}
         {view === "gallery" && <GalleryManager />}
       </section>
+
+      {editingBooking && (
+        <div className="edit-modal-overlay" onClick={() => setEditingBooking(null)}>
+          <div className="edit-modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="edit-modal-head">
+              <div>
+                <p className="eyebrow">Guest Reservation</p>
+                <h3>Edit Guest Details</h3>
+              </div>
+              <button
+                type="button"
+                className="close-modal-btn"
+                onClick={() => setEditingBooking(null)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEdit}>
+              {editError && (
+                <div className="form-error alert" role="alert">
+                  {editError}
+                </div>
+              )}
+
+              <div className="host-name-row">
+                <label>
+                  First name
+                  <input
+                    required
+                    value={editingBooking.firstName}
+                    onChange={(e) =>
+                      setEditingBooking({ ...editingBooking, firstName: e.target.value })
+                    }
+                  />
+                </label>
+                <label>
+                  Surname
+                  <input
+                    required
+                    value={editingBooking.lastName}
+                    onChange={(e) =>
+                      setEditingBooking({ ...editingBooking, lastName: e.target.value })
+                    }
+                  />
+                </label>
+              </div>
+
+              <div className="host-name-row compact-fields">
+                <label>
+                  Number of Guests
+                  <input
+                    required
+                    type="number"
+                    min="1"
+                    max="12"
+                    value={editingBooking.guests}
+                    onChange={(e) =>
+                      setEditingBooking({
+                        ...editingBooking,
+                        guests: Number(e.target.value),
+                      })
+                    }
+                  />
+                </label>
+                <label>
+                  Booking Source
+                  <select
+                    value={editingBooking.source}
+                    onChange={(e) =>
+                      setEditingBooking({ ...editingBooking, source: e.target.value })
+                    }
+                  >
+                    <option>Airbnb</option>
+                    <option>Booking.com</option>
+                    <option>Direct</option>
+                    <option>Other</option>
+                  </select>
+                </label>
+              </div>
+
+              <div className="host-name-row">
+                <label>
+                  Phone Number (WhatsApp / Call)
+                  <input
+                    type="tel"
+                    placeholder="e.g. +389 70 123 456"
+                    value={editingBooking.phone || ""}
+                    onChange={(e) =>
+                      setEditingBooking({ ...editingBooking, phone: e.target.value })
+                    }
+                  />
+                </label>
+                {editingBooking.phone ? (
+                  <div className="modal-phone-actions">
+                    <a
+                      className="quick-contact whatsapp"
+                      href={`https://api.whatsapp.com/send?phone=${encodeURIComponent(editingBooking.phone)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      💬 WhatsApp
+                    </a>
+                    <a className="quick-contact call" href={`tel:${editingBooking.phone}`}>
+                      📞 Call
+                    </a>
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="host-name-row">
+                <label>
+                  Check-in Date
+                  <input
+                    required
+                    type="date"
+                    value={editingBooking.checkIn}
+                    onChange={(e) =>
+                      setEditingBooking({ ...editingBooking, checkIn: e.target.value })
+                    }
+                  />
+                </label>
+                <label>
+                  Check-out Date
+                  <input
+                    required
+                    type="date"
+                    value={editingBooking.checkOut}
+                    onChange={(e) =>
+                      setEditingBooking({ ...editingBooking, checkOut: e.target.value })
+                    }
+                  />
+                </label>
+              </div>
+
+              <label>
+                Notes / Special requests
+                <textarea
+                  rows={2}
+                  value={editingBooking.notes || ""}
+                  onChange={(e) =>
+                    setEditingBooking({ ...editingBooking, notes: e.target.value })
+                  }
+                  placeholder="e.g. Late check-in after 20:00, extra towels requested"
+                />
+              </label>
+
+              <div className="modal-actions">
+                <button type="submit" className="submit-button" disabled={editSaving}>
+                  {editSaving ? "Saving changes…" : "Save Changes ↗"}
+                </button>
+                <button
+                  type="button"
+                  className="text-reset"
+                  onClick={() => setEditingBooking(null)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
