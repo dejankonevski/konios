@@ -156,3 +156,45 @@ footer>div { display:flex; justify-content:flex-end; gap:30px; }
 }
 
 @media (prefers-reduced-motion:reduce) { html{scroll-behavior:auto}.hero>img{animation:none}.gallery img{transition:none} }
+
+/* Private guest gate and host desk */
+.gate-page { min-height:100svh; display:grid; grid-template-columns:1.15fr .85fr; background:var(--ink); }
+.gate-image { background:linear-gradient(0deg,rgba(22,28,23,.15),rgba(22,28,23,.15)),url('https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?auto=format&fit=crop&w=1600&q=88') center/cover; }
+.gate-panel { color:var(--white); padding:50px clamp(30px,6vw,100px); display:flex; flex-direction:column; justify-content:space-between; }
+.gate-content { max-width:520px; margin:70px 0; }
+.gate-content h1,.host-intro h1 { font-size:clamp(4rem,7vw,7rem); line-height:.82; letter-spacing:-.05em; margin:0 0 32px; }
+.gate-content>p:not(.eyebrow),.host-intro>p:not(.eyebrow) { color:#bdc1ba; line-height:1.7; max-width:450px; }
+.gate-content form { margin-top:45px; }
+.gate-content label,.host-card label { display:block; color:#aeb3aa; text-transform:uppercase; letter-spacing:.12em; font-size:.62rem; }
+.gate-content textarea,.host-card textarea,.host-card input { width:100%; margin-top:9px; border:1px solid rgba(255,255,255,.22); background:rgba(255,255,255,.05); color:white; padding:14px; resize:none; outline:none; text-transform:none; letter-spacing:0; }
+.gate-content textarea:focus,.host-card textarea:focus,.host-card input:focus { border-color:#dbd8ca; }
+.gate-content .submit-button { background:var(--white); color:var(--ink); }
+.gate-note { color:#8f968e; font-size:.7rem; }
+.form-error { color:#d99083!important; font-size:.75rem; margin:12px 0!important; }
+
+.host-page { min-height:100svh; background:var(--paper); }
+.host-page>header { height:82px; padding:0 5vw; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--line); }
+.host-page>header>span { font-size:.62rem; letter-spacing:.18em; }
+.host-page>section { max-width:1300px; min-height:calc(100svh - 82px); margin:auto; padding:90px 5vw; display:grid; grid-template-columns:1fr 500px; align-items:center; gap:9vw; }
+.host-intro>p:not(.eyebrow) { color:#687068; }
+.host-card { background:var(--ink); color:white; padding:40px; box-shadow:0 25px 70px rgba(40,44,37,.12); }
+.host-card form { display:flex; flex-direction:column; gap:24px; }
+.host-name-row { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.host-card .submit-button { margin-top:6px; background:var(--white); color:var(--ink); }
+.generated-code { text-align:center; }
+.success-tick { display:grid; place-items:center; margin:0 auto 25px; border:1px solid #87917c; color:#b7c0aa; width:48px; height:48px; border-radius:50%; }
+.generated-code h2 { font-size:2.7rem; }
+.generated-code>p:not(.eyebrow) { color:#aeb3aa; }
+.generated-code textarea { margin:25px 0 10px; font-size:.72rem; line-height:1.5; }
+.text-reset { margin-top:20px; background:none; border:0; border-bottom:1px solid #8d938d; color:#bdc1ba; cursor:pointer; }
+
+@media (max-width:800px) {
+  .gate-page { grid-template-columns:1fr; }
+  .gate-image { min-height:32svh; }
+  .gate-panel { min-height:68svh; padding:30px 24px; }
+  .gate-content { margin:60px 0; }
+  .host-page>section { grid-template-columns:1fr; padding:65px 20px; }
+  .host-card { padding:28px 20px; }
+}
+
+@media (max-width:500px) { .host-name-row { grid-template-columns:1fr; } }
