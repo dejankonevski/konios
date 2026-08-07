@@ -1,26 +1,18 @@
 import { cookies } from "next/headers";
-import { verifyGuestCode } from "@/lib/access-code";
+import { bookingState, getBookingByCode } from "@/lib/bookings";
 
 export async function POST(request: Request) {
   const { code } = (await request.json()) as { code?: string };
-  if (!code) return Response.json({ error: "Enter your access code." }, { status: 400 });
+  if (!code || !/^\d{5}$/.test(code.trim())) return Response.json({ error: "Enter your five-digit access code." }, { status: 400 });
+  const booking = await getBookingByCode(code.trim());
+  if (!booking) return Response.json({ error: "We couldn't find that code. Please check it and try again." }, { status: 401 });
+  const state = bookingState(booking);
+  if (state.status === "upcoming") return Response.json({ state: "upcoming", guest: booking.firstName, availableAt: state.opensAt.toISOString() }, { status: 403 });
+  if (state.status === "expired") return Response.json({ state: "expired", guest: booking.firstName, expiredAt: state.closesAt.toISOString() }, { status: 410 });
+  if (state.status === "revoked") return Response.json({ error: "This code is no longer active. Please contact your host." }, { status: 403 });
 
-  const pass = await verifyGuestCode(code);
-  if (!pass) return Response.json({ error: "That code is invalid or has expired." }, { status: 401 });
-
-  const expires = new Date(`${pass.checkOut}T23:59:59.999Z`);
-  (await cookies()).set("konios_access", code.trim(), {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    expires,
-  });
-
-  return Response.json({ ok: true, guest: `${pass.firstName} ${pass.lastName}` });
+  (await cookies()).set("konios_access", booking.code, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", expires: state.closesAt });
+  return Response.json({ ok: true, guest: `${booking.firstName} ${booking.lastName}` });
 }
 
-export async function DELETE() {
-  (await cookies()).delete("konios_access");
-  return Response.json({ ok: true });
-}
+export async function DELETE() { (await cookies()).delete("konios_access"); return Response.json({ ok: true }); }
