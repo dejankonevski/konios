@@ -67,7 +67,7 @@ function formatShort(value?: string) {
     : "Select date";
 }
 
-function getDaysUntilLabel(checkInDateStr: string, checkInTime = "10:00"): string {
+function getDaysUntilLabel(checkInDateStr: string, checkInTime = "06:00"): string {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const target = new Date(`${checkInDateStr}T00:00:00`);

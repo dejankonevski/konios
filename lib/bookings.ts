@@ -30,7 +30,7 @@ function randomCode() {
   return String(10000 + (values[0] % 90000));
 }
 
-function skopjeTime(date: string, time = "10:00") {
+function skopjeTime(date: string, time = "06:00") {
   const [year, month, day] = date.split("-").map(Number);
   const [hour, minute] = time.split(":").map(Number);
   const approximate = new Date(Date.UTC(year, month - 1, day, hour, minute));
@@ -43,7 +43,7 @@ function skopjeTime(date: string, time = "10:00") {
   return new Date(approximate.getTime() - (representedAsUtc - approximate.getTime()));
 }
 
-export function bookingState(booking: Booking, now = new Date(), times = { checkInTime: "10:00", checkOutTime: "10:00" }) {
+export function bookingState(booking: Booking, now = new Date(), times = { checkInTime: "06:00", checkOutTime: "11:00" }) {
   const opensAt = skopjeTime(booking.checkIn, times.checkInTime);
   const closesAt = skopjeTime(booking.checkOut, times.checkOutTime);
   const status = booking.revoked ? "revoked" : now < opensAt ? "upcoming" : now >= closesAt ? "expired" : "active";
