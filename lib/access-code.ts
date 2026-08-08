@@ -133,11 +133,12 @@ export async function savePropertyAdmin(input: { id?: string; username: string; 
     active: input.active ?? existing?.active ?? true,
     createdAt: existing?.createdAt || Date.now(),
   };
+  const permissionsChanged = Boolean(existing) && [...existing!.propertyIds].sort().join(",") !== [...admin.propertyIds].sort().join(",");
   await Promise.all([
     getRedis().set(`auth:property-admin:${username}`, admin),
     getRedis().sadd("auth:property-admins", username),
   ]);
-  if (input.password || input.active === false) await revokeHostSessions(admin.id);
+  if (input.password || input.active === false || permissionsChanged) await revokeHostSessions(admin.id);
   return admin;
 }
 
