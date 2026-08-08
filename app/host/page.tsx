@@ -67,15 +67,15 @@ function formatShort(value?: string) {
     : "Select date";
 }
 
-function getDaysUntilLabel(checkInDateStr: string): string {
+function getDaysUntilLabel(checkInDateStr: string, checkInTime = "10:00"): string {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const target = new Date(`${checkInDateStr}T00:00:00`);
   const diffDays = Math.round(
     (target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
   );
-  if (diffDays <= 0) return "Arriving today";
-  if (diffDays === 1) return "in 1 day";
+  if (diffDays <= 0) return `Arriving today at ${checkInTime}`;
+  if (diffDays === 1) return `Tomorrow at ${checkInTime}`;
   return `in ${diffDays} days`;
 }
 
@@ -429,7 +429,7 @@ export default function HostPage() {
           const isNextArrival = b.id === nextArrivalId;
           const countdown = isActive
             ? "Active now"
-            : getDaysUntilLabel(b.checkIn);
+            : getDaysUntilLabel(b.checkIn, times.checkInTime);
 
           const rowClass = [
             "booking-table-row",
