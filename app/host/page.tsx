@@ -219,7 +219,10 @@ export default function HostPage() {
         const diffTime = checkOutDate.getTime() - checkInDate.getTime();
         const totalNights = Math.max(1, Math.round(diffTime / (1000 * 60 * 60 * 24)));
         const bGross = Number(b.grossAmount) || 0;
-        const bNet = Number(b.netAmount) || 0;
+        let bNet = Number(b.netAmount) || 0;
+        if (bGross > 0 && bNet > 0 && bNet < bGross * 0.5 && (bGross - bNet) > bNet) {
+          bNet = Math.max(0, bGross - bNet);
+        }
         const nightlyGross = bGross / totalNights;
         const nightlyNet = bNet / totalNights;
 
@@ -729,7 +732,14 @@ export default function HostPage() {
                       {new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(overviewFinancials.currentActiveBooking.grossAmount || 0)}
                     </strong>
                     <div className="fin-sub">
-                      <span>{overviewFinancials.currentActiveBooking.firstName} {overviewFinancials.currentActiveBooking.lastName} · Net <b>{new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(overviewFinancials.currentActiveBooking.netAmount || 0)}</b></span>
+                      {(() => {
+                        const g = Number(overviewFinancials.currentActiveBooking.grossAmount) || 0;
+                        let n = Number(overviewFinancials.currentActiveBooking.netAmount) || 0;
+                        if (g > 0 && n > 0 && n < g * 0.5 && (g - n) > n) n = Math.max(0, g - n);
+                        return (
+                          <span>{overviewFinancials.currentActiveBooking.firstName} {overviewFinancials.currentActiveBooking.lastName} · Net <b>{new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(n)}</b></span>
+                        );
+                      })()}
                     </div>
                   </>
                 ) : (
@@ -753,7 +763,14 @@ export default function HostPage() {
                       {new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(overviewFinancials.nextArrivalBooking.grossAmount || 0)}
                     </strong>
                     <div className="fin-sub">
-                      <span>{overviewFinancials.nextArrivalBooking.firstName} {overviewFinancials.nextArrivalBooking.lastName} · Net <b>{new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(overviewFinancials.nextArrivalBooking.netAmount || 0)}</b></span>
+                      {(() => {
+                        const g = Number(overviewFinancials.nextArrivalBooking.grossAmount) || 0;
+                        let n = Number(overviewFinancials.nextArrivalBooking.netAmount) || 0;
+                        if (g > 0 && n > 0 && n < g * 0.5 && (g - n) > n) n = Math.max(0, g - n);
+                        return (
+                          <span>{overviewFinancials.nextArrivalBooking.firstName} {overviewFinancials.nextArrivalBooking.lastName} · Net <b>{new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(n)}</b></span>
+                        );
+                      })()}
                     </div>
                   </>
                 ) : (
@@ -1328,44 +1345,66 @@ export default function HostPage() {
                     type="number"
                     step="0.01"
                     min="0"
-                    placeholder="e.g. 500"
-                    value={editingBooking.grossAmount ?? ""}
-                    onChange={(e) =>
+                    placeholder="e.g. 1149.28 (Total Paid)"
+                    value={
+                      editingBooking.grossAmount === undefined || editingBooking.grossAmount === 0
+                        ? (editingBooking.grossAmount === 0 ? "0" : "")
+                        : editingBooking.grossAmount
+                    }
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      const val = raw === "" ? undefined : parseFloat(raw);
                       setEditingBooking({
                         ...editingBooking,
-                        grossAmount: parseFloat(e.target.value) || 0,
-                      })
-                    }
+                        grossAmount: isNaN(val as number) ? undefined : val,
+                      });
+                    }}
                   />
                 </div>
                 <div className="form-group">
-                  <label htmlFor="edit-net">Net Amount (€)</label>
+                  <label htmlFor="edit-net">Net Host Profit (€)</label>
                   <input
                     id="edit-net"
                     type="number"
                     step="0.01"
                     min="0"
-                    placeholder="e.g. 400"
-                    value={editingBooking.netAmount ?? ""}
-                    onChange={(e) =>
+                    placeholder="e.g. 1011.24 (Bank Payout)"
+                    value={
+                      editingBooking.netAmount === undefined || editingBooking.netAmount === 0
+                        ? (editingBooking.netAmount === 0 ? "0" : "")
+                        : editingBooking.netAmount
+                    }
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      const val = raw === "" ? undefined : parseFloat(raw);
                       setEditingBooking({
                         ...editingBooking,
-                        netAmount: parseFloat(e.target.value) || 0,
-                      })
-                    }
+                        netAmount: isNaN(val as number) ? undefined : val,
+                      });
+                    }}
                   />
                 </div>
               </div>
 
               {((editingBooking.grossAmount || 0) > 0 || (editingBooking.netAmount || 0) > 0) ? (
-                <div className="price-calc-strip">
-                  <span>Gross: €{(editingBooking.grossAmount || 0).toFixed(2)}</span>
-                  <span>Net: €{(editingBooking.netAmount || 0).toFixed(2)}</span>
-                  <span className="calc-comm">
-                    Commission & Fees: €
-                    {Math.max(0, (editingBooking.grossAmount || 0) - (editingBooking.netAmount || 0)).toFixed(2)}
-                  </span>
-                </div>
+                (() => {
+                  const g = Number(editingBooking.grossAmount) || 0;
+                  let n = Number(editingBooking.netAmount) || 0;
+                  if (g > 0 && n > 0 && n < g * 0.5 && (g - n) > n) {
+                    n = Math.max(0, g - n);
+                  }
+                  const comm = Math.max(0, g - n);
+                  const netPct = g > 0 ? Math.round((n / g) * 100) : 0;
+                  const commPct = g > 0 ? Math.round((comm / g) * 100) : 0;
+
+                  return (
+                    <div className="price-calc-strip">
+                      <span>Gross: €{g.toFixed(2)}</span>
+                      <span className="calc-comm">Commission: €{comm.toFixed(2)} ({commPct}%)</span>
+                      <span className="calc-net">Net Profit: €{n.toFixed(2)} ({netPct}%)</span>
+                    </div>
+                  );
+                })()
               ) : null}
 
               <div className="form-group full-width">

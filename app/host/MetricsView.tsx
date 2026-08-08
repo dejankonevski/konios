@@ -111,8 +111,14 @@ export default function MetricsView({ bookings }: { bookings: Booking[] }) {
       const totalNights = Math.max(1, Math.round(diffTime / (1000 * 60 * 60 * 24)));
 
       const gross = Number(b.grossAmount) || 0;
-      const net = Number(b.netAmount) || 0;
-      const commission = gross - net;
+      let net = Number(b.netAmount) || 0;
+      let commission = Math.max(0, gross - net);
+
+      // Auto-detect if netAmount was entered as commission fee (i.e. net < 50% of gross)
+      if (gross > 0 && net > 0 && net < gross * 0.5 && (gross - net) > net) {
+        commission = net;
+        net = Math.max(0, gross - commission);
+      }
 
       const nightlyGross = gross / totalNights;
       const nightlyNet = net / totalNights;
