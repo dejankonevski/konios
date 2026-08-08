@@ -52,7 +52,7 @@ export default function GuestMessageModal({ booking, guide, onClose }: Props) {
   const [customText, setCustomText] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/host/guide")
+    fetch(`/api/host/guide?propertyId=${encodeURIComponent(booking.propertyId || "konios-house")}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         if (d?.guide) {
@@ -60,7 +60,7 @@ export default function GuestMessageModal({ booking, guide, onClose }: Props) {
         }
       })
       .catch(() => {});
-  }, []);
+  }, [booking.propertyId]);
 
   const templates: MessageTemplate[] = liveGuide?.messageTemplates?.length
     ? liveGuide.messageTemplates

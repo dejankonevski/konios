@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import type { FaqItem, GuestGuide } from "@/lib/guest-guide";
 
-export default function FaqManager() {
+export default function FaqManager({ propertyId = "konios-house" }: { propertyId?: string }) {
   const [guide, setGuide] = useState<GuestGuide | null>(null);
   const [faqs, setFaqs] = useState<FaqItem[]>([]);
   const [status, setStatus] = useState("Loading FAQs…");
@@ -23,7 +23,7 @@ export default function FaqManager() {
 
   useEffect(() => {
     let live = true;
-    fetch("/api/host/guide", { cache: "no-store" })
+    fetch(`/api/host/guide?propertyId=${encodeURIComponent(propertyId)}`, { cache: "no-store" })
       .then(async (r) => {
         if (!r.ok) throw new Error();
         return r.json();
@@ -39,7 +39,7 @@ export default function FaqManager() {
     return () => {
       live = false;
     };
-  }, []);
+  }, [propertyId]);
 
   async function persist(updatedFaqs: FaqItem[]) {
     if (!guide) return;
@@ -48,7 +48,7 @@ export default function FaqManager() {
       ...guide,
       faqs: updatedFaqs,
     };
-    const res = await fetch("/api/host/guide", {
+    const res = await fetch(`/api/host/guide?propertyId=${encodeURIComponent(propertyId)}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(updatedGuide),

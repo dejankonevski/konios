@@ -62,13 +62,44 @@ export function skopjeTime(date: string, time = "15:00") {
   return new Date(approximate.getTime() - (representedAsUtc - approximate.getTime()));
 }
 
-export function bookingState(booking: Booking, now = new Date(), times = { checkInTime: "15:00", checkOutTime: "10:00" }) {
-  const opensAt = skopjeTime(booking.checkIn, times.checkInTime);
-  const accessDetailsAt = skopjeTime(booking.checkIn, "14:30");
-  const closesAt = skopjeTime(booking.checkOut, times.checkOutTime);
-  const status = booking.revoked ? "revoked" : now < opensAt ? "upcoming" : now >= closesAt ? "expired" : "active";
-  const stayStage = now < accessDetailsAt ? "before-arrival" : now < opensAt ? "arrival-ready" : now >= closesAt ? "after-departure" : now.toISOString().slice(0, 10) === booking.checkOut ? "checkout-day" : "during-stay";
-  return { status, stayStage, accessDetailsAt, revealAccess: now >= accessDetailsAt && now < closesAt, opensAt, closesAt } as const;
+type AccessTiming = {
+  checkInTime: string;
+  checkOutTime: string;
+  portalLeadHours?: number;
+  sensitiveRevealMinutes?: number;
+  accessExpiryMinutes?: number;
+};
+
+export function bookingState(booking: Booking, now = new Date(), times: AccessTiming = { checkInTime: "15:00", checkOutTime: "10:00" }) {
+  const checkInAt = skopjeTime(booking.checkIn, times.checkInTime);
+  const checkoutAt = skopjeTime(booking.checkOut, times.checkOutTime);
+  const portalLeadHours = Number.isFinite(Number(times.portalLeadHours)) ? Number(times.portalLeadHours) : 48;
+  const sensitiveRevealMinutes = Number.isFinite(Number(times.sensitiveRevealMinutes)) ? Number(times.sensitiveRevealMinutes) : 30;
+  const accessExpiryMinutes = Number.isFinite(Number(times.accessExpiryMinutes)) ? Number(times.accessExpiryMinutes) : 30;
+  const portalOpensAt = new Date(checkInAt.getTime() - portalLeadHours * 60 * 60 * 1000);
+  const accessDetailsAt = new Date(checkInAt.getTime() - sensitiveRevealMinutes * 60 * 1000);
+  const closesAt = new Date(checkoutAt.getTime() + accessExpiryMinutes * 60 * 1000);
+  const checkoutDayStartsAt = skopjeTime(booking.checkOut, "00:00");
+  const status = booking.revoked ? "revoked" : now < portalOpensAt ? "upcoming" : now >= closesAt ? "expired" : "active";
+  const stayStage = now < accessDetailsAt
+    ? "before-arrival"
+    : now < checkInAt
+      ? "arrival-ready"
+      : now >= checkoutAt
+        ? "after-departure"
+        : now >= checkoutDayStartsAt
+          ? "checkout-day"
+          : "during-stay";
+  return {
+    status,
+    stayStage,
+    portalOpensAt,
+    accessDetailsAt,
+    revealAccess: now >= accessDetailsAt && now < closesAt,
+    checkInAt,
+    checkoutAt,
+    closesAt,
+  } as const;
 }
 
 export async function createBooking(input: Omit<Booking, "id" | "code" | "accessToken" | "revoked" | "createdAt">) {
@@ -110,7 +141,11 @@ export async function getBookingByToken(token: string) {
   return id ? redis.get<Booking>(`booking:${id}`) : null;
 }
 
-export async function listBookings() {
+export async function getBookingById(id: string) {
+  return getRedis().get<Booking>(`booking:${id}`);
+}
+
+export async function listBookings(propertyId?: string) {
   const redis = getRedis();
   const ids = await redis.zrange<string[]>("bookings", 0, -1, { rev: true });
   if (!ids.length) return [];
@@ -120,7 +155,7 @@ export async function listBookings() {
     record.accessToken = randomToken();
     await Promise.all([redis.set(`booking:${record.id}`, record), redis.set(`access-token:${record.accessToken}`, record.id)]);
   }));
-  return records.filter((record) => !record.archivedAt);
+  return records.filter((record) => !record.archivedAt && (!propertyId || (record.propertyId || "konios-house") === propertyId));
 }
 
 export async function updateBooking(
@@ -158,9 +193,10 @@ export function isDateRangeOverlap(
 export async function findOverlappingBooking(
   checkIn: string,
   checkOut: string,
-  excludeId?: string
+  excludeId?: string,
+  propertyId?: string,
 ): Promise<Booking | null> {
-  const allBookings = await listBookings();
+  const allBookings = await listBookings(propertyId);
   for (const booking of allBookings) {
     if (booking.revoked) continue;
     if (excludeId && booking.id === excludeId) continue;

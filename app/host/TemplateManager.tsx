@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import type { GuestGuide, MessageTemplate } from "@/lib/guest-guide";
 
-export default function TemplateManager({ onUpdate }: { onUpdate?: () => void }) {
+export default function TemplateManager({ onUpdate, propertyId = "konios-house" }: { onUpdate?: () => void; propertyId?: string }) {
   const [guide, setGuide] = useState<GuestGuide | null>(null);
   const [templates, setTemplates] = useState<MessageTemplate[]>([]);
   const [status, setStatus] = useState("Loading templates…");
@@ -24,7 +24,7 @@ export default function TemplateManager({ onUpdate }: { onUpdate?: () => void })
 
   useEffect(() => {
     let live = true;
-    fetch("/api/host/guide", { cache: "no-store" })
+    fetch(`/api/host/guide?propertyId=${encodeURIComponent(propertyId)}`, { cache: "no-store" })
       .then(async (r) => {
         if (!r.ok) throw new Error();
         return r.json();
@@ -40,7 +40,7 @@ export default function TemplateManager({ onUpdate }: { onUpdate?: () => void })
     return () => {
       live = false;
     };
-  }, []);
+  }, [propertyId]);
 
   async function persist(updatedTemplates: MessageTemplate[]) {
     if (!guide) return;
@@ -49,7 +49,7 @@ export default function TemplateManager({ onUpdate }: { onUpdate?: () => void })
       ...guide,
       messageTemplates: updatedTemplates,
     };
-    const res = await fetch("/api/host/guide", {
+    const res = await fetch(`/api/host/guide?propertyId=${encodeURIComponent(propertyId)}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(updatedGuide),

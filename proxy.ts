@@ -4,7 +4,8 @@ import { getGuestGuide } from "@/lib/guest-guide";
 
 export async function proxy(request: NextRequest) {
   const code = request.cookies.get("konios_access")?.value;
-  const [booking, guide] = await Promise.all([code ? getBookingByToken(code) : null, getGuestGuide()]);
+  const booking = code ? await getBookingByToken(code) : null;
+  const guide = await getGuestGuide(booking?.propertyId || "konios-house");
   const status = booking ? bookingState(booking, new Date(), guide).status : null;
   if (!booking || status === "expired" || status === "revoked") return NextResponse.rewrite(new URL("/access", request.url));
 

@@ -11,7 +11,9 @@ import GalleryManager from "./GalleryManager";
 import MetricsView from "./MetricsView";
 import ExpensesView from "./ExpensesView";
 import GuestMessageModal from "./GuestMessageModal";
+import PropertyManager from "./PropertyManager";
 import type { GuestGuide } from "@/lib/guest-guide";
+import type { Property } from "@/lib/portfolio";
 
 type Booking = {
   id: string;
@@ -28,6 +30,7 @@ type Booking = {
   revoked: boolean;
   createdAt: number;
   accessStatus: "upcoming" | "active" | "expired" | "revoked";
+  stayStage?: "before-arrival" | "arrival-ready" | "during-stay" | "checkout-day" | "after-departure";
   grossAmount?: number;
   netAmount?: number;
   currency?: string;
@@ -105,17 +108,24 @@ function getDaysUntilLabel(checkInDateStr: string, checkInTime = "15:00"): strin
 
 export default function HostPage() {
   const [unlocked, setUnlocked] = useState(false),
+    [username, setUsername] = useState("master"),
     [password, setPassword] = useState(""),
     [error, setError] = useState(""),
     [copied, setCopied] = useState(false);
   const [view, setView] = useState<
-    "overview" | "bookings" | "new" | "guide" | "templates" | "faqs" | "gallery" | "metrics" | "expenses"
+    "overview" | "bookings" | "new" | "guide" | "templates" | "faqs" | "gallery" | "metrics" | "expenses" | "properties"
   >("overview"),
     [bookings, setBookings] = useState<Booking[]>([]),
     [search, setSearch] = useState("");
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [selectedPropertyId, setSelectedPropertyId] = useState("konios-house");
+  const [hostRole, setHostRole] = useState<"master" | "property-admin">("master");
   const [times, setTimes] = useState({
     checkInTime: "15:00",
     checkOutTime: "10:00",
+    portalLeadHours: 48,
+    sensitiveRevealMinutes: 30,
+    accessExpiryMinutes: 30,
   });
   const [monthOffset, setMonthOffset] = useState(0),
     [start, setStart] = useState<string>(),
@@ -233,7 +243,7 @@ export default function HostPage() {
     const currentMonthKey = `${yyyy}-${mm}`;
 
     const currentActiveBooking = bookings.find(
-      (b) => !b.revoked && b.accessStatus === "active"
+      (b) => !b.revoked && (b.stayStage === "during-stay" || b.stayStage === "checkout-day")
     );
     const nextArrivalBooking = bookings
       .filter((b) => !b.revoked && b.accessStatus === "upcoming")
@@ -284,9 +294,9 @@ export default function HostPage() {
 
   const [guestGuide, setGuestGuide] = useState<GuestGuide | null>(null);
 
-  async function loadGuide() {
+  async function loadGuide(propertyId = selectedPropertyId) {
     try {
-      const res = await fetch("/api/host/guide", { cache: "no-store" });
+      const res = await fetch(`/api/host/guide?propertyId=${encodeURIComponent(propertyId)}`, { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
         setGuestGuide(data.guide);
@@ -296,14 +306,25 @@ export default function HostPage() {
     }
   }
 
-  async function loadBookings() {
-    const response = await fetch("/api/host/code", { cache: "no-store" });
+  async function loadBookings(propertyId = selectedPropertyId) {
+    const response = await fetch(`/api/host/code?propertyId=${encodeURIComponent(propertyId)}`, { cache: "no-store" });
     if (response.ok) {
       const data = await response.json();
       setBookings(data.bookings);
       if (data.times) setTimes(data.times);
     }
-    await loadGuide();
+    await loadGuide(propertyId);
+  }
+  async function loadPortfolio() {
+    const response = await fetch("/api/host/properties", { cache: "no-store" });
+    if (!response.ok) return selectedPropertyId;
+    const data = await response.json();
+    const nextProperties = (data.properties || []) as Property[];
+    setProperties(nextProperties);
+    setHostRole(data.session?.role || "property-admin");
+    const nextPropertyId = nextProperties.some((property) => property.id === selectedPropertyId) ? selectedPropertyId : nextProperties[0]?.id || "konios-house";
+    setSelectedPropertyId(nextPropertyId);
+    return nextPropertyId;
   }
   async function login(event: FormEvent) {
     event.preventDefault();
@@ -311,13 +332,15 @@ export default function HostPage() {
     const response = await fetch("/api/host/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password }),
+      body: JSON.stringify({ username, password }),
     });
     const data = await response.json();
     if (!response.ok) return setError(data.error);
     setUnlocked(true);
     setPassword("");
-    await loadBookings();
+    setHostRole(data.session?.role || "property-admin");
+    const propertyId = await loadPortfolio();
+    await loadBookings(propertyId);
   }
 
   function handleDateClick(value: string) {
@@ -373,6 +396,7 @@ export default function HostPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ...Object.fromEntries(form),
+        propertyId: selectedPropertyId,
         checkIn: start,
         checkOut: end,
       }),
@@ -474,17 +498,21 @@ export default function HostPage() {
           <p className="eyebrow">Private host desk</p>
           <h1>Host access.</h1>
           <p>
-            Enter the host password to manage reservations and guest access.
+            Sign in as master or with the username assigned to a property manager.
           </p>
+          <label>
+            Username
+            <input required value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" />
+          </label>
           <label>
             Password
             <input
               autoFocus
               required
               type="password"
-              inputMode="numeric"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
             />
           </label>
           {error && (
@@ -499,7 +527,7 @@ export default function HostPage() {
       </main>
     );
 
-  const active = bookings.filter((b) => b.accessStatus === "active").length,
+  const active = bookings.filter((b) => b.stayStage === "during-stay" || b.stayStage === "checkout-day").length,
     upcoming = bookings.filter((b) => b.accessStatus === "upcoming").length;
   const arrivals = bookings
     .filter((b) => b.accessStatus === "upcoming")
@@ -552,7 +580,7 @@ export default function HostPage() {
           const isSameDayTurnaround = Boolean(
             nextB && !b.revoked && !nextB.revoked && b.checkOut === nextB.checkIn
           );
-          const isActive = b.accessStatus === "active";
+          const isActive = b.stayStage === "during-stay" || b.stayStage === "checkout-day";
           const isExpired = b.accessStatus === "expired" || b.revoked;
           const isNextArrival = b.id === nextArrivalId;
           const isNoShow = Boolean(b.isNoShow);
@@ -894,11 +922,12 @@ export default function HostPage() {
           >
             <span>🖼</span>Gallery
           </button>
+          <button className={view === "properties" ? "active" : ""} onClick={() => setView("properties")}><span>▦</span>{hostRole === "master" ? "Properties & admins" : "Account"}</button>
         </nav>
         <div className="sidebar-foot">
-          <span>Access window</span>
+          <span>Official stay times</span>
           <strong>{times.checkInTime} → {times.checkOutTime}</strong>
-          <small>Europe/Skopje</small>
+          <small>Portal −{times.portalLeadHours}h · Codes −{times.sensitiveRevealMinutes}m · Expires +{times.accessExpiryMinutes}m</small>
         </div>
       </aside>
       <section className="dashboard-main">
@@ -920,12 +949,14 @@ export default function HostPage() {
                         ? "Message templates"
                         : view === "faqs"
                           ? "Frequent answers (FAQs)"
-                          : view === "gallery"
+                      : view === "gallery"
                             ? "Photo gallery"
+                            : view === "properties"
+                              ? hostRole === "master" ? "Properties & administrators" : "My account"
                             : "New booking"}
             </h1>
           </div>
-          <label className="property-selector"><span>Property</span><select defaultValue="konios-house"><option value="all">All properties</option><option value="konios-house">Konios House · Apartment 32</option></select></label>
+          <label className="property-selector"><span>Property</span><select value={selectedPropertyId} onChange={async (event) => { const propertyId = event.target.value; setSelectedPropertyId(propertyId); await loadBookings(propertyId); }}>{properties.map((property) => <option key={property.id} value={property.id}>{property.name}</option>)}</select></label>
           <button
             className="quick-add"
             onClick={() => {
@@ -1118,9 +1149,7 @@ export default function HostPage() {
               <div>
                 <strong>Timing handled automatically</strong>
                 <p>
-                  Every code opens at {times.checkInTime} on arrival day and
-                  closes at {times.checkOutTime} on checkout day in Skopje
-                  time, including daylight-saving changes.
+                  The general guide opens {times.portalLeadHours} hours before check-in. Building and lockbox details reveal {times.sensitiveRevealMinutes} minutes before {times.checkInTime}, and access expires {times.accessExpiryMinutes} minutes after the {times.checkOutTime} checkout in Skopje time.
                 </p>
               </div>
             </div>
@@ -1410,7 +1439,7 @@ export default function HostPage() {
                   </p>
                   <div className="big-code">{result.code}</div>
                   <p className="code-window">
-                    Guide available before arrival · codes reveal at 14:30 · check-in {times.checkInTime}
+                    Portal opens {times.portalLeadHours}h before arrival · sensitive details reveal {times.sensitiveRevealMinutes}m before check-in · expires {times.accessExpiryMinutes}m after checkout
                   </p>
                   <button className="submit-button" onClick={copyCode}>
                     {copied ? "Private link + PIN copied" : "Copy private link + PIN"}
@@ -1432,11 +1461,12 @@ export default function HostPage() {
           </div>
         )}
         {view === "metrics" && <MetricsView bookings={bookings} />}
-        {view === "expenses" && <ExpensesView bookings={bookings} />}
-        {view === "guide" && <GuideEditor />}
-        {view === "templates" && <TemplateManager onUpdate={loadGuide} />}
-        {view === "faqs" && <FaqManager />}
-        {view === "gallery" && <GalleryManager />}
+        {view === "expenses" && <ExpensesView bookings={bookings} propertyId={selectedPropertyId} />}
+        {view === "guide" && <GuideEditor propertyId={selectedPropertyId} />}
+        {view === "templates" && <TemplateManager propertyId={selectedPropertyId} onUpdate={() => loadGuide(selectedPropertyId)} />}
+        {view === "faqs" && <FaqManager propertyId={selectedPropertyId} />}
+        {view === "gallery" && <GalleryManager propertyId={selectedPropertyId} />}
+        {view === "properties" && <PropertyManager role={hostRole} properties={properties} onPropertiesChanged={async () => { const propertyId = await loadPortfolio(); await loadBookings(propertyId); }} />}
       </section>
 
       {editingBooking && (

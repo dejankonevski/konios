@@ -69,6 +69,11 @@ export default function GuestManualView({
   });
   const [previewImage, setPreviewImage] = useState<{ src: string; title: string; subtitle?: string } | null>(null);
   const [eventStatus, setEventStatus] = useState("");
+  const accessDetailsLabel = new Intl.DateTimeFormat("en", {
+    timeZone: "Europe/Skopje",
+    dateStyle: "long",
+    timeStyle: "short",
+  }).format(new Date(accessState.accessDetailsAt));
 
   async function sendStayEvent(type: string) {
     setEventStatus("Sending…");
@@ -251,7 +256,7 @@ export default function GuestManualView({
         <div className="arrival-landmarks" aria-label="Arrival landmarks">
           {[["/arrival-building.jpg","The building"],["/arrival-parking.jpg","Parking space 32"],["/arrival-entrance.jpg","Main glass entrance"]].map(([src,label])=><button key={src} type="button" onClick={()=>setPreviewImage({src,title:label,subtitle:"Tap close to return to the check-in steps"})}><span><Image src={src} alt={label} fill sizes="(max-width: 600px) 90vw, 33vw" /></span><b>{label}</b><small>Open full photo ↗</small></button>)}
         </div>
-        {!accessState.revealAccess ? <div className="access-release-notice"><strong>Apartment access details unlock at 14:30 on arrival day.</strong><p>You can already use the building directions and parking information below. The intercom, building and lockbox codes remain hidden until the apartment is ready.</p></div> : null}
+        {!accessState.revealAccess ? <div className="access-release-notice"><strong>Apartment access details unlock {accessDetailsLabel}.</strong><p>You can already use the general guide, directions and parking information. The intercom, building and lockbox codes remain hidden until the apartment is ready.</p></div> : null}
         <div className="arrival-steps">
           <article>
             <span>01</span>

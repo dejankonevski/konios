@@ -145,6 +145,7 @@ export const defaultGallery: GalleryItem[] = [
 
 export type GuestGuide = {
   checkInTime: string; checkOutTime: string;
+  portalLeadHours: number; sensitiveRevealMinutes: number; accessExpiryMinutes: number;
   propertyName: string; address: string; mapsUrl: string; floor: string; apartmentNumber: string;
   directions: string; buildingCode: string; buildingEntryInstructions: string; apartmentDirections: string; lockboxCode: string; lockboxInstructions: string;
   wifiName: string; wifiPassword: string; hostName: string; hostPhone: string; hostPhotoUrl: string; welcomeMessage: string; parkingSpace: string; parking: string;
@@ -159,6 +160,7 @@ export type GuestGuide = {
 
 export const defaultGuestGuide: GuestGuide = {
   checkInTime: "15:00", checkOutTime: "10:00",
+  portalLeadHours: 48, sensitiveRevealMinutes: 30, accessExpiryMinutes: 30,
   defaultCleaningFeeMkd: 750,
   propertyName: "Konios House", address: "Zil Vern 12, Skopje", mapsUrl: "https://www.google.com/maps/search/?api=1&query=Zil%20Vern%2012%2C%20Skopje", floor: "5", apartmentNumber: "32",
   directions: "Look for the building and the main glass entrance.", buildingCode: "2812", buildingEntryInstructions: "1. Press the telephone button.\n2. Enter the building code.\n3. Open the building door.", apartmentDirections: "Take the elevator or stairs to the 5th floor. Go straight, walk down the hall, and apartment 32 is on the right.", lockboxCode: "3007", lockboxInstructions: "The keybox is next to apartment 32.",
@@ -177,12 +179,20 @@ export const defaultGuestGuide: GuestGuide = {
   gallery: defaultGallery,
 };
 
-export async function getGuestGuide() {
-  const stored = await getRedis().get<Partial<GuestGuide>>("guest-guide");
+export async function getGuestGuide(propertyId = "konios-house") {
+  const propertyStored = await getRedis().get<Partial<GuestGuide>>(`guest-guide:${propertyId}`);
+  const legacyStored = propertyId === "konios-house" ? await getRedis().get<Partial<GuestGuide>>("guest-guide") : null;
+  const stored = propertyStored || legacyStored;
   if (!stored) return defaultGuestGuide;
   const merged: GuestGuide = { ...defaultGuestGuide, ...stored };
   if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(merged.checkInTime)) merged.checkInTime = "15:00";
   if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(merged.checkOutTime)) merged.checkOutTime = "10:00";
+  if (!Number.isFinite(Number(merged.portalLeadHours))) merged.portalLeadHours = 48;
+  if (!Number.isFinite(Number(merged.sensitiveRevealMinutes))) merged.sensitiveRevealMinutes = 30;
+  if (!Number.isFinite(Number(merged.accessExpiryMinutes))) merged.accessExpiryMinutes = 30;
+  merged.portalLeadHours = Math.max(1, Math.min(168, Number(merged.portalLeadHours)));
+  merged.sensitiveRevealMinutes = Math.max(0, Math.min(180, Number(merged.sensitiveRevealMinutes)));
+  merged.accessExpiryMinutes = Math.max(0, Math.min(1440, Number(merged.accessExpiryMinutes)));
   if (!merged.messageTemplates || !Array.isArray(merged.messageTemplates)) merged.messageTemplates = [];
   const storedTemplateIds = new Set(merged.messageTemplates.map((template) => template.id));
   merged.messageTemplates = [...merged.messageTemplates, ...defaultMessageTemplates.filter((template) => !storedTemplateIds.has(template.id))];
@@ -195,7 +205,7 @@ export async function getGuestGuide() {
   return merged;
 }
 
-export async function saveGuestGuide(value: GuestGuide) {
-  await getRedis().set("guest-guide", value);
+export async function saveGuestGuide(value: GuestGuide, propertyId = "konios-house") {
+  await getRedis().set(`guest-guide:${propertyId}`, value);
   return value;
 }

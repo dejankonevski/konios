@@ -1,12 +1,17 @@
 import { cookies } from "next/headers";
-import { verifyHostToken } from "@/lib/access-code";
-import { findOverlappingBooking, deleteBooking, updateBooking } from "@/lib/bookings";
+import { getHostSession } from "@/lib/access-code";
+import { findOverlappingBooking, deleteBooking, getBookingById, updateBooking } from "@/lib/bookings";
 
-async function authorized() { return verifyHostToken((await cookies()).get("konios_host")?.value); }
+async function authorized() { return getHostSession((await cookies()).get("konios_host")?.value); }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  if (!(await authorized())) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  const session = await authorized();
+  if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
+  const existing = await getBookingById(id);
+  if (!existing) return Response.json({ error: "Not found" }, { status: 404 });
+  const propertyId = existing.propertyId || "konios-house";
+  if (session.role !== "master" && !session.propertyIds.includes(propertyId)) return Response.json({ error: "Property access denied." }, { status: 403 });
   const body = await request.json();
 
   const updates: Record<string, unknown> = {};
@@ -34,7 +39,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (body.checkIn >= body.checkOut) {
       return Response.json({ error: "Checkout date must be after arrival date." }, { status: 400 });
     }
-    const conflict = await findOverlappingBooking(body.checkIn, body.checkOut, id);
+    const conflict = await findOverlappingBooking(body.checkIn, body.checkOut, id, propertyId);
     if (conflict) {
       return Response.json(
         {
@@ -53,7 +58,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 }
 
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  if (!(await authorized())) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  const session = await authorized();
+  if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
+  const existing = await getBookingById(id);
+  if (!existing) return Response.json({ error: "Not found" }, { status: 404 });
+  if (session.role !== "master" && !session.propertyIds.includes(existing.propertyId || "konios-house")) return Response.json({ error: "Property access denied." }, { status: 403 });
   return (await deleteBooking(id)) ? Response.json({ ok: true }) : Response.json({ error: "Not found" }, { status: 404 });
 }

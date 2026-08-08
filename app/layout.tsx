@@ -15,7 +15,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: "Konios House — A Thoughtful Stay in Skopje",
     description: "A calm, design-led apartment in central Skopje for two. Explore the space, amenities and neighbourhood, then request your dates.",
-    icons: { icon: "/favicon.svg", shortcut: "/favicon.svg" },
+    icons: { icon: "/guest-portal-icon.svg", shortcut: "/guest-portal-icon.svg", apple: "/guest-portal-icon.svg" },
     openGraph: { title: "Konios House", description: "A thoughtful stay in Skopje.", images: [{ url: imageUrl, width: 1200, height: 630 }] },
     twitter: { card: "summary_large_image", title: "Konios House", description: "A thoughtful stay in Skopje.", images: [imageUrl] },
   };

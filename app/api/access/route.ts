@@ -11,8 +11,9 @@ export async function POST(request: Request) {
   if (!code || !/^\d{5}$/.test(code.trim())) return Response.json({ error: "Enter your five-digit PIN." }, { status: 400 });
   const booking = await getBookingByToken(token);
   if (!booking || booking.code !== code.trim()) return Response.json({ error: "That private link and PIN do not match." }, { status: 401 });
-  const guide = await getGuestGuide();
+  const guide = await getGuestGuide(booking.propertyId || "konios-house");
   const state = bookingState(booking, new Date(), guide);
+  if (state.status === "upcoming") return Response.json({ state: "upcoming", guest: booking.firstName, availableAt: state.portalOpensAt.toISOString() }, { status: 403 });
   if (state.status === "expired") return Response.json({ state: "expired", guest: booking.firstName, expiredAt: state.closesAt.toISOString() }, { status: 410 });
   if (state.status === "revoked") return Response.json({ error: "This code is no longer active. Please contact your host." }, { status: 403 });
 
