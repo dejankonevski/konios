@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { getHostSession, listPropertyAdmins, savePropertyAdmin } from "@/lib/access-code";
 import type { PropertyAdmin } from "@/lib/access-code";
 import { listProperties } from "@/lib/portfolio";
+import { resetRateLimit } from "@/lib/rate-limit";
 
 function safe(admin: PropertyAdmin) {
   return { id: admin.id, username: admin.username, propertyIds: admin.propertyIds, active: admin.active, createdAt: admin.createdAt };
@@ -45,4 +46,13 @@ export async function PATCH(request: Request) {
   if (!propertyIds) return Response.json({ error: "Assign at least one valid property." }, { status: 400 });
   const admin = await savePropertyAdmin({ username: input.username, password: input.password, propertyIds, active: input.active });
   return Response.json({ admin: safe(admin) });
+}
+
+export async function DELETE(request: Request) {
+  if (!(await masterSession())) return Response.json({ error: "Master administrator access required." }, { status: 403 });
+  const input = (await request.json()) as { username?: string };
+  const username = input.username?.trim().toLowerCase();
+  if (!username || !/^[a-zA-Z0-9._-]{3,40}$/.test(username)) return Response.json({ error: "A valid manager username is required." }, { status: 400 });
+  await resetRateLimit("host-login-user", username, 15 * 60);
+  return Response.json({ ok: true, username });
 }

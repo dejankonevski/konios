@@ -9,6 +9,11 @@ export async function rateLimit(scope: string, identifier: string, limit: number
   return { success: count <= limit, remaining: Math.max(0, limit - count) };
 }
 
+export async function resetRateLimit(scope: string, identifier: string, windowSeconds: number) {
+  const bucket = Math.floor(Date.now() / (windowSeconds * 1000));
+  await getRedis().del(`ratelimit:${scope}:${identifier}:${bucket}`);
+}
+
 export function requestIp(request: Request) {
   return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
     || request.headers.get("x-real-ip")

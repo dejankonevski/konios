@@ -57,6 +57,12 @@ export default function PropertyManager({ role, properties, onPropertiesChanged 
     if (response.ok) { setResetPasswords((current) => ({ ...current, [admin.username]: "" })); await loadAdmins(); }
   }
 
+  async function resetLoginAttempts(admin: SafeAdmin) {
+    const response = await fetch("/api/host/property-admins", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: admin.username }) });
+    const data = await response.json();
+    setStatus(response.ok ? `Login attempts reset for ${admin.username}. They can sign in immediately.` : data.error || "Could not reset login attempts.");
+  }
+
   async function changeOwnPassword(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
@@ -84,7 +90,7 @@ export default function PropertyManager({ role, properties, onPropertiesChanged 
         <div className="manager-identity"><span>{admin.active ? "Active manager" : "Access disabled"}</span><strong>{admin.username}</strong><small>{admin.propertyIds.length} {admin.propertyIds.length === 1 ? "property" : "properties"} assigned</small></div>
         <fieldset className="property-checklist manager-property-checklist"><legend>Can manage</legend>{properties.map((property) => <label key={property.id}><input type="checkbox" checked={draft.includes(property.id)} onChange={(event) => setPropertyDrafts((current) => ({ ...current, [admin.username]: event.target.checked ? [...draft, property.id] : draft.filter((id) => id !== property.id) }))} /><span><b>{property.name}</b><small>/{property.slug}</small></span></label>)}</fieldset>
         <button className="manager-save-access" disabled={!changed || draft.length === 0} onClick={() => updateAdmin(admin, { propertyIds: draft })}>{changed ? "Save property access" : "Access up to date"}</button>
-        <div className="manager-security"><input type="password" minLength={12} placeholder="New password" value={resetPasswords[admin.username] || ""} onChange={(event) => setResetPasswords((current) => ({ ...current, [admin.username]: event.target.value }))} /><button disabled={(resetPasswords[admin.username] || "").length < 12} onClick={() => updateAdmin(admin, { password: resetPasswords[admin.username] })}>Reset password</button><button className={admin.active ? "danger-soft" : ""} onClick={() => updateAdmin(admin, { active: !admin.active })}>{admin.active ? "Disable" : "Enable"}</button></div>
+        <div className="manager-security"><input type="password" minLength={12} placeholder="New password" value={resetPasswords[admin.username] || ""} onChange={(event) => setResetPasswords((current) => ({ ...current, [admin.username]: event.target.value }))} /><button disabled={(resetPasswords[admin.username] || "").length < 12} onClick={() => updateAdmin(admin, { password: resetPasswords[admin.username] })}>Reset password</button><button className="reset-attempts-btn" onClick={() => resetLoginAttempts(admin)}>Reset login attempts</button><button className={admin.active ? "danger-soft" : ""} onClick={() => updateAdmin(admin, { active: !admin.active })}>{admin.active ? "Disable" : "Enable"}</button></div>
       </article>;
     }) : <p>No property managers yet.</p>}</div></section> : null}
   </div>;
