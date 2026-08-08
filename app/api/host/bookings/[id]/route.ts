@@ -18,6 +18,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (typeof body.notes === "string") updates.notes = body.notes.trim();
   if (typeof body.revoked === "boolean") updates.revoked = body.revoked;
   if (["Airbnb", "Booking.com", "Direct", "Other"].includes(body.source)) updates.source = body.source;
+  if (typeof body.grossAmount === "number") updates.grossAmount = Math.max(0, body.grossAmount);
+  if (typeof body.netAmount === "number") updates.netAmount = Math.max(0, body.netAmount);
 
   if (typeof body.checkIn === "string" && typeof body.checkOut === "string") {
     if (body.checkIn >= body.checkOut) {

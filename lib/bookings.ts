@@ -13,6 +13,8 @@ export type Booking = {
   notes: string;
   revoked: boolean;
   createdAt: number;
+  grossAmount?: number;
+  netAmount?: number;
 };
 
 export function getRedis() {

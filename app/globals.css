@@ -776,4 +776,67 @@ body { top: 0!important; position: static!important; }
   .guest-photo-modal-caption h3 { font-size: 1rem; }
 }
 
+/* Financial Metrics Dashboard */
+.metrics-dashboard { display: flex; flex-direction: column; gap: 24px; margin-top: 8px; }
+.metrics-header-row { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 20px; }
+.metrics-subtitle { margin-top: 4px; font-size: .9rem; color: #64748b; }
+
+.metrics-filter-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; background: #ffffff; padding: 14px 18px; border-radius: 14px; border: 1px solid #e2e8f0; box-shadow: 0 2px 8px rgba(0,0,0,.04); }
+.metrics-filter-item { display: flex; flex-direction: column; gap: 4px; font-size: .78rem; font-weight: 700; color: #475569; }
+.metrics-filter-item select,
+.metrics-filter-item input { padding: 8px 12px; border-radius: 8px; border: 1px solid #cbd5e1; background: #f8fafc; font-size: .88rem; font-family: inherit; font-weight: 600; color: #0f172a; outline: none; }
+.metrics-filter-item select:focus,
+.metrics-filter-item input:focus { border-color: #2563eb; background: #fff; }
+
+.metrics-clear-btn { align-self: flex-end; padding: 9px 16px; border-radius: 8px; border: 1px solid #e2e8f0; background: #f1f5f9; color: #475569; font-weight: 700; font-size: .82rem; cursor: pointer; transition: background .15s; }
+.metrics-clear-btn:hover { background: #e2e8f0; color: #0f172a; }
+
+/* KPI Grid */
+.metrics-kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+.kpi-card { background: #ffffff; padding: 20px; border-radius: 16px; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 6px; box-shadow: 0 4px 12px rgba(0,0,0,.03); transition: transform .18s; }
+.kpi-card:hover { transform: translateY(-2px); }
+
+.kpi-card.gross-card { border-left: 4px solid #3b82f6; }
+.kpi-card.net-card { border-left: 4px solid #10b981; }
+.kpi-card.comm-card { border-left: 4px solid #f59e0b; }
+.kpi-card.nights-card { border-left: 4px solid #6366f1; }
+
+.kpi-title { font-size: .82rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: .03em; }
+.kpi-value { font-size: 1.6rem; font-weight: 800; color: #0f172a; line-height: 1.1; }
+.kpi-sub { font-size: .8rem; color: #94a3b8; font-weight: 600; }
+
+/* Monthly Table */
+.metrics-table-wrapper { background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,.03); }
+.metrics-table { width: 100%; border-collapse: collapse; font-size: .92rem; text-align: left; }
+.metrics-table th { background: #f8fafc; padding: 14px 18px; font-size: .8rem; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: .04em; border-bottom: 1px solid #e2e8f0; }
+.metrics-table td { padding: 14px 18px; border-bottom: 1px solid #f1f5f9; color: #334155; }
+.metrics-table tr.has-data-row { background: #ffffff; }
+.metrics-table tr.empty-row { background: #fafafa; color: #94a3b8; }
+.metrics-table tr.empty-row td { color: #94a3b8; }
+
+.metrics-table .month-col { display: flex; flex-direction: column; gap: 2px; }
+.metrics-table .month-col strong { font-weight: 800; color: #0f172a; }
+.metrics-table .month-col small { font-size: .78rem; color: #64748b; font-weight: 600; }
+
+.metrics-table td.gross-cell { color: #1e40af; font-weight: 700; }
+.metrics-table td.comm-cell { color: #d97706; font-weight: 700; }
+.metrics-table td.net-cell { color: #047857; font-weight: 800; }
+
+.metrics-table tfoot tr.metrics-total-row { background: #0f172a!important; color: #ffffff!important; font-size: .95rem; font-weight: 800; }
+.metrics-table tfoot td { color: #f8fafc!important; padding: 16px 18px; border-bottom: 0; }
+.metrics-table tfoot td.gross-cell { color: #93c5fd!important; }
+.metrics-table tfoot td.comm-cell { color: #fcd34d!important; }
+.metrics-table tfoot td.net-cell { color: #6ee7b7!important; }
+
+/* Price Calculation Strip in Edit Modal */
+.price-calc-strip { display: flex; align-items: center; gap: 14px; background: #f0fdf4; border: 1px solid #bbf7d0; padding: 10px 14px; border-radius: 10px; font-size: .84rem; font-weight: 700; color: #166534; }
+.price-calc-strip .calc-comm { margin-left: auto; color: #b45309; }
+
+@media(max-width: 768px) {
+  .metrics-header-row { flex-direction: column; }
+  .metrics-filter-bar { width: 100%; justify-content: space-between; }
+  .metrics-table-wrapper { overflow-x: auto; }
+  .metrics-table th, .metrics-table td { padding: 10px 12px; font-size: .84rem; }
+}
+
 

@@ -42,6 +42,8 @@ export async function POST(request: Request) {
     source: (["Airbnb", "Booking.com", "Direct", "Other"].includes(data.source) ? data.source : "Other") as "Airbnb" | "Booking.com" | "Direct" | "Other",
     phone: data.phone?.trim() ?? "",
     notes: data.notes?.trim() ?? "",
+    grossAmount: Math.max(0, Number(data.grossAmount) || 0),
+    netAmount: Math.max(0, Number(data.netAmount) || 0),
   });
   return Response.json({ ...booking, guest: `${firstName} ${lastName}` });
 }

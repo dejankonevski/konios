@@ -8,6 +8,7 @@ import GuideEditor from "./GuideEditor";
 import TemplateManager from "./TemplateManager";
 import FaqManager from "./FaqManager";
 import GalleryManager from "./GalleryManager";
+import MetricsView from "./MetricsView";
 
 type Booking = {
   id: string;
@@ -23,6 +24,8 @@ type Booking = {
   revoked: boolean;
   createdAt: number;
   accessStatus: "upcoming" | "active" | "expired" | "revoked";
+  grossAmount?: number;
+  netAmount?: number;
 };
 type Generated = Booking & { guest: string };
 const weekDays = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
@@ -82,7 +85,7 @@ export default function HostPage() {
     [error, setError] = useState(""),
     [copied, setCopied] = useState(false);
   const [view, setView] = useState<
-    "overview" | "bookings" | "new" | "guide" | "templates" | "faqs" | "gallery"
+    "overview" | "bookings" | "new" | "guide" | "templates" | "faqs" | "gallery" | "metrics"
   >("overview"),
     [bookings, setBookings] = useState<Booking[]>([]),
     [search, setSearch] = useState("");
@@ -121,6 +124,8 @@ export default function HostPage() {
           checkOut: editingBooking.checkOut,
           source: editingBooking.source,
           notes: editingBooking.notes,
+          grossAmount: Number(editingBooking.grossAmount) || 0,
+          netAmount: Number(editingBooking.netAmount) || 0,
         }),
       });
       const data = await res.json();
@@ -537,6 +542,12 @@ export default function HostPage() {
             <span>＋</span>New booking
           </button>
           <button
+            className={view === "metrics" ? "active" : ""}
+            onClick={() => setView("metrics")}
+          >
+            <span>📊</span>Revenue Metrics
+          </button>
+          <button
             className={view === "guide" ? "active" : ""}
             onClick={() => setView("guide")}
           >
@@ -576,15 +587,17 @@ export default function HostPage() {
                 ? "Good day, Dejan."
                 : view === "bookings"
                   ? "All bookings"
-                  : view === "guide"
-                    ? "Guest guide"
-                    : view === "templates"
-                      ? "Message templates"
-                      : view === "faqs"
-                        ? "Frequent answers (FAQs)"
-                        : view === "gallery"
-                          ? "Photo gallery"
-                          : "New booking"}
+                  : view === "metrics"
+                    ? "Financial Metrics & Revenue"
+                    : view === "guide"
+                      ? "Guest guide"
+                      : view === "templates"
+                        ? "Message templates"
+                        : view === "faqs"
+                          ? "Frequent answers (FAQs)"
+                          : view === "gallery"
+                            ? "Photo gallery"
+                            : "New booking"}
             </h1>
           </div>
           <button
@@ -969,6 +982,28 @@ export default function HostPage() {
                   <p className="calendar-help">
                     Drag from arrival to departure · Tap twice on mobile
                   </p>
+                  <div className="host-name-row">
+                    <label>
+                      Gross Amount (€)
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        name="grossAmount"
+                        placeholder="e.g. 500 (Guest Payout)"
+                      />
+                    </label>
+                    <label>
+                      Net Amount (€)
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        name="netAmount"
+                        placeholder="e.g. 400 (Net Profit)"
+                      />
+                    </label>
+                  </div>
                   <label>
                     Private notes
                     <textarea
@@ -1014,6 +1049,7 @@ export default function HostPage() {
             </div>
           </div>
         )}
+        {view === "metrics" && <MetricsView bookings={bookings} />}
         {view === "guide" && <GuideEditor />}
         {view === "templates" && <TemplateManager />}
         {view === "faqs" && <FaqManager />}
@@ -1165,6 +1201,54 @@ export default function HostPage() {
                   />
                 </div>
               </div>
+
+              <div className="modal-field-row">
+                <div className="form-group">
+                  <label htmlFor="edit-gross">Gross Amount (€)</label>
+                  <input
+                    id="edit-gross"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="e.g. 500"
+                    value={editingBooking.grossAmount ?? ""}
+                    onChange={(e) =>
+                      setEditingBooking({
+                        ...editingBooking,
+                        grossAmount: parseFloat(e.target.value) || 0,
+                      })
+                    }
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="edit-net">Net Amount (€)</label>
+                  <input
+                    id="edit-net"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="e.g. 400"
+                    value={editingBooking.netAmount ?? ""}
+                    onChange={(e) =>
+                      setEditingBooking({
+                        ...editingBooking,
+                        netAmount: parseFloat(e.target.value) || 0,
+                      })
+                    }
+                  />
+                </div>
+              </div>
+
+              {((editingBooking.grossAmount || 0) > 0 || (editingBooking.netAmount || 0) > 0) ? (
+                <div className="price-calc-strip">
+                  <span>Gross: €{(editingBooking.grossAmount || 0).toFixed(2)}</span>
+                  <span>Net: €{(editingBooking.netAmount || 0).toFixed(2)}</span>
+                  <span className="calc-comm">
+                    Commission & Fees: €
+                    {Math.max(0, (editingBooking.grossAmount || 0) - (editingBooking.netAmount || 0)).toFixed(2)}
+                  </span>
+                </div>
+              ) : null}
 
               <div className="form-group full-width">
                 <label htmlFor="edit-notes">Notes / Special requests</label>
