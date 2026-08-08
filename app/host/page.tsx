@@ -510,6 +510,26 @@ export default function HostPage() {
   const departingToday = bookings.filter((b) => !b.revoked && b.checkOut === todayKey);
   const paymentDue = bookings.filter((b) => !b.revoked && (Number(b.grossAmount) || 0) > (Number(b.paymentCollected) || 0));
   const registrationMissing = bookings.filter((b) => !b.revoked && !b.idRegistrationComplete && b.accessStatus !== "expired");
+  const nextUnoccupiedGap = (() => {
+    const stays = bookings
+      .filter((booking) => !booking.revoked && booking.checkOut > todayKey)
+      .sort((a, b) => a.checkIn.localeCompare(b.checkIn));
+    let cursor = todayKey;
+
+    for (const stay of stays) {
+      if (stay.checkOut <= cursor) continue;
+      if (stay.checkIn > cursor) {
+        const nights = Math.round(
+          (new Date(`${stay.checkIn}T12:00:00`).getTime() - new Date(`${cursor}T12:00:00`).getTime()) /
+            86_400_000
+        );
+        return { start: cursor, end: stay.checkIn, nights };
+      }
+      if (stay.checkOut > cursor) cursor = stay.checkOut;
+    }
+
+    return { start: cursor, end: undefined, nights: undefined };
+  })();
   const rows = (items: Booking[]) => (
     <div className="booking-table arrivals-unified-table">
       <div className="booking-table-head">
@@ -929,8 +949,13 @@ export default function HostPage() {
                   ["ID / registration missing", registrationMissing, "Complete required guest registration"],
                 ].map(([title, list, hint]) => {
                   const taskBookings = list as Booking[];
-                  return <article key={title as string}><div><span>{title as string}</span><strong>{taskBookings.length}</strong></div><p>{hint as string}</p>{taskBookings.slice(0,3).map((booking)=><button key={booking.id} onClick={()=>setEditingBooking(booking)}>{booking.firstName} {booking.lastName}<b>Open →</b></button>)}</article>;
+                  return <article className={title === "Departing today" ? "departing-task-card" : ""} key={title as string}><div><span>{title as string}</span><strong>{taskBookings.length}</strong></div><p>{hint as string}</p>{taskBookings.slice(0,3).map((booking)=><button key={booking.id} onClick={()=>setEditingBooking(booking)}>{booking.firstName} {booking.lastName}<b>Open →</b></button>)}</article>;
                 })}
+                <article className="gap-task-card">
+                  <div><span>Next unoccupied gap</span><strong>{nextUnoccupiedGap.nights ? `${nextUnoccupiedGap.nights} nights` : "Open"}</strong></div>
+                  <p>{nextUnoccupiedGap.end ? `${formatShort(nextUnoccupiedGap.start)} → ${formatShort(nextUnoccupiedGap.end)}` : `From ${formatShort(nextUnoccupiedGap.start)} onward`}</p>
+                  <button onClick={() => { setView("new"); setStart(nextUnoccupiedGap.start); setEnd(nextUnoccupiedGap.end); setResult(null); }}>Create booking in this gap<b>Open calendar →</b></button>
+                </article>
               </div>
             </div>
             <div className="metric-grid">

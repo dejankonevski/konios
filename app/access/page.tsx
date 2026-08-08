@@ -6,8 +6,22 @@ export default function AccessPage() {
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [token] = useState(() => typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("token") || "");
+  const [token, setToken] = useState(() => typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("token") || "");
+  const [privateLink, setPrivateLink] = useState("");
   const [notice, setNotice] = useState<{ title: string; copy: string } | null>(null);
+
+  function updatePrivateLink(value: string) {
+    setPrivateLink(value);
+    try {
+      const pasted = value.trim();
+      const parsedToken = /^[a-f0-9]{64}$/.test(pasted)
+        ? pasted
+        : new URL(pasted, window.location.origin).searchParams.get("token") || "";
+      setToken(/^[a-f0-9]{64}$/.test(parsedToken) ? parsedToken : "");
+    } catch {
+      setToken("");
+    }
+  }
 
   async function unlock(event: FormEvent) {
     event.preventDefault();
@@ -40,11 +54,12 @@ export default function AccessPage() {
           <p className="eyebrow">Private guest access</p>
           <h1>Welcome to<br />your stay.</h1>
           {notice ? <div className="access-notice"><h2>{notice.title}</h2><p>{notice.copy}</p><button onClick={() => { setNotice(null); setCode(""); }}>Try another code</button></div> : <>
-            <p>{token ? "Enter the five-digit PIN sent with your private reservation link." : "This page only opens from the private reservation link sent by your host."}</p>
+            <p>{token ? "Enter the five-digit PIN sent with your private reservation link." : "Paste the private reservation link sent by your host, then enter your five-digit PIN."}</p>
             <form onSubmit={unlock}>
-              <label>Guest PIN<input required disabled={!token} value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 5))} placeholder="Five-digit PIN" inputMode="numeric" pattern="[0-9]{5}" maxLength={5} autoComplete="one-time-code" /></label>
+              {!token && <label className="private-link-label">Private reservation link<input className="private-link-input" required value={privateLink} onChange={(event) => updatePrivateLink(event.target.value)} placeholder="Paste your private link here" autoComplete="url" /></label>}
+              <label>Guest PIN<input required value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 5))} placeholder="Five-digit PIN" inputMode="numeric" pattern="[0-9]{5}" maxLength={5} autoComplete="one-time-code" /></label>
               {error && <p className="form-error" role="alert">{error}</p>}
-              <button className="submit-button" disabled={loading || !token}>{loading ? "Checking…" : "Enter apartment guide"}<span>→</span></button>
+              <button className="submit-button" disabled={loading || code.length !== 5}>{loading ? "Checking…" : "Enter apartment guide"}<span>→</span></button>
             </form>
           </>}
         </div>
