@@ -415,6 +415,7 @@ export default function HostPage() {
         <span>Guest</span>
         <span>Stay</span>
         <span>Source</span>
+        <span>Total Amount</span>
         <span>Status / Timing</span>
         <span>Code</span>
         <span />
@@ -442,6 +443,12 @@ export default function HostPage() {
           ]
             .filter(Boolean)
             .join(" ");
+
+          const effectiveGross = Number(b.grossAmount) || 0;
+          let effectiveNet = Number(b.netAmount) || 0;
+          if (effectiveGross > 0 && effectiveNet > 0 && effectiveNet < effectiveGross * 0.5 && (effectiveGross - effectiveNet) > effectiveNet) {
+            effectiveNet = Math.max(0, effectiveGross - effectiveNet);
+          }
 
           return (
             <article
@@ -508,6 +515,23 @@ export default function HostPage() {
                   className={`source-dot ${b.source.toLowerCase().replace(".com", "").replace(" ", "-")}`}
                 />
                 <span>{b.source}</span>
+              </div>
+
+              <div className="amount-cell">
+                {(effectiveGross > 0 || effectiveNet > 0) ? (
+                  <div className="amount-stack">
+                    <strong className={`amount-gross-val ${isNextArrival ? "hero-gross-txt" : ""}`}>
+                      {new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(effectiveGross)}
+                    </strong>
+                    {effectiveNet > 0 ? (
+                      <small className="amount-net-sub">
+                        Net {new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(effectiveNet)}
+                      </small>
+                    ) : null}
+                  </div>
+                ) : (
+                  <span className="unpriced-pill" title="Click to add stay prices">+ Add price</span>
+                )}
               </div>
 
               <div className="timing-cell">

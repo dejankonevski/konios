@@ -617,7 +617,7 @@ footer>div { display:flex; justify-content:flex-end; gap:30px; }
 
 /* Unified Arrivals Table List with Next Hero Row & Active Guests on Top */
 .arrivals-unified-table .booking-table-head,
-.arrivals-unified-table .booking-table-row { display: grid; grid-template-columns: 1.55fr 1.15fr .7fr 1.05fr .85fr .7fr; gap: 16px; align-items: center; }
+.arrivals-unified-table .booking-table-row { display: grid; grid-template-columns: 1.4fr 1.1fr .65fr .95fr .95fr .8fr .65fr; gap: 14px; align-items: center; }
 .arrivals-unified-table .booking-table-head { padding: 14px 22px; font-size: .62rem; letter-spacing: .1em; font-weight: 700; color: #64748b; background: #f8fafc; border-bottom: 1px solid var(--admin-line); }
 .arrivals-unified-table .booking-table-row { padding: 16px 22px; border-bottom: 1px solid var(--admin-line); transition: background .15s ease; }
 .arrivals-unified-table .booking-table-row:last-child { border-bottom: 0; }
@@ -639,6 +639,14 @@ footer>div { display:flex; justify-content:flex-end; gap:30px; }
 .stay-date-txt { font-size: .95rem; font-weight: 700; color: var(--admin-navy); }
 .hero-date-txt { font-size: 1.15rem!important; font-weight: 800!important; color: var(--admin-navy)!important; }
 .stay-sub-txt { font-size: .78rem; color: #64748b; font-weight: 600; }
+
+.amount-cell { display: flex; flex-direction: column; justify-content: center; gap: 2px; }
+.amount-stack { display: flex; flex-direction: column; gap: 1px; }
+.amount-gross-val { font-size: .95rem; font-weight: 700; color: #1e293b; }
+.hero-gross-txt { font-size: 1.15rem!important; font-weight: 800!important; color: #2563eb!important; }
+.amount-net-sub { font-size: .76rem; color: #16a34a; font-weight: 700; }
+.unpriced-pill { display: inline-flex; align-items: center; font-size: .74rem; font-weight: 700; color: #d97706; background: #fffbeb; border: 1px dashed #fde68a; padding: 4px 10px; border-radius: 6px; cursor: pointer; width: fit-content; transition: background .12s ease; }
+.unpriced-pill:hover { background: #fef3c7; }
 
 .hero-avatar-mid { width: 46px!important; height: 46px!important; font-size: 1.1rem!important; background: #dbeafe!important; color: #1d4ed8!important; border-radius: 14px!important; }
 
