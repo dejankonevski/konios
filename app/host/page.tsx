@@ -18,6 +18,7 @@ import type { Property } from "@/lib/portfolio";
 
 type Booking = {
   id: string;
+  propertyId?: string;
   code: string;
   accessToken: string;
   firstName: string;
@@ -413,7 +414,8 @@ export default function HostPage() {
   }
   async function copyCode() {
     if (result) {
-      const link = `${window.location.origin}/access?token=${result.accessToken}`;
+      const propertySlug = properties.find((property) => property.id === (result.propertyId || selectedPropertyId))?.slug;
+      const link = `${window.location.origin}/${propertySlug || "access"}?token=${result.accessToken}`;
       await navigator.clipboard.writeText(`Private guest guide: ${link}\nFive-digit PIN: ${result.code}`);
       setCopied(true);
     }
@@ -1809,6 +1811,7 @@ export default function HostPage() {
         <GuestMessageModal
           booking={messagingBooking}
           guide={guestGuide}
+          propertySlug={properties.find((property) => property.id === (messagingBooking.propertyId || "konios-house"))?.slug}
           onClose={() => setMessagingBooking(null)}
         />
       )}

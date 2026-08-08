@@ -7,11 +7,12 @@ import { defaultMessageTemplates, GuestGuide, MessageTemplate } from "@/lib/gues
 export function populateTemplate(
   content: string,
   booking: Booking,
-  guide?: GuestGuide | null
+  guide?: GuestGuide | null,
+  propertySlug?: string
 ): string {
   const origin = typeof window !== "undefined" ? window.location.origin : "https://konios.vercel.app";
   const guestName = `${booking.firstName} ${booking.lastName}`.trim();
-  const guideUrl = `${origin}/access?token=${booking.accessToken}`;
+  const guideUrl = `${origin}/${propertySlug || "access"}?token=${booking.accessToken}`;
   const currency = booking.currency || "EUR";
   const amountDue = Math.max(0, (Number(booking.grossAmount) || 0) - (Number(booking.paymentCollected) || 0));
 
@@ -41,10 +42,11 @@ export function populateTemplate(
 type Props = {
   booking: Booking;
   guide?: GuestGuide | null;
+  propertySlug?: string;
   onClose: () => void;
 };
 
-export default function GuestMessageModal({ booking, guide, onClose }: Props) {
+export default function GuestMessageModal({ booking, guide, propertySlug, onClose }: Props) {
   const [liveGuide, setLiveGuide] = useState<GuestGuide | null>(guide || null);
   const [selectedTplId, setSelectedTplId] = useState<string>("");
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
@@ -77,13 +79,13 @@ export default function GuestMessageModal({ booking, guide, onClose }: Props) {
     templates.find((t) => t.id === selectedTplId) || filteredTemplates[0] || templates[0];
 
   const defaultPopulated = selectedTpl
-    ? populateTemplate(selectedTpl.content, booking, liveGuide)
+    ? populateTemplate(selectedTpl.content, booking, liveGuide, propertySlug)
     : "";
   const currentText = customText !== null ? customText : defaultPopulated;
 
   function handleSelectTemplate(tpl: MessageTemplate) {
     setSelectedTplId(tpl.id);
-    setCustomText(populateTemplate(tpl.content, booking, liveGuide));
+    setCustomText(populateTemplate(tpl.content, booking, liveGuide, propertySlug));
     setCopied(false);
   }
 

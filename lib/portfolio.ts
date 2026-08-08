@@ -21,6 +21,11 @@ export async function listProperties() {
   return stored.map((property) => ({ ...property, slug: property.slug || property.id }));
 }
 
+export async function getPropertyBySlug(slug: string) {
+  const normalised = slug.toLowerCase().trim();
+  return (await listProperties()).find((property) => property.active && (property.slug === normalised || property.id === normalised)) || null;
+}
+
 export async function listUnits() {
   const stored = await getRedis().get<Unit[]>("portfolio:units");
   return stored?.length ? stored : [defaultUnit];

@@ -52,6 +52,14 @@ const available = (value: string) => value || "Contact your host for this detail
 const mapsLink = (place: string) =>
   `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${place}, Skopje, North Macedonia`)}`;
 
+type GuideSection = "checkin" | "essentials" | "explore" | "checkout";
+
+const sectionForStage = (stayStage: string): GuideSection => {
+  if (stayStage === "checkout-day" || stayStage === "after-departure") return "checkout";
+  if (stayStage === "during-stay") return "essentials";
+  return "checkin";
+};
+
 export default function GuestManualView({
   booking,
   guide,
@@ -69,6 +77,7 @@ export default function GuestManualView({
   });
   const [previewImage, setPreviewImage] = useState<{ src: string; title: string; subtitle?: string } | null>(null);
   const [eventStatus, setEventStatus] = useState("");
+  const [activeSection, setActiveSection] = useState<GuideSection>(() => sectionForStage(accessState.stayStage));
   const accessDetailsLabel = new Intl.DateTimeFormat("en", {
     timeZone: "Europe/Skopje",
     dateStyle: "long",
@@ -79,6 +88,13 @@ export default function GuestManualView({
     setEventStatus("Sending…");
     const response = await fetch("/api/guest/events", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ type }) });
     setEventStatus(response.ok ? "Sent to your host ✓" : "Could not send. Please call your host.");
+  }
+
+  function showSection(section: GuideSection) {
+    setActiveSection(section);
+    window.setTimeout(() => {
+      document.getElementById("guide-content")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 0);
   }
 
   useEffect(() => {
@@ -157,11 +173,10 @@ export default function GuestManualView({
           <span>{guide.propertyName}</span>
         </a>
         <nav aria-label="Guide sections">
-          <a href="#arrival">Arrival</a>
-          {apartmentInstructions.length > 0 ? <a href="#apartment">Apartment</a> : null}
-          <a href="#explore">Explore</a>
-          {guide.faqs && guide.faqs.length > 0 ? <a href="#faq">FAQ</a> : null}
-          <a href="#checkout">Checkout</a>
+          <button type="button" onClick={() => showSection("checkin")}>Check in</button>
+          <button type="button" onClick={() => showSection("essentials")}>Essentials</button>
+          <button type="button" onClick={() => showSection("explore")}>Explore</button>
+          <button type="button" onClick={() => showSection("checkout")}>Check out</button>
         </nav>
 
         {/* Multi-Lingual Selector */}
@@ -190,6 +205,45 @@ export default function GuestManualView({
           </span>
         </div>
       </header>
+
+      <section className="guide-hub" aria-labelledby="guide-hub-title">
+        <div className="guide-hub-intro">
+          <p className="eyebrow">Your guide for right now</p>
+          <h1 id="guide-hub-title">
+            {activeSection === "checkin" ? "Ready for arrival." : null}
+            {activeSection === "essentials" ? "Settle in comfortably." : null}
+            {activeSection === "explore" ? "Discover our Skopje." : null}
+            {activeSection === "checkout" ? "A simple departure." : null}
+          </h1>
+          <p>
+            {activeSection === "checkin" ? "Your arrival steps are ready. Codes appear only when the apartment is ready for you." : null}
+            {activeSection === "essentials" ? "Wi-Fi and the apartment answers you are most likely to need are shown first." : null}
+            {activeSection === "explore" ? "Open our personal food, city and transport recommendations whenever you are ready." : null}
+            {activeSection === "checkout" ? `Checkout is at ${guide.checkOutTime}. Everything to do before you leave is below.` : null}
+          </p>
+        </div>
+        <div className="guide-hub-grid">
+          {([
+            ["checkin", "01", "Check in", "Directions, parking, entrance and key"],
+            ["essentials", "02", "Apartment essentials", "Wi-Fi, controls, house info and answers"],
+            ["explore", "03", "Explore Skopje", "Food, sights, nearby places and taxis"],
+            ["checkout", "04", "Check out", `Your ${guide.checkOutTime} departure checklist`],
+          ] as [GuideSection, string, string, string][]).map(([id, number, title, copy]) => (
+            <button
+              key={id}
+              type="button"
+              className={activeSection === id ? "is-active" : ""}
+              aria-pressed={activeSection === id}
+              onClick={() => showSection(id)}
+            >
+              <span>{number}</span>
+              <strong>{title}</strong>
+              <small>{copy}</small>
+              <b aria-hidden="true">→</b>
+            </button>
+          ))}
+        </div>
+      </section>
 
       <section className="manual-hero">
         <div>
@@ -246,6 +300,8 @@ export default function GuestManualView({
         </aside>
       </section>
 
+      <div className="guide-content" id="guide-content">
+      {activeSection === "checkin" ? (
       <section className="manual-section" id="arrival">
         <div className="manual-heading">
           <p className="eyebrow">Start here</p>
@@ -471,15 +527,38 @@ export default function GuestManualView({
           </article></> : null}
         </div>
       </section>
+      ) : null}
 
-      {apartmentInstructions.length > 0 ? (
-        <section className="manual-section" id="apartment">
+      {activeSection === "essentials" ? (
+        <section className="manual-section manual-dark" id="essentials">
           <div className="manual-heading">
             <p className="eyebrow">At home</p>
-            <h2>How everything works.</h2>
-            <p>Quick answers for the most-used parts of the apartment.</p>
+            <h2>Apartment essentials.</h2>
+            <p>Wi-Fi and quick answers for a comfortable stay, all in one place.</p>
           </div>
-          <div className="how-list">
+          <div className="essential-grid essentials-now">
+            <article>
+              <span>Wi-Fi network</span>
+              <strong>{accessState.revealAccess ? available(guide.wifiName) : "Available when access unlocks"}</strong>
+              {accessState.revealAccess && guide.wifiName ? <CopyButton value={guide.wifiName} /> : <small>Unlocks {accessDetailsLabel}</small>}
+            </article>
+            <article>
+              <span>Wi-Fi password</span>
+              <strong className="clear-value">{accessState.revealAccess ? available(guide.wifiPassword) : "Hidden until arrival"}</strong>
+              {accessState.revealAccess && guide.wifiPassword ? <CopyButton value={guide.wifiPassword} /> : <small>Protected until the apartment is ready</small>}
+            </article>
+            <article>
+              <span>Your host</span>
+              <strong>{guide.hostName || "Your host"}</strong>
+              {guide.hostPhone ? <a href={`tel:${phone}`}>Call {guide.hostName || "your host"} ↗</a> : <small>Contact details are not available</small>}
+            </article>
+            <article>
+              <span>Quiet hours</span>
+              <strong>{guide.quietHours || "Please keep noise low at night"}</strong>
+              <p>{guide.houseRules || "Please treat the apartment and neighbours with care."}</p>
+            </article>
+          </div>
+          {apartmentInstructions.length > 0 ? <div className="how-list essentials-how-list">
             {apartmentInstructions.map(([title, copy], i) => (
               <details key={title} open={i === 0}>
                 <summary>
@@ -490,10 +569,11 @@ export default function GuestManualView({
                 <p>{copy}</p>
               </details>
             ))}
-          </div>
+          </div> : null}
         </section>
       ) : null}
 
+      {activeSection === "explore" ? (
       <section className="manual-section explore-section" id="explore">
         <div className="manual-heading">
           <p className="eyebrow">Host favourites</p>
@@ -659,8 +739,9 @@ export default function GuestManualView({
           </div>
         </div>
       </section>
+      ) : null}
 
-      {guide.faqs && guide.faqs.length > 0 ? (
+      {activeSection === "essentials" && guide.faqs && guide.faqs.length > 0 ? (
         <section className="manual-section faq-section" id="faq">
           <div className="manual-heading">
             <p className="eyebrow">Good to know</p>
@@ -685,6 +766,7 @@ export default function GuestManualView({
         </section>
       ) : null}
 
+      {activeSection === "checkout" ? (
       <section className="manual-section checkout-section" id="checkout">
         <div className="manual-heading">
           <p className="eyebrow light">Before {guide.checkOutTime}</p>
@@ -706,6 +788,8 @@ export default function GuestManualView({
           <p>{guide.houseRules}</p>
         </div>
       </section>
+      ) : null}
+      </div>
 
       <section className="help-strip">
         <div>
