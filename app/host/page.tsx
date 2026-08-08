@@ -2,7 +2,7 @@
 
 /* eslint-disable @next/next/no-html-link-for-pages */
 
-import { FormEvent, useMemo, useRef, useState } from "react";
+import { FormEvent, Fragment, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import GuideEditor from "./GuideEditor";
 import TemplateManager from "./TemplateManager";
@@ -51,6 +51,16 @@ const monthNames = [
   "November",
   "December",
 ];
+
+function getCleaningWindowHours(checkOutTime: string, checkInTime: string): number {
+  const [outH, outM] = checkOutTime.split(":").map(Number);
+  const [inH, inM] = checkInTime.split(":").map(Number);
+  const outMins = (outH || 10) * 60 + (outM || 0);
+  const inMins = (inH || 10) * 60 + (inM || 0);
+  let diffMins = inMins - outMins;
+  if (diffMins < 0) diffMins += 24 * 60;
+  return Math.max(0, Math.round((diffMins / 60) * 10) / 10);
+}
 
 function dateKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -480,7 +490,11 @@ export default function HostPage() {
           <span>Create a reservation and it will appear automatically.</span>
         </div>
       ) : (
-        items.map((b) => {
+        items.map((b, index) => {
+          const nextB = items[index + 1];
+          const isSameDayTurnaround = Boolean(
+            nextB && !b.revoked && !nextB.revoked && b.checkOut === nextB.checkIn
+          );
           const isActive = b.accessStatus === "active";
           const isExpired = b.accessStatus === "expired" || b.revoked;
           const isNextArrival = b.id === nextArrivalId;
@@ -508,197 +522,240 @@ export default function HostPage() {
             effectiveNet = Math.max(0, effectiveGross - effectiveNet);
           }
 
+          const d1 = new Date(`${b.checkIn}T00:00:00`);
+          const d2 = new Date(`${b.checkOut}T00:00:00`);
+          const diffTime = d2.getTime() - d1.getTime();
+          const stayNights = Math.max(1, Math.round(diffTime / (1000 * 60 * 60 * 24)));
+
           return (
-            <article
-              key={b.id}
-              className={`${rowClass} interactive-row`}
-              onClick={() => setEditingBooking(b)}
-              title="Click to view and edit reservation details"
-            >
-              <div className="guest-cell">
-                <span className={`guest-avatar ${isNextArrival ? "hero-avatar-mid" : ""} ${isNoShow ? "noshow-avatar" : ""}`}>
-                  {b.firstName[0]}
-                  {b.lastName[0]}
-                </span>
-                <div className="guest-info-block">
-                  <h4 className={isNextArrival ? "hero-name-txt" : "guest-fullname"}>
-                    {b.firstName} {b.lastName}
-                  </h4>
-                  {isNoShow && (
-                    <span className="row-tag noshow-tag">🛑 No-Show / Unpaid</span>
-                  )}
-                  {isActive && !isNoShow && (
-                    <span className="row-tag active-tag">● Currently staying</span>
-                  )}
-                  {isNextArrival && !isNoShow && (
-                    <span className="row-tag next-tag">✦ Closest upcoming arrival</span>
-                  )}
-                  {b.hasCleaningAgency && (
-                    <span className={`row-tag ${b.cleaningStatus === "completed" ? "cleaning-cleaned-tag" : "cleaning-scheduled-tag"}`}>
-                      {b.cleaningStatus === "completed"
-                        ? `✓ Agency Cleaned (${b.cleaningFeeMkd || 750} MKD)`
-                        : `🧹 Agency Scheduled (${b.cleaningFeeMkd || 750} MKD)`}
-                    </span>
-                  )}
-                  <div className="guest-sub-meta">
-                    <small className="guest-count-sub">
-                      {b.guests} {b.guests === 1 ? "guest" : "guests"}
-                    </small>
-                    {b.phone ? (
-                      <span className="guest-phone-badge" onClick={(e) => e.stopPropagation()}>
-                        📞 {b.phone}
-                        <a
-                          className="contact-chip whatsapp"
-                          href={`https://api.whatsapp.com/send?phone=${encodeURIComponent(b.phone)}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          title="Message guest on WhatsApp"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          WhatsApp
-                        </a>
-                        <a
-                          className="contact-chip call"
-                          href={`tel:${b.phone}`}
-                          title="Call guest"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          Call
-                        </a>
+            <Fragment key={b.id}>
+              <article
+                className={`${rowClass} interactive-row`}
+                onClick={() => setEditingBooking(b)}
+                title="Click to view and edit reservation details"
+              >
+                <div className="guest-cell">
+                  <span className={`guest-avatar ${isNextArrival ? "hero-avatar-mid" : ""} ${isNoShow ? "noshow-avatar" : ""}`}>
+                    {b.firstName[0]}
+                    {b.lastName[0]}
+                  </span>
+                  <div className="guest-info-block">
+                    <h4 className={isNextArrival ? "hero-name-txt" : "guest-fullname"}>
+                      {b.firstName} {b.lastName}
+                    </h4>
+                    {isNoShow && (
+                      <span className="row-tag noshow-tag">🛑 No-Show / Unpaid</span>
+                    )}
+                    {isActive && !isNoShow && (
+                      <span className="row-tag active-tag">● Currently staying</span>
+                    )}
+                    {isNextArrival && !isNoShow && (
+                      <span className="row-tag next-tag">✦ Closest upcoming arrival</span>
+                    )}
+                    {b.hasCleaningAgency && (
+                      <span className={`row-tag ${b.cleaningStatus === "completed" ? "cleaning-cleaned-tag" : "cleaning-scheduled-tag"}`}>
+                        {b.cleaningStatus === "completed"
+                          ? `✓ Agency Cleaned (${b.cleaningFeeMkd || 750} MKD)`
+                          : `🧹 Agency Scheduled (${b.cleaningFeeMkd || 750} MKD)`}
                       </span>
-                    ) : null}
+                    )}
+                    <div className="guest-sub-meta">
+                      <small className="guest-count-sub">
+                        {b.guests} {b.guests === 1 ? "guest" : "guests"}
+                      </small>
+                      {b.phone ? (
+                        <span className="guest-phone-badge" onClick={(e) => e.stopPropagation()}>
+                          📞 {b.phone}
+                          <a
+                            className="contact-chip whatsapp"
+                            href={`https://api.whatsapp.com/send?phone=${encodeURIComponent(b.phone)}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            title="Message guest on WhatsApp"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            WhatsApp
+                          </a>
+                          <a
+                            className="contact-chip call"
+                            href={`tel:${b.phone}`}
+                            title="Call guest"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            Call
+                          </a>
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="stay-cell">
-                <strong className={isNextArrival ? "hero-date-txt" : "stay-date-txt"}>
-                  {formatShort(b.checkIn)}
-                </strong>
-                <small className="stay-sub-txt">to {formatShort(b.checkOut)}</small>
-                {b.hasCleaningAgency ? (
+                <div className="stay-cell">
+                  <strong className={isNextArrival ? "hero-date-txt" : "stay-date-txt"}>
+                    {formatShort(b.checkIn)}
+                  </strong>
+                  <small className="stay-sub-txt">to {formatShort(b.checkOut)}</small>
+                  <span className="stay-nights-badge">🌙 {stayNights} {stayNights === 1 ? "night" : "nights"}</span>
+                  {b.hasCleaningAgency ? (
+                    <button
+                      type="button"
+                      className={`cleaning-pill-btn ${b.cleaningStatus === "completed" ? "cleaned" : "scheduled"}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleCleaningStatus(b);
+                      }}
+                      title="Click to toggle cleaning inspection status"
+                    >
+                      {b.cleaningStatus === "completed"
+                        ? `✓ Cleaned (${b.cleaningFeeMkd || 750} MKD)`
+                        : `🧹 Agency Scheduled (${b.cleaningFeeMkd || 750} MKD)`}
+                    </button>
+                  ) : null}
+                </div>
+
+                <div className="source-cell">
+                  <span
+                    className={`source-dot ${b.source.toLowerCase().replace(".com", "").replace(" ", "-")}`}
+                  />
+                  <span>{b.source}</span>
+                </div>
+
+                <div className="amount-cell">
+                  {(effectiveGross > 0 || effectiveNet > 0) ? (
+                    <div className="amount-stack">
+                      <strong className={`amount-gross-val ${isNextArrival ? "hero-gross-txt" : ""} ${isNoShow ? "strikethrough-gross" : ""}`}>
+                        {new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(effectiveGross)}
+                      </strong>
+                      {isNoShow ? (
+                        <small className="noshow-unpaid-sub">🛑 Unpaid (Excluded)</small>
+                      ) : effectiveNet > 0 ? (
+                        <small className="amount-net-sub">
+                          Net {new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(effectiveNet)}
+                        </small>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <span className="unpriced-pill" title="Click to add stay prices">+ Add price</span>
+                  )}
+                </div>
+
+                <div className="timing-cell">
+                  <span
+                    className={`countdown-pill ${
+                      isNoShow
+                        ? "chip-noshow"
+                        : isActive
+                          ? "chip-active"
+                          : isExpired
+                            ? "chip-expired"
+                            : isNextArrival
+                              ? "chip-next-hero"
+                              : "chip-subsequent"
+                    }`}
+                  >
+                    {countdown}
+                  </span>
+                </div>
+
+                <div className="code-cell">
                   <button
-                    type="button"
-                    className={`cleaning-pill-btn ${b.cleaningStatus === "completed" ? "cleaned" : "scheduled"}`}
+                    className={`code-chip ${isNextArrival ? "hero-code-chip-inline" : ""}`}
                     onClick={(e) => {
                       e.stopPropagation();
-                      toggleCleaningStatus(b);
+                      navigator.clipboard.writeText(b.code);
                     }}
-                    title="Click to toggle cleaning inspection status"
+                    title="Click to copy door code"
                   >
-                    {b.cleaningStatus === "completed"
-                      ? `✓ Cleaned (${b.cleaningFeeMkd || 750} MKD)`
-                      : `🧹 Cleaning Scheduled (${b.cleaningFeeMkd || 750} MKD)`}
+                    <strong>{b.code}</strong> <span>⧉</span>
                   </button>
-                ) : null}
-              </div>
+                </div>
 
-              <div className="source-cell">
-                <span
-                  className={`source-dot ${b.source.toLowerCase().replace(".com", "").replace(" ", "-")}`}
-                />
-                <span>{b.source}</span>
-              </div>
+                <div className="row-actions" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    className="msg-action-chip"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMessagingBooking(b);
+                    }}
+                    title="View & copy populated messages for this guest"
+                  >
+                    ✉ Message
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingBooking(b);
+                    }}
+                    title="Edit guest details & stay"
+                  >
+                    ✏️ Edit
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      changeBooking(b, "toggle");
+                    }}
+                  >
+                    {b.revoked ? "Restore" : "Revoke"}
+                  </button>
+                  <button
+                    className={`noshow-btn ${isNoShow ? "active-noshow" : ""}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleNoShow(b);
+                    }}
+                    title={isNoShow ? "Unmark No-Show status" : "Flag as No-Show / Unpaid (excludes from totals)"}
+                  >
+                    {isNoShow ? "Unmark No-Show" : "🛑 No-Show"}
+                  </button>
+                  <button
+                    className="danger"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      changeBooking(b, "delete");
+                    }}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </article>
 
-              <div className="amount-cell">
-                {(effectiveGross > 0 || effectiveNet > 0) ? (
-                  <div className="amount-stack">
-                    <strong className={`amount-gross-val ${isNextArrival ? "hero-gross-txt" : ""} ${isNoShow ? "strikethrough-gross" : ""}`}>
-                      {new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(effectiveGross)}
-                    </strong>
-                    {isNoShow ? (
-                      <small className="noshow-unpaid-sub">🛑 Unpaid (Excluded)</small>
-                    ) : effectiveNet > 0 ? (
-                      <small className="amount-net-sub">
-                        Net {new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(effectiveNet)}
-                      </small>
-                    ) : null}
+              {isSameDayTurnaround && nextB && (() => {
+                const windowHours = getCleaningWindowHours(times.checkOutTime, times.checkInTime);
+                return (
+                  <div key={`turnaround-${b.id}-${nextB.id}`} className="turnaround-bridge-row">
+                    <div className="turnaround-bridge-content">
+                      <div className="turnaround-left-group">
+                        <div className="turnaround-arrow-flow">
+                          <span className="connector-node top-node" />
+                          <span className="connector-stem" />
+                          <span className="connector-arrow-head">↓</span>
+                        </div>
+                        <div className="turnaround-text-block">
+                          <div className="turnaround-header-line">
+                            <span className="turnaround-tag-title">⚡ SAME-DAY TURNAROUND · {formatShort(b.checkOut)}</span>
+                          </div>
+                          <p className="turnaround-flow-detail">
+                            <b>{b.firstName} {b.lastName}</b> departs at {times.checkOutTime} &nbsp;➔&nbsp; <b>{nextB.firstName} {nextB.lastName}</b> arrives at {times.checkInTime}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="turnaround-right-group">
+                        <span className={`turnaround-hours-badge ${windowHours <= 2 ? "urgent" : ""}`}>
+                          ⏱ {windowHours === 0 ? "0h window (Immediate Turnaround)" : `${windowHours} hours to clean`}
+                        </span>
+                        {b.hasCleaningAgency || nextB.hasCleaningAgency ? (
+                          <span className="turnaround-agency-badge">🧹 Agency Scheduled</span>
+                        ) : (
+                          <span className="turnaround-alert-badge">⚡ Rapid Cleaning Required</span>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                ) : (
-                  <span className="unpriced-pill" title="Click to add stay prices">+ Add price</span>
-                )}
-              </div>
-
-              <div className="timing-cell">
-                <span
-                  className={`countdown-pill ${
-                    isNoShow
-                      ? "chip-noshow"
-                      : isActive
-                        ? "chip-active"
-                        : isExpired
-                          ? "chip-expired"
-                          : isNextArrival
-                            ? "chip-next-hero"
-                            : "chip-subsequent"
-                  }`}
-                >
-                  {countdown}
-                </span>
-              </div>
-
-              <div className="code-cell">
-                <button
-                  className={`code-chip ${isNextArrival ? "hero-code-chip-inline" : ""}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    navigator.clipboard.writeText(b.code);
-                  }}
-                  title="Click to copy door code"
-                >
-                  <strong>{b.code}</strong> <span>⧉</span>
-                </button>
-              </div>
-
-              <div className="row-actions" onClick={(e) => e.stopPropagation()}>
-                <button
-                  className="msg-action-chip"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setMessagingBooking(b);
-                  }}
-                  title="View & copy populated messages for this guest"
-                >
-                  ✉ Message
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setEditingBooking(b);
-                  }}
-                  title="Edit guest details & stay"
-                >
-                  ✏️ Edit
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    changeBooking(b, "toggle");
-                  }}
-                >
-                  {b.revoked ? "Restore" : "Revoke"}
-                </button>
-                <button
-                  className={`noshow-btn ${isNoShow ? "active-noshow" : ""}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleNoShow(b);
-                  }}
-                  title={isNoShow ? "Unmark No-Show status" : "Flag as No-Show / Unpaid (excludes from totals)"}
-                >
-                  {isNoShow ? "Unmark No-Show" : "🛑 No-Show"}
-                </button>
-                <button
-                  className="danger"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    changeBooking(b, "delete");
-                  }}
-                >
-                  Delete
-                </button>
-              </div>
-            </article>
+                );
+              })()}
+            </Fragment>
           );
         })
       )}
