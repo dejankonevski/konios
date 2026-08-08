@@ -44,6 +44,10 @@ export async function POST(request: Request) {
     notes: data.notes?.trim() ?? "",
     grossAmount: Math.max(0, Number(data.grossAmount) || 0),
     netAmount: Math.max(0, Number(data.netAmount) || 0),
+    hasCleaningAgency: Boolean(data.hasCleaningAgency),
+    cleaningFeeMkd: Math.max(0, Number(data.cleaningFeeMkd) || 750),
+    cleaningStatus: data.cleaningStatus === "completed" ? "completed" : "scheduled",
+    cleaningNotes: data.cleaningNotes?.trim() ?? "",
   });
   return Response.json({ ...booking, guest: `${firstName} ${lastName}` });
 }

@@ -15,6 +15,10 @@ export type Booking = {
   createdAt: number;
   grossAmount?: number;
   netAmount?: number;
+  hasCleaningAgency?: boolean;
+  cleaningFeeMkd?: number;
+  cleaningStatus?: "scheduled" | "completed";
+  cleaningNotes?: string;
 };
 
 export function getRedis() {

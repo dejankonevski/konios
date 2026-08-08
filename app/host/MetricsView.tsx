@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type Booking = {
   id: string;
@@ -47,11 +47,30 @@ const monthNames = [
   "December",
 ];
 
+type ExpenseItem = {
+  id: string;
+  date: string;
+  category: string;
+  amountEur: number;
+  amountMkd?: number;
+  notes: string;
+};
+
 export default function MetricsView({ bookings }: { bookings: Booking[] }) {
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState<number>(currentYear);
   const [filterFrom, setFilterFrom] = useState<string>("");
   const [filterTo, setFilterTo] = useState<string>("");
+
+  const [expenses, setExpenses] = useState<ExpenseItem[]>([]);
+
+  // Fetch Expenses
+  useEffect(() => {
+    fetch("/api/host/expenses")
+      .then((res) => (res.ok ? res.json() : { expenses: [] }))
+      .then((data) => setExpenses(data.expenses || []))
+      .catch(() => {});
+  }, []);
 
   // Extract available years
   const availableYears = useMemo(() => {
@@ -208,15 +227,30 @@ export default function MetricsView({ bookings }: { bookings: Booking[] }) {
       ? `${monthNames[startMonthIdx].slice(0, 3)} – ${monthNames[endMonthIdx].slice(0, 3)}`
       : "Full Year";
 
+    // Calculate Total Expenses in selected period
+    let totalExpenses = 0;
+    expenses.forEach((e) => {
+      const eDate = e.date;
+      const isAfterFrom = !filterFrom || eDate >= filterFrom;
+      const isBeforeTo = !filterTo || eDate <= filterTo;
+      const isYearMatch = new Date(eDate).getFullYear() === selectedYear;
+      if (isAfterFrom && isBeforeTo && isYearMatch) {
+        totalExpenses += e.amountEur || 0;
+      }
+    });
+
+    const trueNetProfit = Math.max(0, totalNet - totalExpenses);
+
     const adr = totalNights > 0 ? totalGross / totalNights : 0;
     const revPar = totalGross / activeDays;
-    const netMarginPct = totalGross > 0 ? Math.round((totalNet / totalGross) * 100) : 0;
+    const netMarginPct = totalGross > 0 ? Math.round((trueNetProfit / totalGross) * 100) : 0;
     const commPct = totalGross > 0 ? Math.round((totalCommission / totalGross) * 100) : 0;
 
     return {
       totalGross,
-      totalNet,
+      totalNet: trueNetProfit,
       totalCommission,
+      totalExpenses,
       totalNights,
       totalBookings,
       yearOccupancyPct: periodOccupancyPct,
@@ -231,7 +265,7 @@ export default function MetricsView({ bookings }: { bookings: Booking[] }) {
       displayMonthlyBreakdown,
       channelStats,
     };
-  }, [bookings, selectedYear, filterFrom, filterTo]);
+  }, [bookings, expenses, selectedYear, filterFrom, filterTo]);
 
   function clearFilters() {
     setFilterFrom("");

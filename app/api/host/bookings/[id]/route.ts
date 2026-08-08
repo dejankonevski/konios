@@ -20,6 +20,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (["Airbnb", "Booking.com", "Direct", "Other"].includes(body.source)) updates.source = body.source;
   if (typeof body.grossAmount === "number") updates.grossAmount = Math.max(0, body.grossAmount);
   if (typeof body.netAmount === "number") updates.netAmount = Math.max(0, body.netAmount);
+  if (typeof body.hasCleaningAgency === "boolean") updates.hasCleaningAgency = body.hasCleaningAgency;
+  if (typeof body.cleaningFeeMkd === "number") updates.cleaningFeeMkd = Math.max(0, body.cleaningFeeMkd);
+  if (["scheduled", "completed"].includes(body.cleaningStatus)) updates.cleaningStatus = body.cleaningStatus;
+  if (typeof body.cleaningNotes === "string") updates.cleaningNotes = body.cleaningNotes.trim();
 
   if (typeof body.checkIn === "string" && typeof body.checkOut === "string") {
     if (body.checkIn >= body.checkOut) {

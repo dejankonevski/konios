@@ -1002,4 +1002,76 @@ body { top: 0!important; position: static!important; }
   .bar-value-label { display: none; }
 }
 
+/* Scheduled Cleaning Agency & Expenses Styling */
+.cleaning-pill-btn { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 6px; font-size: .72rem; font-weight: 700; cursor: pointer; transition: background .12s ease; margin-top: 4px; width: fit-content; border: 1px solid transparent; }
+.cleaning-pill-btn.scheduled { background: #fff7ed; color: #c2410c; border-color: #ffedd5; }
+.cleaning-pill-btn.scheduled:hover { background: #ffedd5; }
+.cleaning-pill-btn.cleaned { background: #f0fdf4; color: #15803d; border-color: #dcfce7; }
+.cleaning-pill-btn.cleaned:hover { background: #dcfce7; }
+
+.cleaning-today-banner { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 20px; border-radius: 14px; margin-bottom: 20px; box-shadow: 0 4px 14px rgba(0,0,0,0.04); }
+.cleaning-today-banner.needs-check { background: linear-gradient(135deg, #fff7ed 0%, #ffffff 100%); border: 1.5px solid #fdba74; }
+.cleaning-today-banner.is-verified { background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%); border: 1.5px solid #86efac; }
+.cleaning-banner-left { display: flex; align-items: center; gap: 14px; }
+.cleaning-icon { font-size: 1.6rem; }
+.cleaning-banner-left strong { display: block; font-size: .96rem; font-weight: 800; color: #0f172a; }
+.cleaning-banner-left p { margin: 2px 0 0; font-size: .82rem; color: #475569; }
+.btn-mark-cleaned { padding: 9px 18px; border-radius: 8px; font-size: .82rem; font-weight: 800; border: 0; cursor: pointer; background: #0f172a; color: #ffffff; transition: opacity .15s ease; flex-shrink: 0; }
+.btn-mark-cleaned:hover { opacity: .9; }
+
+.cleaning-schedule-section { background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 10px; padding: 12px 14px; margin-top: 14px; }
+.checkbox-field-label { display: flex; align-items: center; gap: 8px; font-size: .85rem; font-weight: 700; color: #1e293b; cursor: pointer; }
+.checkbox-field-label input[type="checkbox"] { width: 16px; height: 16px; accent-color: #2563eb; }
+.cleaning-fee-sub-field { margin-top: 10px; display: flex; flex-direction: column; gap: 4px; }
+.cleaning-fee-sub-field label { font-size: .75rem; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: .05em; }
+.cleaning-fee-sub-field input { padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: .9rem; }
+
+/* Expenses Management Module */
+.expenses-view-container { display: flex; flex-direction: column; gap: 24px; padding-bottom: 40px; }
+.expenses-top-header h2 { font-size: 1.8rem; font-weight: 800; color: #0f172a; margin: 4px 0 6px; }
+.expenses-subhead { color: #64748b; font-size: .9rem; max-width: 720px; line-height: 1.5; margin: 0; }
+
+.expense-kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+.expense-kpi-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; gap: 6px; }
+.expense-kpi-card.total-card { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: #ffffff; border: 0; }
+.expense-kpi-card.total-card .kpi-label { color: #94a3b8; }
+.expense-kpi-card.total-card .kpi-value-main { color: #ffffff; font-size: 1.7rem; }
+.expense-kpi-card.total-card .kpi-sub-mkd { color: #cbd5e1; }
+.kpi-label { font-size: .68rem; font-weight: 800; letter-spacing: .06em; color: #64748b; }
+.kpi-value-main { font-size: 1.6rem; font-weight: 800; }
+.kpi-value-sec { font-size: 1.3rem; font-weight: 800; color: #1e293b; }
+.kpi-sub-mkd { font-size: .78rem; font-weight: 600; color: #64748b; }
+
+.expense-content-grid { display: grid; grid-template-columns: 320px 1fr; gap: 24px; }
+.expense-form-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 22px; display: flex; flex-direction: column; gap: 16px; box-shadow: 0 4px 14px rgba(0,0,0,0.03); height: fit-content; }
+.expense-form-card h3 { font-size: 1.1rem; font-weight: 800; color: #0f172a; margin: 0; }
+.expense-form { display: flex; flex-direction: column; gap: 14px; }
+.expense-form-group { display: flex; flex-direction: column; gap: 6px; }
+.expense-form-group label { font-size: .75rem; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: .04em; }
+.expense-form-group input, .expense-form-group select { padding: 10px 12px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: .9rem; color: #0f172a; outline: none; background: #ffffff; }
+.expense-dual-amount { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+.expense-table-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 22px; display: flex; flex-direction: column; gap: 16px; box-shadow: 0 4px 14px rgba(0,0,0,0.03); }
+.expense-table-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.expense-table-header h3 { font-size: 1.1rem; font-weight: 800; color: #0f172a; margin: 0; }
+.expense-filter-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.exp-pill { padding: 5px 12px; border-radius: 99px; font-size: .74rem; font-weight: 700; border: 1px solid #e2e8f0; background: #f8fafc; color: #475569; cursor: pointer; transition: all .12s ease; }
+.exp-pill.active { background: #0f172a; color: #ffffff; border-color: #0f172a; }
+
+.category-tag { display: inline-block; padding: 3px 8px; border-radius: 6px; font-size: .74rem; font-weight: 800; }
+.category-tag.cat-cleaning-agency { background: #fff7ed; color: #c2410c; }
+.category-tag.cat-supplies---amenities { background: #eff6ff; color: #1d4ed8; }
+.category-tag.cat-utilities { background: #f5f3ff; color: #6d28d9; }
+.category-tag.cat-maintenance---repairs { background: #fef2f2; color: #b91c1c; }
+.category-tag.cat-laundry { background: #ecfdf5; color: #047857; }
+.category-tag.cat-other { background: #f1f5f9; color: #475569; }
+
+.linked-booking-sub { display: block; font-size: .72rem; color: #64748b; font-weight: 600; margin-top: 2px; }
+.btn-del-expense { background: none; border: 0; color: #ef4444; font-size: .78rem; font-weight: 700; cursor: pointer; opacity: .8; transition: opacity .12s ease; }
+.btn-del-expense:hover { opacity: 1; text-decoration: underline; }
+
+@media(max-width: 900px) {
+  .expense-content-grid { grid-template-columns: 1fr; }
+}
+
 

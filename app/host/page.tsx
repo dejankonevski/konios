@@ -9,6 +9,7 @@ import TemplateManager from "./TemplateManager";
 import FaqManager from "./FaqManager";
 import GalleryManager from "./GalleryManager";
 import MetricsView from "./MetricsView";
+import ExpensesView from "./ExpensesView";
 
 type Booking = {
   id: string;
@@ -18,7 +19,7 @@ type Booking = {
   checkIn: string;
   checkOut: string;
   guests: number;
-  source: string;
+  source: "Airbnb" | "Booking.com" | "Direct" | "Other";
   phone?: string;
   notes: string;
   revoked: boolean;
@@ -26,6 +27,10 @@ type Booking = {
   accessStatus: "upcoming" | "active" | "expired" | "revoked";
   grossAmount?: number;
   netAmount?: number;
+  hasCleaningAgency?: boolean;
+  cleaningFeeMkd?: number;
+  cleaningStatus?: "scheduled" | "completed";
+  cleaningNotes?: string;
 };
 type Generated = Booking & { guest: string };
 const weekDays = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
@@ -86,7 +91,7 @@ export default function HostPage() {
     [error, setError] = useState(""),
     [copied, setCopied] = useState(false);
   const [view, setView] = useState<
-    "overview" | "bookings" | "new" | "guide" | "templates" | "faqs" | "gallery" | "metrics"
+    "overview" | "bookings" | "new" | "guide" | "templates" | "faqs" | "gallery" | "metrics" | "expenses"
   >("overview"),
     [bookings, setBookings] = useState<Booking[]>([]),
     [search, setSearch] = useState("");
@@ -127,6 +132,9 @@ export default function HostPage() {
           notes: editingBooking.notes,
           grossAmount: Number(editingBooking.grossAmount) || 0,
           netAmount: Number(editingBooking.netAmount) || 0,
+          hasCleaningAgency: Boolean(editingBooking.hasCleaningAgency),
+          cleaningFeeMkd: Number(editingBooking.cleaningFeeMkd) || 750,
+          cleaningStatus: editingBooking.cleaningStatus || "scheduled",
         }),
       });
       const data = await res.json();
@@ -346,6 +354,16 @@ export default function HostPage() {
       setCopied(true);
     }
   }
+  async function toggleCleaningStatus(booking: Booking) {
+    const newStatus = booking.cleaningStatus === "completed" ? "scheduled" : "completed";
+    await fetch(`/api/host/bookings/${booking.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cleaningStatus: newStatus }),
+    });
+    await loadBookings();
+  }
+
   async function changeBooking(booking: Booking, action: "toggle" | "delete") {
     if (
       action === "delete" &&
@@ -508,6 +526,21 @@ export default function HostPage() {
                   {formatShort(b.checkIn)}
                 </strong>
                 <small className="stay-sub-txt">to {formatShort(b.checkOut)}</small>
+                {b.hasCleaningAgency ? (
+                  <button
+                    type="button"
+                    className={`cleaning-pill-btn ${b.cleaningStatus === "completed" ? "cleaned" : "scheduled"}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleCleaningStatus(b);
+                    }}
+                    title="Click to toggle cleaning inspection status"
+                  >
+                    {b.cleaningStatus === "completed"
+                      ? `✓ Cleaned (${b.cleaningFeeMkd || 750} MKD)`
+                      : `🧹 Cleaning Scheduled (${b.cleaningFeeMkd || 750} MKD)`}
+                  </button>
+                ) : null}
               </div>
 
               <div className="source-cell">
@@ -634,6 +667,12 @@ export default function HostPage() {
             <span>📊</span>Revenue Metrics
           </button>
           <button
+            className={view === "expenses" ? "active" : ""}
+            onClick={() => setView("expenses")}
+          >
+            <span>💸</span>Expenses
+          </button>
+          <button
             className={view === "guide" ? "active" : ""}
             onClick={() => setView("guide")}
           >
@@ -675,8 +714,10 @@ export default function HostPage() {
                   ? "All bookings"
                   : view === "metrics"
                     ? "Revenue & Performance Insights"
-                    : view === "guide"
-                      ? "Guest guide"
+                    : view === "expenses"
+                      ? "Property Expenses"
+                      : view === "guide"
+                        ? "Guest guide"
                       : view === "templates"
                         ? "Message templates"
                         : view === "faqs"
@@ -811,6 +852,40 @@ export default function HostPage() {
                 )}
               </div>
             </div>
+            {(() => {
+              const todayStr = new Date().toISOString().slice(0, 10);
+              const cleaningToday = bookings.filter(
+                (b) => !b.revoked && b.hasCleaningAgency && (b.checkOut === todayStr || b.checkIn === todayStr)
+              );
+              if (cleaningToday.length === 0) return null;
+              const target = cleaningToday[0];
+              const isDone = target.cleaningStatus === "completed";
+              return (
+                <div className={`cleaning-today-banner ${isDone ? "is-verified" : "needs-check"}`}>
+                  <div className="cleaning-banner-left">
+                    <span className="cleaning-icon">🧹</span>
+                    <div>
+                      <strong>
+                        {isDone
+                          ? "✓ Agency Cleaning Inspection Verified Today"
+                          : `🧹 Agency Cleaning Scheduled Today (${target.cleaningFeeMkd || 750} MKD)`}
+                      </strong>
+                      <p>
+                        Cleaning agency assigned for <b>{target.firstName} {target.lastName}</b>&apos;s stay ({target.checkIn} to {target.checkOut}). Please inspect cleanliness.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-mark-cleaned"
+                    onClick={() => toggleCleaningStatus(target)}
+                  >
+                    {isDone ? "✓ Mark Scheduled" : "Mark as Checked & Cleaned ✓"}
+                  </button>
+                </div>
+              );
+            })()}
+
             <div className="dashboard-section-title">
               <div>
                 <p className="eyebrow">Coming up</p>
@@ -818,110 +893,7 @@ export default function HostPage() {
               </div>
               <button onClick={() => setView("bookings")}>View all →</button>
             </div>
-            <div className="booking-table arrivals-unified-table">
-              <div className="booking-table-head">
-                <span>Guest</span>
-                <span>Stay</span>
-                <span>Source</span>
-                <span>Status / Timing</span>
-                <span>Code</span>
-                <span />
-              </div>
-              {overviewList.length === 0 ? (
-                <div className="empty-state">
-                  <strong>No active or upcoming arrivals.</strong>
-                  <span>Create a reservation and it will appear automatically.</span>
-                </div>
-              ) : (
-                overviewList.map((b) => {
-                  const isActive = b.accessStatus === "active";
-                  const isNextArrival = b.id === nextArrivalId;
-                  const countdown = isActive
-                    ? "Active now"
-                    : getDaysUntilLabel(b.checkIn);
-
-                  const rowClass = [
-                    "booking-table-row",
-                    isActive ? "is-active-row" : "",
-                    isNextArrival ? "is-next-hero-row" : "is-subsequent-row",
-                  ]
-                    .filter(Boolean)
-                    .join(" ");
-
-                  return (
-                    <article key={b.id} className={rowClass}>
-                      <div className="guest-cell">
-                        <span className={`guest-avatar ${isNextArrival ? "hero-avatar-mid" : ""}`}>
-                          {b.firstName[0]}
-                          {b.lastName[0]}
-                        </span>
-                        <div className="guest-info-block">
-                          <h4 className={isNextArrival ? "hero-name-txt" : "guest-fullname"}>
-                            {b.firstName} {b.lastName}
-                          </h4>
-                          {isActive && (
-                            <span className="row-tag active-tag">● Currently staying</span>
-                          )}
-                          {isNextArrival && (
-                            <span className="row-tag next-tag">✦ Closest upcoming arrival</span>
-                          )}
-                          <small className="guest-count-sub">
-                            {b.guests} {b.guests === 1 ? "guest" : "guests"}
-                          </small>
-                        </div>
-                      </div>
-
-                      <div className="stay-cell">
-                        <strong className={isNextArrival ? "hero-date-txt" : "stay-date-txt"}>
-                          {formatShort(b.checkIn)}
-                        </strong>
-                        <small className="stay-sub-txt">to {formatShort(b.checkOut)}</small>
-                      </div>
-
-                      <div className="source-cell">
-                        <span
-                          className={`source-dot ${b.source.toLowerCase().replace(".com", "").replace(" ", "-")}`}
-                        />
-                        <span>{b.source}</span>
-                      </div>
-
-                      <div className="timing-cell">
-                        <span
-                          className={`countdown-pill ${
-                            isActive
-                              ? "chip-active"
-                              : isNextArrival
-                                ? "chip-next-hero"
-                                : "chip-subsequent"
-                          }`}
-                        >
-                          {countdown}
-                        </span>
-                      </div>
-
-                      <div className="code-cell">
-                        <button
-                          className={`code-chip ${isNextArrival ? "hero-code-chip-inline" : ""}`}
-                          onClick={() => navigator.clipboard.writeText(b.code)}
-                          title="Click to copy door code"
-                        >
-                          <strong>{b.code}</strong> <span>⧉</span>
-                        </button>
-                      </div>
-
-                      <div className="row-actions">
-                        <button onClick={() => changeBooking(b, "toggle")}>
-                          {b.revoked ? "Restore" : "Revoke"}
-                        </button>
-                        <button className="danger" onClick={() => changeBooking(b, "delete")}>
-                          Delete
-                        </button>
-                      </div>
-                    </article>
-                  );
-                })
-              )}
-            </div>
+            {rows(overviewList)}
             <div className="pro-tip">
               <span>✦</span>
               <div>
@@ -1078,68 +1050,53 @@ export default function HostPage() {
                           ))}
                         </div>
                         <div className="calendar-grid">
-                          {monthDays(month).map((date, index) =>
-                            date ? (
-                              (() => {
-                                const value = dateKey(date),
-                                  isStart = start === value,
-                                  isEnd = end === value,
-                                  isSelected = isStart || isEnd,
-                                  inRange =
-                                    !!start &&
-                                    !!end &&
-                                    value > start &&
-                                    value < end,
-                                  inHoverRange =
-                                    !end &&
-                                    !!start &&
-                                    !!hoverDate &&
-                                    ((hoverDate > start &&
-                                      value > start &&
-                                      value <= hoverDate) ||
-                                      (hoverDate < start &&
-                                        value < start &&
-                                        value >= hoverDate));
-                                const existingBooking = bookings.find(
-                                  (b) =>
-                                    !b.revoked &&
-                                    value >= b.checkIn &&
-                                    value < b.checkOut
-                                );
-                                const cls = [
-                                  "day-btn",
-                                  isStart ? "is-start" : "",
-                                  isEnd ? "is-end" : "",
-                                  isSelected ? "selected" : "",
-                                  inRange ? "in-range" : "",
-                                  inHoverRange ? "in-hover-range" : "",
-                                  existingBooking ? "is-booked-date" : "",
-                                ]
-                                  .filter(Boolean)
-                                  .join(" ");
-                                return (
-                                  <button
-                                    type="button"
-                                    data-date={value}
-                                    key={value}
-                                    className={cls}
-                                    title={
-                                      existingBooking
-                                        ? `Booked: ${existingBooking.firstName} ${existingBooking.lastName} (${existingBooking.checkIn} to ${existingBooking.checkOut})`
-                                        : undefined
-                                    }
-                                    onPointerDown={(e) => handlePointerDown(value, e)}
-                                    onPointerEnter={(e) => handlePointerMove(value, e)}
-                                    onPointerUp={() => handlePointerUp(value)}
-                                  >
-                                    {date.getDate()}
-                                  </button>
-                                );
-                              })()
-                            ) : (
-                              <span key={`blank-${index}`} />
-                            ),
-                          )}
+                          {monthDays(month).map((date, index) => {
+                            if (!date) return <span key={`blank-${index}`} />;
+                            const value = dateKey(date);
+                            const isStart = start === value;
+                            const isEnd = end === value;
+                            const isSelected = isStart || isEnd;
+                            const inRange = !!start && !!end && value > start && value < end;
+                            const inHoverRange =
+                              !end &&
+                              !!start &&
+                              !!hoverDate &&
+                              ((hoverDate > start && value > start && value <= hoverDate) ||
+                                (hoverDate < start && value < start && value >= hoverDate));
+                            const existingBooking = bookings.find(
+                              (b) => !b.revoked && value >= b.checkIn && value < b.checkOut
+                            );
+                            const cls = [
+                              "day-btn",
+                              isStart ? "is-start" : "",
+                              isEnd ? "is-end" : "",
+                              isSelected ? "selected" : "",
+                              inRange ? "in-range" : "",
+                              inHoverRange ? "in-hover-range" : "",
+                              existingBooking ? "is-booked-date" : "",
+                            ]
+                              .filter(Boolean)
+                              .join(" ");
+
+                            return (
+                              <button
+                                type="button"
+                                data-date={value}
+                                key={value}
+                                className={cls}
+                                title={
+                                  existingBooking
+                                    ? `Booked: ${existingBooking.firstName} ${existingBooking.lastName} (${existingBooking.checkIn} to ${existingBooking.checkOut})`
+                                    : undefined
+                                }
+                                onPointerDown={(e) => handlePointerDown(value, e)}
+                                onPointerEnter={(e) => handlePointerMove(value, e)}
+                                onPointerUp={() => handlePointerUp(value)}
+                              >
+                                {date.getDate()}
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
                     ))}
@@ -1177,6 +1134,33 @@ export default function HostPage() {
                       placeholder="Arrival details, preferences, reminders…"
                     />
                   </label>
+                  <div className="cleaning-schedule-section">
+                    <label className="checkbox-field-label">
+                      <input
+                        type="checkbox"
+                        name="hasCleaningAgency"
+                        defaultChecked={false}
+                        onChange={(e) => {
+                          const wrap = document.getElementById("new-cleaning-fee-input-wrap");
+                          if (wrap) wrap.style.display = e.target.checked ? "flex" : "none";
+                        }}
+                      />
+                      <span>🧹 Schedule Cleaning Agency for Checkout Day</span>
+                    </label>
+                    <div id="new-cleaning-fee-input-wrap" className="cleaning-fee-sub-field" style={{ display: "none" }}>
+                      <label>
+                        Agency Fee (MKD)
+                        <input
+                          type="number"
+                          step="50"
+                          min="0"
+                          name="cleaningFeeMkd"
+                          defaultValue={750}
+                          placeholder="750"
+                        />
+                      </label>
+                    </div>
+                  </div>
                   {error && <p className="form-error">{error}</p>}
                   <button className="submit-button">
                     Save booking & generate code<span>↗</span>
@@ -1215,6 +1199,7 @@ export default function HostPage() {
           </div>
         )}
         {view === "metrics" && <MetricsView bookings={bookings} />}
+        {view === "expenses" && <ExpensesView bookings={bookings} />}
         {view === "guide" && <GuideEditor />}
         {view === "templates" && <TemplateManager />}
         {view === "faqs" && <FaqManager />}
@@ -1294,7 +1279,7 @@ export default function HostPage() {
                     id="edit-source"
                     value={editingBooking.source}
                     onChange={(e) =>
-                      setEditingBooking({ ...editingBooking, source: e.target.value })
+                      setEditingBooking({ ...editingBooking, source: e.target.value as "Airbnb" | "Booking.com" | "Direct" | "Other" })
                     }
                   >
                     <option>Airbnb</option>
@@ -1436,6 +1421,64 @@ export default function HostPage() {
                   );
                 })()
               ) : null}
+
+              {/* Cleaning Agency Scheduling Box */}
+              <div className="cleaning-scheduling-box">
+                <label className="checkbox-label" htmlFor="edit-cleaning-toggle">
+                  <input
+                    id="edit-cleaning-toggle"
+                    type="checkbox"
+                    checked={Boolean(editingBooking.hasCleaningAgency)}
+                    onChange={(e) =>
+                      setEditingBooking({
+                        ...editingBooking,
+                        hasCleaningAgency: e.target.checked,
+                        cleaningFeeMkd: e.target.checked ? (editingBooking.cleaningFeeMkd || 750) : 0,
+                        cleaningStatus: e.target.checked ? (editingBooking.cleaningStatus || "scheduled") : "scheduled",
+                      })
+                    }
+                  />
+                  <span>🧹 Schedule Cleaning Agency for Checkout Day ({editingBooking.checkOut})</span>
+                </label>
+
+                {editingBooking.hasCleaningAgency ? (
+                  <div className="modal-field-row cleaning-details-sub" style={{ marginTop: "12px" }}>
+                    <div className="form-group">
+                      <label htmlFor="edit-cleaning-fee">Agency Fee (MKD)</label>
+                      <input
+                        id="edit-cleaning-fee"
+                        type="number"
+                        step="50"
+                        min="0"
+                        placeholder="750"
+                        value={editingBooking.cleaningFeeMkd ?? 750}
+                        onChange={(e) =>
+                          setEditingBooking({
+                            ...editingBooking,
+                            cleaningFeeMkd: parseFloat(e.target.value) || 0,
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label htmlFor="edit-cleaning-status">Inspection Status</label>
+                      <select
+                        id="edit-cleaning-status"
+                        value={editingBooking.cleaningStatus || "scheduled"}
+                        onChange={(e) =>
+                          setEditingBooking({
+                            ...editingBooking,
+                            cleaningStatus: e.target.value as "scheduled" | "completed",
+                          })
+                        }
+                      >
+                        <option value="scheduled">⏳ Agency Scheduled ({editingBooking.cleaningFeeMkd || 750} MKD)</option>
+                        <option value="completed">✓ Inspection Checked & Cleaned</option>
+                      </select>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
 
               <div className="form-group full-width">
                 <label htmlFor="edit-notes">Notes / Special requests</label>
