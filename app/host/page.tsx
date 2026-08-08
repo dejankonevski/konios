@@ -622,7 +622,7 @@ export default function HostPage() {
                 onClick={() => setEditingBooking(b)}
                 title="Click to view and edit reservation details"
               >
-                <div className="guest-cell">
+                <div className="guest-cell" data-label="Guest">
                   <span className={`guest-avatar ${isNextArrival ? "hero-avatar-mid" : ""} ${isNoShow ? "noshow-avatar" : ""}`}>
                     {b.firstName[0]}
                     {b.lastName[0]}
@@ -685,7 +685,7 @@ export default function HostPage() {
                   </div>
                 </div>
 
-                <div className="stay-cell">
+                <div className="stay-cell" data-label="Stay">
                   <strong className={isNextArrival ? "hero-date-txt" : "stay-date-txt"}>
                     {formatShort(b.checkIn)}
                   </strong>
@@ -711,14 +711,14 @@ export default function HostPage() {
                   </button>
                 </div>
 
-                <div className="source-cell">
+                <div className="source-cell" data-label="Source">
                   <span
                     className={`source-dot ${b.source.toLowerCase().replace(".com", "").replace(" ", "-")}`}
                   />
                   <span>{b.source}</span>
                 </div>
 
-                <div className="amount-cell">
+                <div className="amount-cell" data-label="Total amount">
                   {(effectiveGross > 0 || effectiveNet > 0) ? (
                     <div className="amount-stack">
                       <strong className={`amount-gross-val ${isNextArrival ? "hero-gross-txt" : ""} ${isNoShow ? "strikethrough-gross" : ""}`}>
@@ -737,7 +737,7 @@ export default function HostPage() {
                   )}
                 </div>
 
-                <div className="timing-cell">
+                <div className="timing-cell" data-label="Status / timing">
                   <span
                     className={`countdown-pill ${
                       isNoShow
@@ -755,7 +755,7 @@ export default function HostPage() {
                   </span>
                 </div>
 
-                <div className="code-cell">
+                <div className="code-cell" data-label="Guest PIN">
                   <button
                     className={`code-chip ${isNextArrival ? "hero-code-chip-inline" : ""}`}
                     onClick={(e) => {
@@ -768,7 +768,7 @@ export default function HostPage() {
                   </button>
                 </div>
 
-                <div className="row-actions" onClick={(e) => e.stopPropagation()}>
+                <div className="row-actions" data-label="Actions" onClick={(e) => e.stopPropagation()}>
                   <button
                     className="msg-action-chip"
                     onClick={(e) => {
