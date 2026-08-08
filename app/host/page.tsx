@@ -383,12 +383,33 @@ export default function HostPage() {
       setCopied(true);
     }
   }
-  async function toggleCleaningStatus(booking: Booking) {
-    const newStatus = booking.cleaningStatus === "completed" ? "scheduled" : "completed";
+  async function handleCleaningAction(booking: Booking, e?: React.MouseEvent) {
+    if (e) e.stopPropagation();
+    let updates: Record<string, unknown> = {};
+
+    if (!booking.hasCleaningAgency) {
+      updates = {
+        hasCleaningAgency: true,
+        cleaningFeeMkd: booking.cleaningFeeMkd || 750,
+        cleaningStatus: "scheduled",
+      };
+    } else if (booking.cleaningStatus === "scheduled") {
+      updates = { cleaningStatus: "completed" };
+    } else {
+      const choice = window.confirm(
+        `Cleaning is marked as completed for ${booking.firstName} ${booking.lastName}.\n\nClick OK to revert to Scheduled status, or Cancel to unassign agency.`
+      );
+      if (choice) {
+        updates = { cleaningStatus: "scheduled" };
+      } else {
+        updates = { hasCleaningAgency: false };
+      }
+    }
+
     await fetch(`/api/host/bookings/${booking.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ cleaningStatus: newStatus }),
+      body: JSON.stringify(updates),
     });
     await loadBookings();
   }
@@ -553,7 +574,11 @@ export default function HostPage() {
                       <span className="row-tag next-tag">✦ Closest upcoming arrival</span>
                     )}
                     {b.hasCleaningAgency && (
-                      <span className={`row-tag ${b.cleaningStatus === "completed" ? "cleaning-cleaned-tag" : "cleaning-scheduled-tag"}`}>
+                      <span
+                        className={`row-tag interactive-tag ${b.cleaningStatus === "completed" ? "cleaning-cleaned-tag" : "cleaning-scheduled-tag"}`}
+                        onClick={(e) => handleCleaningAction(b, e)}
+                        title="Click to update agency cleaning status"
+                      >
                         {b.cleaningStatus === "completed"
                           ? `✓ Agency Cleaned (${b.cleaningFeeMkd || 750} MKD)`
                           : `🧹 Agency Scheduled (${b.cleaningFeeMkd || 750} MKD)`}
@@ -596,21 +621,24 @@ export default function HostPage() {
                   </strong>
                   <small className="stay-sub-txt">to {formatShort(b.checkOut)}</small>
                   <span className="stay-nights-badge">🌙 {stayNights} {stayNights === 1 ? "night" : "nights"}</span>
-                  {b.hasCleaningAgency ? (
-                    <button
-                      type="button"
-                      className={`cleaning-pill-btn ${b.cleaningStatus === "completed" ? "cleaned" : "scheduled"}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleCleaningStatus(b);
-                      }}
-                      title="Click to toggle cleaning inspection status"
-                    >
-                      {b.cleaningStatus === "completed"
-                        ? `✓ Cleaned (${b.cleaningFeeMkd || 750} MKD)`
-                        : `🧹 Agency Scheduled (${b.cleaningFeeMkd || 750} MKD)`}
-                    </button>
-                  ) : null}
+                  <button
+                    type="button"
+                    className={`cleaning-pill-btn ${!b.hasCleaningAgency ? "unscheduled" : b.cleaningStatus === "completed" ? "cleaned" : "scheduled"}`}
+                    onClick={(e) => handleCleaningAction(b, e)}
+                    title={
+                      !b.hasCleaningAgency
+                        ? "Click to schedule cleaning agency for checkout day"
+                        : b.cleaningStatus === "completed"
+                        ? "Click to manage completed cleaning agency"
+                        : "Click to mark cleaning agency completed"
+                    }
+                  >
+                    {!b.hasCleaningAgency
+                      ? "+ 🧹 Agency Cleaning"
+                      : b.cleaningStatus === "completed"
+                      ? `✓ Agency Cleaned (${b.cleaningFeeMkd || 750} MKD)`
+                      : `🧹 Agency Scheduled (${b.cleaningFeeMkd || 750} MKD)`}
+                  </button>
                 </div>
 
                 <div className="source-cell">
@@ -1009,7 +1037,7 @@ export default function HostPage() {
                   <button
                     type="button"
                     className="btn-mark-cleaned"
-                    onClick={() => toggleCleaningStatus(target)}
+                    onClick={() => handleCleaningAction(target)}
                   >
                     {isDone ? "✓ Mark Scheduled" : "Mark as Checked & Cleaned ✓"}
                   </button>

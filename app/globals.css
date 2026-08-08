@@ -1017,10 +1017,13 @@ body { top: 0!important; position: static!important; }
 .cleaning-banner-left strong { display: block; font-size: .96rem; font-weight: 800; color: #0f172a; }
 .cleaning-banner-left p { margin: 2px 0 0; font-size: .82rem; color: #475569; }
 .btn-mark-cleaned { padding: 9px 18px; border-radius: 8px; font-size: .82rem; font-weight: 800; border: 0; cursor: pointer; background: #0f172a; color: #ffffff; transition: opacity .15s ease; flex-shrink: 0; }
-.btn-mark-cleaned:hover { opacity: .9; }
+.cleaning-pill-btn.unscheduled { background: #f8fafc; color: #475569; border: 1px dashed #cbd5e1; font-weight: 700; }
+.cleaning-pill-btn.unscheduled:hover { background: #fff7ed; color: #ea580c; border: 1px solid #fdba74; box-shadow: 0 2px 6px rgba(234,88,12,0.12); }
 
 .row-tag.cleaning-scheduled-tag { background: #fff7ed; color: #ea580c; border: 1px solid #ffedd5; font-weight: 800; }
 .row-tag.cleaning-cleaned-tag { background: #f0fdf4; color: #16a34a; border: 1px solid #dcfce7; font-weight: 800; }
+.row-tag.interactive-tag { cursor: pointer; transition: transform .1s ease, filter .1s ease; }
+.row-tag.interactive-tag:hover { filter: brightness(0.95); transform: translateY(-1px); }
 
 /* Modern Cleaning Agency Toggle Card UI */
 .cleaning-card-toggle {
