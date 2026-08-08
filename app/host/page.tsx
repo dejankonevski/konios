@@ -32,6 +32,7 @@ type Booking = {
   cleaningFeeMkd?: number;
   cleaningStatus?: "scheduled" | "completed";
   cleaningNotes?: string;
+  isNoShow?: boolean;
 };
 type Generated = Booking & { guest: string };
 const weekDays = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
@@ -223,7 +224,7 @@ export default function HostPage() {
     let currentMonthNights = 0;
 
     bookings
-      .filter((b) => !b.revoked)
+      .filter((b) => !b.revoked && !b.isNoShow)
       .forEach((b) => {
         const checkInDate = new Date(`${b.checkIn}T00:00:00`);
         const checkOutDate = new Date(`${b.checkOut}T00:00:00`);
@@ -366,6 +367,16 @@ export default function HostPage() {
     await loadBookings();
   }
 
+  async function toggleNoShow(booking: Booking) {
+    const newNoShow = !booking.isNoShow;
+    await fetch(`/api/host/bookings/${booking.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isNoShow: newNoShow }),
+    });
+    await loadBookings();
+  }
+
   async function changeBooking(booking: Booking, action: "toggle" | "delete") {
     if (
       action === "delete" &&
@@ -450,14 +461,18 @@ export default function HostPage() {
           const isActive = b.accessStatus === "active";
           const isExpired = b.accessStatus === "expired" || b.revoked;
           const isNextArrival = b.id === nextArrivalId;
-          const countdown = isExpired
-            ? (b.revoked ? "Revoked" : "Expired")
-            : isActive
-            ? "Active now"
-            : getDaysUntilLabel(b.checkIn, times.checkInTime);
+          const isNoShow = Boolean(b.isNoShow);
+          const countdown = isNoShow
+            ? "🛑 No-Show"
+            : isExpired
+              ? (b.revoked ? "Revoked" : "Expired")
+              : isActive
+                ? "Active now"
+                : getDaysUntilLabel(b.checkIn, times.checkInTime);
 
           const rowClass = [
             "booking-table-row",
+            isNoShow ? "is-noshow-row" : "",
             isActive ? "is-active-row" : "",
             isNextArrival ? "is-next-hero-row" : "is-subsequent-row",
           ]
@@ -478,7 +493,7 @@ export default function HostPage() {
               title="Click to view and edit reservation details"
             >
               <div className="guest-cell">
-                <span className={`guest-avatar ${isNextArrival ? "hero-avatar-mid" : ""}`}>
+                <span className={`guest-avatar ${isNextArrival ? "hero-avatar-mid" : ""} ${isNoShow ? "noshow-avatar" : ""}`}>
                   {b.firstName[0]}
                   {b.lastName[0]}
                 </span>
@@ -486,10 +501,13 @@ export default function HostPage() {
                   <h4 className={isNextArrival ? "hero-name-txt" : "guest-fullname"}>
                     {b.firstName} {b.lastName}
                   </h4>
-                  {isActive && (
+                  {isNoShow && (
+                    <span className="row-tag noshow-tag">🛑 No-Show / Unpaid</span>
+                  )}
+                  {isActive && !isNoShow && (
                     <span className="row-tag active-tag">● Currently staying</span>
                   )}
-                  {isNextArrival && (
+                  {isNextArrival && !isNoShow && (
                     <span className="row-tag next-tag">✦ Closest upcoming arrival</span>
                   )}
                   <div className="guest-sub-meta">
@@ -555,10 +573,12 @@ export default function HostPage() {
               <div className="amount-cell">
                 {(effectiveGross > 0 || effectiveNet > 0) ? (
                   <div className="amount-stack">
-                    <strong className={`amount-gross-val ${isNextArrival ? "hero-gross-txt" : ""}`}>
+                    <strong className={`amount-gross-val ${isNextArrival ? "hero-gross-txt" : ""} ${isNoShow ? "strikethrough-gross" : ""}`}>
                       {new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(effectiveGross)}
                     </strong>
-                    {effectiveNet > 0 ? (
+                    {isNoShow ? (
+                      <small className="noshow-unpaid-sub">🛑 Unpaid (Excluded)</small>
+                    ) : effectiveNet > 0 ? (
                       <small className="amount-net-sub">
                         Net {new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(effectiveNet)}
                       </small>
@@ -572,13 +592,15 @@ export default function HostPage() {
               <div className="timing-cell">
                 <span
                   className={`countdown-pill ${
-                    isActive
-                      ? "chip-active"
-                      : isExpired
-                        ? "chip-expired"
-                        : isNextArrival
-                          ? "chip-next-hero"
-                          : "chip-subsequent"
+                    isNoShow
+                      ? "chip-noshow"
+                      : isActive
+                        ? "chip-active"
+                        : isExpired
+                          ? "chip-expired"
+                          : isNextArrival
+                            ? "chip-next-hero"
+                            : "chip-subsequent"
                   }`}
                 >
                   {countdown}
@@ -599,6 +621,16 @@ export default function HostPage() {
               </div>
 
               <div className="row-actions" onClick={(e) => e.stopPropagation()}>
+                <button
+                  className={`noshow-btn ${isNoShow ? "active-noshow" : ""}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleNoShow(b);
+                  }}
+                  title={isNoShow ? "Unmark No-Show status" : "Flag as No-Show / Unpaid (excludes from totals)"}
+                >
+                  {isNoShow ? "Unmark No-Show" : "🛑 No-Show"}
+                </button>
                 <button
                   className="msg-action-chip"
                   onClick={(e) => {
@@ -1490,6 +1522,24 @@ export default function HostPage() {
                     </div>
                   </div>
                 ) : null}
+              </div>
+
+              {/* No-Show / Unpaid Toggle Box */}
+              <div className="noshow-edit-box">
+                <label className="checkbox-label" htmlFor="edit-noshow-toggle">
+                  <input
+                    id="edit-noshow-toggle"
+                    type="checkbox"
+                    checked={Boolean(editingBooking.isNoShow)}
+                    onChange={(e) =>
+                      setEditingBooking({
+                        ...editingBooking,
+                        isNoShow: e.target.checked,
+                      })
+                    }
+                  />
+                  <span>🛑 Flag as No-Show / Unpaid (Keeps price displayed but excludes from revenue totals)</span>
+                </label>
               </div>
 
               <div className="form-group full-width">

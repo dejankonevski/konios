@@ -24,6 +24,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (typeof body.cleaningFeeMkd === "number") updates.cleaningFeeMkd = Math.max(0, body.cleaningFeeMkd);
   if (["scheduled", "completed"].includes(body.cleaningStatus)) updates.cleaningStatus = body.cleaningStatus;
   if (typeof body.cleaningNotes === "string") updates.cleaningNotes = body.cleaningNotes.trim();
+  if (typeof body.isNoShow === "boolean") updates.isNoShow = body.isNoShow;
 
   if (typeof body.checkIn === "string" && typeof body.checkOut === "string") {
     if (body.checkIn >= body.checkOut) {

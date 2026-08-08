@@ -1111,5 +1111,23 @@ body { top: 0!important; position: static!important; }
   .msg-copy-btn, .msg-wa-btn { width: 100%; }
 }
 
+/* No-Show / Unpaid Stays Red Styling */
+.is-noshow-row { background: #fff5f5!important; border-left: 5px solid #ef4444!important; }
+.noshow-avatar { background: #fee2e2!important; color: #dc2626!important; }
+.row-tag.noshow-tag { color: #dc2626; font-weight: 800; }
+
+.strikethrough-gross { text-decoration: line-through; color: #ef4444!important; opacity: .85; }
+.noshow-unpaid-sub { font-size: .74rem; color: #dc2626; font-weight: 800; display: block; margin-top: 1px; }
+
+.countdown-pill.chip-noshow { background: #fef2f2; color: #dc2626; border: 1px solid #fca5a5; font-weight: 800; }
+
+.noshow-btn { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; font-weight: 700; padding: 5px 10px; border-radius: 6px; cursor: pointer; transition: all .12s ease; }
+.noshow-btn:hover { background: #fee2e2; }
+.noshow-btn.active-noshow { background: #dc2626!important; color: #ffffff!important; border-color: #dc2626!important; }
+
+.noshow-edit-box { background: #fef2f2; border: 1px dashed #fca5a5; border-radius: 10px; padding: 12px 14px; margin-top: 14px; }
+.noshow-edit-box span { color: #991b1b; }
+
+
 
 

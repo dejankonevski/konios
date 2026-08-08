@@ -19,6 +19,7 @@ export type Booking = {
   cleaningFeeMkd?: number;
   cleaningStatus?: "scheduled" | "completed";
   cleaningNotes?: string;
+  isNoShow?: boolean;
 };
 
 export function getRedis() {

@@ -18,6 +18,7 @@ type Booking = {
   accessStatus: "upcoming" | "active" | "expired" | "revoked";
   grossAmount?: number;
   netAmount?: number;
+  isNoShow?: boolean;
 };
 
 export type MonthlyMetric = {
@@ -129,7 +130,7 @@ export default function MetricsView({ bookings }: { bookings: Booking[] }) {
       const diffTime = checkOutDate.getTime() - checkInDate.getTime();
       const totalNights = Math.max(1, Math.round(diffTime / (1000 * 60 * 60 * 24)));
 
-      const gross = Number(b.grossAmount) || 0;
+      let gross = Number(b.grossAmount) || 0;
       let net = Number(b.netAmount) || 0;
       let commission = Math.max(0, gross - net);
 
@@ -137,6 +138,13 @@ export default function MetricsView({ bookings }: { bookings: Booking[] }) {
       if (gross > 0 && net > 0 && net < gross * 0.5 && (gross - net) > net) {
         commission = net;
         net = Math.max(0, gross - commission);
+      }
+
+      // No-Show / Unpaid stays keep historical record but are excluded from financial totals
+      if (b.isNoShow) {
+        gross = 0;
+        net = 0;
+        commission = 0;
       }
 
       const nightlyGross = gross / totalNights;

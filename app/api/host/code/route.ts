@@ -48,6 +48,7 @@ export async function POST(request: Request) {
     cleaningFeeMkd: Math.max(0, Number(data.cleaningFeeMkd) || 750),
     cleaningStatus: data.cleaningStatus === "completed" ? "completed" : "scheduled",
     cleaningNotes: data.cleaningNotes?.trim() ?? "",
+    isNoShow: Boolean(data.isNoShow),
   });
   return Response.json({ ...booking, guest: `${firstName} ${lastName}` });
 }
