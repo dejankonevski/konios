@@ -15,10 +15,10 @@ const groups: { title: string; note: string; fields: [GuideFieldKey, string, "in
 ];
 
 const stepConfig: { key: keyof GuestGuide; label: string; defaultUrl: string }[] = [
-  { key: "step1PhotoUrl", label: "Step 01: Find the building", defaultUrl: "/self-checkin-guide.png" },
-  { key: "step2PhotoUrl", label: "Step 02: Park", defaultUrl: "/self-checkin-guide.png" },
-  { key: "step3PhotoUrl", label: "Step 03: Enter the building", defaultUrl: "/self-checkin-guide.png" },
-  { key: "step4PhotoUrl", label: "Step 04: Find your door", defaultUrl: "/self-checkin-guide.png" },
+  { key: "step1PhotoUrl", label: "Step 01: Find the building", defaultUrl: "/arrival-building.jpg" },
+  { key: "step2PhotoUrl", label: "Step 02: Park", defaultUrl: "/arrival-parking.jpg" },
+  { key: "step3PhotoUrl", label: "Step 03: Entrance & intercom", defaultUrl: "/arrival-intercom-optimized.jpg" },
+  { key: "step4PhotoUrl", label: "Step 04: Hallway to elevator", defaultUrl: "/arrival-elevator-optimized.jpg" },
   { key: "step5PhotoUrl", label: "Step 05: Collect the key", defaultUrl: "/self-checkin-guide.png" },
   { key: "step6PhotoUrl", label: "Step 06: Get connected / Wi-Fi", defaultUrl: "/apartment-main.png" },
 ];
@@ -131,27 +131,15 @@ export default function GuideEditor(){
     <form className="guide-editor" onSubmit={save}>
       <div className="guide-editor-intro">
         <p>Your changes appear immediately for guests with an active stay code. Leave a field blank if it does not apply.</p>
-        <a href="/" target="_blank" rel="noreferrer">Preview guest guide ↗</a>
+        <a href="/host/preview" target="_blank" rel="noreferrer">Secure host preview ↗</a>
       </div>
+      <div className="security-warning"><strong>Physical access security</strong><p>Rotate the physical lockbox code regularly and after any concern. Website revocation cannot make a remembered physical code invalid. For multiple properties, use programmable locks with reservation-specific codes.</p></div>
 
-      <section className="test-code-section">
-        <div>
-          <h2>Master Test / Preview Access Code</h2>
-          <p>Configure a master test code to log into the guest portal and preview the guest guide anytime.</p>
-        </div>
-        <div className="guide-fields">
-          <label>
-            Test Access Code
-            <input
-              type="text"
-              value={guide.testAccessCode || "1508"}
-              onChange={(e) => setGuide({ ...guide, testAccessCode: e.target.value.trim() })}
-              placeholder="1508"
-            />
-            <small className="field-hint">
-              Enter <strong>{guide.testAccessCode || "1508"}</strong> on the <a href="/access" target="_blank" rel="noreferrer">Guest Portal (/access) ↗</a> to preview the guest guide live.
-            </small>
-          </label>
+      <section>
+        <div><h2>Host contact card</h2><p>The selected host name, phone, welcome message and photo appear at the top of every guest guide.</p></div>
+        <div className="step-photo-card host-photo-admin-card">
+          <div className="step-photo-preview"><Image src={guide.hostPhotoUrl || "/host-profile-new-optimized.jpg"} alt="Current host" fill unoptimized style={{objectFit:"cover",borderRadius:"10px"}} /></div>
+          <label className="step-upload-btn">{uploadingKey === "hostPhotoUrl" ? "Uploading photo…" : "📷 Change host photo"}<input type="file" accept="image/*" disabled={uploadingKey === "hostPhotoUrl"} onChange={(e)=>handleStepUpload("hostPhotoUrl",e)} /></label>
         </div>
       </section>
 

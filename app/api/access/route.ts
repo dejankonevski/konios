@@ -1,20 +1,23 @@
 import { cookies } from "next/headers";
-import { bookingState, getBookingByCode } from "@/lib/bookings";
+import { bookingState, getBookingByToken } from "@/lib/bookings";
 import { getGuestGuide } from "@/lib/guest-guide";
+import { rateLimit, requestIp } from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
-  const { code } = (await request.json()) as { code?: string };
-  if (!code || !/^\d{4,5}$/.test(code.trim())) return Response.json({ error: "Enter a valid access code." }, { status: 400 });
-  const booking = await getBookingByCode(code.trim());
-  if (!booking) return Response.json({ error: "We couldn't find that code. Please check it and try again." }, { status: 401 });
+  const limited = await rateLimit("guest-access", requestIp(request), 8, 10 * 60);
+  if (!limited.success) return Response.json({ error: "Too many attempts. Please wait 10 minutes or contact your host." }, { status: 429, headers: { "Retry-After": "600" } });
+  const { code, token } = (await request.json()) as { code?: string; token?: string };
+  if (!token || !/^[a-f0-9]{64}$/.test(token)) return Response.json({ error: "Open the private reservation link sent by your host." }, { status: 400 });
+  if (!code || !/^\d{5}$/.test(code.trim())) return Response.json({ error: "Enter your five-digit PIN." }, { status: 400 });
+  const booking = await getBookingByToken(token);
+  if (!booking || booking.code !== code.trim()) return Response.json({ error: "That private link and PIN do not match." }, { status: 401 });
   const guide = await getGuestGuide();
   const state = bookingState(booking, new Date(), guide);
-  if (state.status === "upcoming") return Response.json({ state: "upcoming", guest: booking.firstName, availableAt: state.opensAt.toISOString() }, { status: 403 });
   if (state.status === "expired") return Response.json({ state: "expired", guest: booking.firstName, expiredAt: state.closesAt.toISOString() }, { status: 410 });
   if (state.status === "revoked") return Response.json({ error: "This code is no longer active. Please contact your host." }, { status: 403 });
 
-  (await cookies()).set("konios_access", booking.code, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", expires: state.closesAt });
-  return Response.json({ ok: true, guest: `${booking.firstName} ${booking.lastName}` });
+  (await cookies()).set("konios_access", booking.accessToken, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", path: "/", expires: state.closesAt });
+  return Response.json({ ok: true, stage: state.stayStage, guest: `${booking.firstName} ${booking.lastName}` });
 }
 
 export async function DELETE() { (await cookies()).delete("konios_access"); return Response.json({ ok: true }); }

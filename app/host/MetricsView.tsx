@@ -213,7 +213,11 @@ export default function MetricsView({ bookings }: { bookings: Booking[] }) {
     // Filter out past empty months prior to first reservation month
     const firstActiveIndex = monthlyBreakdown.findIndex((m) => m.nights > 0 || m.bookingCount > 0);
     const startMonthIdx = firstActiveIndex >= 0 ? firstActiveIndex : 0;
-    const displayMonthlyBreakdown = monthlyBreakdown.filter((_, idx) => idx >= startMonthIdx);
+    const lastActiveIndex = monthlyBreakdown.reduce(
+      (last, month, index) => (month.nights > 0 || month.bookingCount > 0 ? index : last),
+      startMonthIdx
+    );
+    const displayMonthlyBreakdown = monthlyBreakdown.filter((_, idx) => idx >= startMonthIdx && idx <= lastActiveIndex);
 
     // Sum days only for active months with reservations
     let activeDays = 0;
@@ -230,7 +234,7 @@ export default function MetricsView({ bookings }: { bookings: Booking[] }) {
     if (activeDays === 0) activeDays = 365;
 
     const periodOccupancyPct = Math.min(100, Math.round((totalNights / activeDays) * 100));
-    const endMonthIdx = 11;
+    const endMonthIdx = lastActiveIndex;
     const periodLabel = startMonthIdx > 0
       ? `${monthNames[startMonthIdx].slice(0, 3)} – ${monthNames[endMonthIdx].slice(0, 3)}`
       : "Full Year";
@@ -393,7 +397,7 @@ export default function MetricsView({ bookings }: { bookings: Booking[] }) {
 
         <div className="insight-card net-insight">
           <div className="insight-head">
-            <span className="insight-label">Net Host Profit</span>
+            <span className="insight-label">Net Operating Income</span>
             <span className="insight-badge green-bg">{metrics.netMarginPct}% Margin</span>
           </div>
           <strong className="insight-val">{formatEuro(metrics.totalNet)}</strong>
@@ -509,7 +513,7 @@ export default function MetricsView({ bookings }: { bookings: Booking[] }) {
                 <th>Occupancy %</th>
                 <th>Gross Revenue (€)</th>
                 <th>Commissions (€)</th>
-                <th>Net Host Profit (€)</th>
+                <th>Net Operating Income (€)</th>
                 <th>ADR (€/night)</th>
               </tr>
             </thead>

@@ -38,16 +38,20 @@ export async function createGuestCode(pass: GuestPass) {
 }
 
 export async function createHostToken() {
-  return signature("konios-host-session");
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  const token = toBase64Url(bytes);
+  await getRedis().set(`host-session:${token}`, { createdAt: Date.now() }, { ex: 60 * 60 * 8 });
+  return token;
 }
 
 export async function verifyHostToken(token?: string) {
   if (!token) return false;
-  const expected = await createHostToken();
-  if (token.length !== expected.length) return false;
-  let mismatch = 0;
-  for (let index = 0; index < token.length; index += 1) mismatch |= token.charCodeAt(index) ^ expected.charCodeAt(index);
-  return mismatch === 0;
+  return Boolean(await getRedis().exists(`host-session:${token}`));
+}
+
+export async function revokeHostToken(token?: string) {
+  if (token) await getRedis().del(`host-session:${token}`);
 }
 
 export async function verifyGuestCode(code: string): Promise<GuestPass | null> {
@@ -72,3 +76,4 @@ export async function verifyGuestCode(code: string): Promise<GuestPass | null> {
     return null;
   }
 }
+import { getRedis } from "@/lib/bookings";

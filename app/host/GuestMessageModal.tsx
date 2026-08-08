@@ -11,7 +11,9 @@ export function populateTemplate(
 ): string {
   const origin = typeof window !== "undefined" ? window.location.origin : "https://konios.vercel.app";
   const guestName = `${booking.firstName} ${booking.lastName}`.trim();
-  const guideUrl = `${origin}/access?code=${booking.code}`;
+  const guideUrl = `${origin}/access?token=${booking.accessToken}`;
+  const currency = booking.currency || "EUR";
+  const amountDue = Math.max(0, (Number(booking.grossAmount) || 0) - (Number(booking.paymentCollected) || 0));
 
   return content
     .replaceAll("{guestName}", guestName)
@@ -22,6 +24,7 @@ export function populateTemplate(
     .replaceAll("{guideUrl}", guideUrl)
     .replaceAll("{accessLink}", guideUrl)
     .replaceAll("{checkIn}", booking.checkIn)
+    .replaceAll("{checkInTime}", guide?.checkInTime || "15:00")
     .replaceAll("{checkOut}", booking.checkOut)
     .replaceAll("{guests}", String(booking.guests || 1))
     .replaceAll("{wifiName}", guide?.wifiName || "Konios House")
@@ -30,6 +33,8 @@ export function populateTemplate(
     .replaceAll("{buildingCode}", guide?.buildingCode || "2812")
     .replaceAll("{apartmentNumber}", guide?.apartmentNumber || "32")
     .replaceAll("{phone}", booking.phone || "")
+    .replaceAll("{amountDue}", amountDue.toFixed(2))
+    .replaceAll("{currency}", currency)
     .replaceAll("{source}", booking.source || "Direct");
 }
 
@@ -98,6 +103,7 @@ export default function GuestMessageModal({ booking, guide, onClose }: Props) {
   const waUrl = waPhone
     ? `https://wa.me/${waPhone}?text=${encodeURIComponent(currentText)}`
     : `https://wa.me/?text=${encodeURIComponent(currentText)}`;
+  const viberUrl = cleanPhone ? `viber://chat?number=${encodeURIComponent(cleanPhone)}` : "viber://forward?text=" + encodeURIComponent(currentText);
 
   return (
     <div className="edit-modal-overlay" onClick={onClose}>
@@ -185,6 +191,9 @@ export default function GuestMessageModal({ booking, guide, onClose }: Props) {
                 className="msg-wa-btn"
               >
                 💬 Open in WhatsApp
+              </a>
+              <a href={viberUrl} className="msg-viber-btn" onClick={() => navigator.clipboard.writeText(currentText)}>
+                📞 Copy & open Viber
               </a>
             </div>
           </div>

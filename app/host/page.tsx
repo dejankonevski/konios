@@ -16,6 +16,7 @@ import type { GuestGuide } from "@/lib/guest-guide";
 type Booking = {
   id: string;
   code: string;
+  accessToken: string;
   firstName: string;
   lastName: string;
   checkIn: string;
@@ -29,6 +30,10 @@ type Booking = {
   accessStatus: "upcoming" | "active" | "expired" | "revoked";
   grossAmount?: number;
   netAmount?: number;
+  currency?: string;
+  paymentCollected?: number;
+  idRegistrationComplete?: boolean;
+  archivedAt?: number | null;
   hasCleaningAgency?: boolean;
   cleaningFeeMkd?: number;
   cleaningStatus?: "scheduled" | "completed";
@@ -85,7 +90,7 @@ function formatShort(value?: string) {
     : "Select date";
 }
 
-function getDaysUntilLabel(checkInDateStr: string, checkInTime = "06:00"): string {
+function getDaysUntilLabel(checkInDateStr: string, checkInTime = "15:00"): string {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const target = new Date(`${checkInDateStr}T00:00:00`);
@@ -109,7 +114,7 @@ export default function HostPage() {
     [bookings, setBookings] = useState<Booking[]>([]),
     [search, setSearch] = useState("");
   const [times, setTimes] = useState({
-    checkInTime: "10:00",
+    checkInTime: "15:00",
     checkOutTime: "10:00",
   });
   const [monthOffset, setMonthOffset] = useState(0),
@@ -118,6 +123,7 @@ export default function HostPage() {
     [hoverDate, setHoverDate] = useState<string>(),
     [result, setResult] = useState<Generated | null>(null);
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
+  const [lastArchived, setLastArchived] = useState<Booking | null>(null);
   const [messagingBooking, setMessagingBooking] = useState<Booking | null>(null);
   const [editError, setEditError] = useState("");
   const [editSaving, setEditSaving] = useState(false);
@@ -146,6 +152,9 @@ export default function HostPage() {
           notes: editingBooking.notes,
           grossAmount: Number(editingBooking.grossAmount) || 0,
           netAmount: Number(editingBooking.netAmount) || 0,
+          currency: editingBooking.currency || "EUR",
+          paymentCollected: Number(editingBooking.paymentCollected) || 0,
+          idRegistrationComplete: Boolean(editingBooking.idRegistrationComplete),
           hasCleaningAgency: Boolean(editingBooking.hasCleaningAgency),
           cleaningFeeMkd: Number(editingBooking.cleaningFeeMkd) || 750,
           cleaningStatus: editingBooking.cleaningStatus || "scheduled",
@@ -379,7 +388,8 @@ export default function HostPage() {
   }
   async function copyCode() {
     if (result) {
-      await navigator.clipboard.writeText(result.code);
+      const link = `${window.location.origin}/access?token=${result.accessToken}`;
+      await navigator.clipboard.writeText(`Private guest guide: ${link}\nFive-digit PIN: ${result.code}`);
       setCopied(true);
     }
   }
@@ -432,7 +442,7 @@ export default function HostPage() {
 
   async function changeBooking(booking: Booking, action: "toggle" | "delete") {
     const promptMsg = action === "delete"
-      ? `Are you sure you want to permanently delete ${booking.firstName} ${booking.lastName}'s reservation?`
+      ? `Archive ${booking.firstName} ${booking.lastName}'s reservation? You can undo this action.`
       : booking.revoked
       ? `Are you sure you want to restore access code for ${booking.firstName} ${booking.lastName}?`
       : `Are you sure you want to revoke access code for ${booking.firstName} ${booking.lastName}?`;
@@ -449,6 +459,7 @@ export default function HostPage() {
             body: JSON.stringify({ revoked: !booking.revoked }),
           },
     );
+    if (action === "delete") setLastArchived(booking);
     await loadBookings();
   }
 
@@ -494,6 +505,11 @@ export default function HostPage() {
     .filter((b) => b.accessStatus === "upcoming")
     .sort((a, b) => a.checkIn.localeCompare(b.checkIn))
     .slice(0, 4);
+  const todayKey = dateKey(new Date());
+  const arrivingToday = bookings.filter((b) => !b.revoked && b.checkIn === todayKey);
+  const departingToday = bookings.filter((b) => !b.revoked && b.checkOut === todayKey);
+  const paymentDue = bookings.filter((b) => !b.revoked && (Number(b.grossAmount) || 0) > (Number(b.paymentCollected) || 0));
+  const registrationMissing = bookings.filter((b) => !b.revoked && !b.idRegistrationComplete && b.accessStatus !== "expired");
   const rows = (items: Booking[]) => (
     <div className="booking-table arrivals-unified-table">
       <div className="booking-table-head">
@@ -611,6 +627,9 @@ export default function HostPage() {
                           </a>
                         </span>
                       ) : null}
+                    </div>
+                    <div className="reservation-ops-timeline" aria-label="Reservation operational timeline">
+                      <span className="done">Booked</span><span className={b.accessStatus === "upcoming" ? "current" : "done"}>Arrival</span><span className={b.accessStatus === "active" ? "current" : b.accessStatus === "expired" ? "done" : ""}>Stay</span><span className={b.accessStatus === "expired" ? "done" : ""}>Checkout</span>
                     </div>
                   </div>
                 </div>
@@ -743,7 +762,7 @@ export default function HostPage() {
                       changeBooking(b, "delete");
                     }}
                   >
-                    Delete
+                    Archive
                   </button>
                 </div>
               </article>
@@ -886,6 +905,7 @@ export default function HostPage() {
                             : "New booking"}
             </h1>
           </div>
+          <label className="property-selector"><span>Property</span><select defaultValue="konios-house"><option value="all">All properties</option><option value="konios-house">Konios House · Apartment 32</option></select></label>
           <button
             className="quick-add"
             onClick={() => {
@@ -895,9 +915,24 @@ export default function HostPage() {
           >
             ＋ Add guest
           </button>
+          {lastArchived ? <button className="undo-archive" onClick={async()=>{await fetch(`/api/host/bookings/${lastArchived.id}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({archivedAt:null})});setLastArchived(null);await loadBookings();}}>Undo archive: {lastArchived.firstName}</button> : null}
         </header>
         {view === "overview" && (
           <>
+            <div className="operations-command-center">
+              <div className="operations-heading"><div><p className="eyebrow">Today’s work</p><h2>Operations command centre</h2></div><span>{todayKey}</span></div>
+              <div className="operations-task-grid">
+                {[
+                  ["Arriving today", arrivingToday, "Prepare access, parking and welcome message"],
+                  ["Departing today", departingToday, "Confirm checkout and cleaning handover"],
+                  ["Payment still due", paymentDue, "Collect and record outstanding balances"],
+                  ["ID / registration missing", registrationMissing, "Complete required guest registration"],
+                ].map(([title, list, hint]) => {
+                  const taskBookings = list as Booking[];
+                  return <article key={title as string}><div><span>{title as string}</span><strong>{taskBookings.length}</strong></div><p>{hint as string}</p>{taskBookings.slice(0,3).map((booking)=><button key={booking.id} onClick={()=>setEditingBooking(booking)}>{booking.firstName} {booking.lastName}<b>Open →</b></button>)}</article>;
+                })}
+              </div>
+            </div>
             <div className="metric-grid">
               <article>
                 <span>Currently staying</span>
@@ -1101,13 +1136,12 @@ export default function HostPage() {
               <p className="eyebrow">Manual reservation</p>
               <h2>Prepare their stay.</h2>
               <p>
-                Create one secure code for the full stay. It will be stored here
-                and controlled by the exact arrival window.
+                Create a private reservation link plus a separate PIN. Sensitive access details remain hidden until 14:30 on arrival day.
               </p>
               <ul>
-                <li>Five-digit guest code</li>
+                <li>Unguessable private link + five-digit PIN</li>
                 <li>Automatic activation and expiry</li>
-                <li>One-click copy, revoke or delete</li>
+                <li>One-click copy, revoke or archive with undo</li>
               </ul>
             </div>
             <div className="host-card host-card-wide">
@@ -1285,6 +1319,10 @@ export default function HostPage() {
                       />
                     </label>
                   </div>
+                  <div className="host-name-row">
+                    <label>Payment collected<input type="number" step="0.01" min="0" name="paymentCollected" placeholder="0.00" /></label>
+                    <label>Currency<select name="currency" defaultValue="EUR"><option>EUR</option><option>MKD</option><option>USD</option></select></label>
+                  </div>
                   <label>
                     Private notes
                     <textarea
@@ -1347,10 +1385,10 @@ export default function HostPage() {
                   </p>
                   <div className="big-code">{result.code}</div>
                   <p className="code-window">
-                    Valid from {times.checkInTime} on arrival until {times.checkOutTime} on checkout
+                    Guide available before arrival · codes reveal at 14:30 · check-in {times.checkInTime}
                   </p>
                   <button className="submit-button" onClick={copyCode}>
-                    {copied ? "Copied" : "Copy guest code"}
+                    {copied ? "Private link + PIN copied" : "Copy private link + PIN"}
                     <span>{copied ? "✓" : "⧉"}</span>
                   </button>
                   <button
@@ -1547,7 +1585,7 @@ export default function HostPage() {
                   />
                 </div>
                 <div className="form-group">
-                  <label htmlFor="edit-net">Net Host Profit (€)</label>
+                  <label htmlFor="edit-net">Net payout after platform fees (€)</label>
                   <input
                     id="edit-net"
                     type="number"

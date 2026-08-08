@@ -55,9 +55,11 @@ const mapsLink = (place: string) =>
 export default function GuestManualView({
   booking,
   guide,
+  accessState,
 }: {
   booking: Booking;
   guide: GuestGuide;
+  accessState: { revealAccess: boolean; stayStage: string; accessDetailsAt: string };
 }) {
   const [selectedLang, setSelectedLang] = useState(() => {
     if (typeof window !== "undefined") {
@@ -66,6 +68,13 @@ export default function GuestManualView({
     return "en";
   });
   const [previewImage, setPreviewImage] = useState<{ src: string; title: string; subtitle?: string } | null>(null);
+  const [eventStatus, setEventStatus] = useState("");
+
+  async function sendStayEvent(type: string) {
+    setEventStatus("Sending…");
+    const response = await fetch("/api/guest/events", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ type }) });
+    setEventStatus(response.ok ? "Sent to your host ✓" : "Could not send. Please call your host.");
+  }
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -238,6 +247,11 @@ export default function GuestManualView({
           <h2>Arrival, step by step.</h2>
           <p>Keep this page open as you approach the building.</p>
         </div>
+        <div className="guest-action-bar"><div><strong>Quick update for your host</strong><span>{eventStatus || "Tap once—we’ll record it on your reservation."}</span></div><div>{[["arrived","I have arrived"],["entered","I entered successfully"],["payment-placed","Payment placed"],["parking-occupied","Parking occupied"],["help","I need help"]].map(([type,label])=><button key={type} type="button" onClick={()=>sendStayEvent(type)}>{label}</button>)}</div></div>
+        <div className="arrival-landmarks" aria-label="Arrival landmarks">
+          {[["/arrival-building.jpg","The building"],["/arrival-parking.jpg","Parking space 32"],["/arrival-entrance.jpg","Main glass entrance"]].map(([src,label])=><button key={src} type="button" onClick={()=>setPreviewImage({src,title:label,subtitle:"Tap close to return to the check-in steps"})}><span><Image src={src} alt={label} fill sizes="(max-width: 600px) 90vw, 33vw" /></span><b>{label}</b><small>Open full photo ↗</small></button>)}
+        </div>
+        {!accessState.revealAccess ? <div className="access-release-notice"><strong>Apartment access details unlock at 14:30 on arrival day.</strong><p>You can already use the building directions and parking information below. The intercom, building and lockbox codes remain hidden until the apartment is ready.</p></div> : null}
         <div className="arrival-steps">
           <article>
             <span>01</span>
@@ -311,7 +325,7 @@ export default function GuestManualView({
               <p>{available(guide.parking)}</p>
             </div>
           </article>
-          <article>
+          {accessState.revealAccess ? <><article>
             <span>03</span>
             <div>
               <div
@@ -449,7 +463,7 @@ export default function GuestManualView({
               <div className="flow-value clear-value">{available(guide.wifiPassword)}</div>
               {guide.wifiPassword ? <CopyButton value={guide.wifiPassword} /> : null}
             </div>
-          </article>
+          </article></> : null}
         </div>
       </section>
 

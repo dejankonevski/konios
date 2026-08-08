@@ -19,7 +19,7 @@ export const defaultMessageTemplates: MessageTemplate[] = [
     id: "tpl-1",
     title: "Payment / Tourist Tax in Keybox",
     category: "Payment & Tax",
-    content: "Hi {guestName}! Hope you are settling in nicely. Please leave the remaining cash/tourist tax inside the key lockbox (code 3007) when convenient and send us a quick message so someone from our team can come by to pick it up. Thank you so much!",
+    content: "Hi {guestName}! Please remember to leave the exact cash amount of {amountDue} {currency} in the lockbox and let us know once it is there, so we can arrange collection. Thank you!",
   },
   {
     id: "tpl-2",
@@ -31,7 +31,7 @@ export const defaultMessageTemplates: MessageTemplate[] = [
     id: "tpl-3",
     title: "Check-in Instructions & Access Code",
     category: "Arrival",
-    content: "Hi {guestName}! Your stay at Konios House is coming up soon. Your private entry code is {code}, valid from 10:00 AM on check-in day. You can view your full digital guide and directions here: {guideUrl}",
+    content: "Hi {guestName}! Your check-in is today at {checkInTime}. Your private guest guide is {guideUrl} and your five-digit PIN is {code}. Do you need any assistance with arrival?",
   },
   {
     id: "tpl-4",
@@ -45,6 +45,23 @@ export const defaultMessageTemplates: MessageTemplate[] = [
     category: "Departure",
     content: "Dear {guestName}, as a reminder, checkout is tomorrow at 10:00 AM. Please turn off AC/heating, close windows, lock the door, and return the key to lockbox 3007. Wishing you safe travels ahead!",
   },
+  { id:"tpl-6", title:"Checkout today", category:"Departure", content:"Good morning {firstName}! Please remember that checkout today is at {checkOut} by 10:00. Kindly return the key to the lockbox and message us when you have left. Safe travels!" },
+  { id:"tpl-7", title:"Exact location", category:"Arrival", content:"Hi {firstName}! The exact location is here: {guideUrl}. Open the private guide, enter PIN {code}, then tap Google Maps under the first arrival step." },
+  { id:"tpl-8", title:"Text check-in instructions", category:"Arrival", content:"ARRIVAL: Check-in is at {checkInTime}. Open {guideUrl} with PIN {code}. Follow the building and parking photos first. Building and lockbox details appear at 14:30 when the apartment is ready." },
+  { id:"tpl-9", title:"Hot water / boiler", category:"Apartment", content:"Hi {firstName}! For hot water, please switch on the boiler and allow approximately 20–30 minutes to heat. If the water remains cold, send us a photo of the boiler switch and we’ll assist immediately." },
+  { id:"tpl-10", title:"Late check-in available", category:"Arrival", content:"Hi {firstName}! Late check-in is possible because access is self-service. Please keep the private guide and PIN {code} available, and message us if you need help." },
+  { id:"tpl-11", title:"Late check-in unavailable", category:"Arrival", content:"Hi {firstName}, unfortunately we cannot accommodate the requested late check-in because host assistance is not available at that time. Check-in remains at {checkInTime}. Thank you for understanding." },
+  { id:"tpl-12", title:"Late checkout available", category:"Departure", content:"Hi {firstName}! We can approve a late checkout this time. We’ll confirm the exact departure time separately. Please message us when you leave." },
+  { id:"tpl-13", title:"Late checkout unavailable", category:"Departure", content:"Hi {firstName}, unfortunately we cannot offer late checkout because the apartment must be prepared for the next guest. Checkout remains at 10:00. Thank you for understanding." },
+  { id:"tpl-14", title:"Early check-in unavailable", category:"Arrival", content:"Hi {firstName}, the apartment is still being cleaned, so early check-in is not possible. It will be ready at {checkInTime}, and access details will appear in your guide at 14:30." },
+  { id:"tpl-15", title:"Early check-in available", category:"Arrival", content:"Good news, {firstName}! The apartment is ready earlier than expected. You may check in now using your private guide {guideUrl} and PIN {code}." },
+  { id:"tpl-16", title:"Parking space occupied", category:"Parking", content:"Hi {firstName}, thank you for telling us the parking space is occupied. Please send a photo of the vehicle and license plate and wait nearby while we arrange removal." },
+  { id:"tpl-17", title:"Wi-Fi help", category:"Apartment", content:"Hi {firstName}! The Wi-Fi network is {wifiName} and the password is {wifiPassword}. If it does not connect, forget the network, reconnect, and send us a screenshot if the issue continues." },
+  { id:"tpl-18", title:"Quiet hours reminder", category:"Stay", content:"Hi {firstName}, a friendly reminder that this is a residential building. Please keep noise low during quiet hours and avoid loud music. Thank you for helping us respect our neighbours." },
+  { id:"tpl-19", title:"Payment received", category:"Payment & Tax", content:"Thank you, {firstName}. We confirm receipt of your payment. Your outstanding balance is now 0 {currency}." },
+  { id:"tpl-20", title:"Payment still due", category:"Payment & Tax", content:"Hi {firstName}, a balance of {amountDue} {currency} is still due. Please leave the exact cash amount in the lockbox and tell us once it is ready for collection." },
+  { id:"tpl-21", title:"ID registration reminder", category:"Registration", content:"Hi {firstName}, we still need the guest identification details required for registration. Please send a clear photo of each guest’s passport or ID through the agreed secure channel." },
+  { id:"tpl-22", title:"Everything okay?", category:"Stay", content:"Hi {firstName}! We hope everything is going well. Is the apartment comfortable, and is there anything we can help with today?" },
 ];
 
 export const defaultFaqs: FaqItem[] = [
@@ -133,7 +150,6 @@ export type GuestGuide = {
   wifiName: string; wifiPassword: string; hostName: string; hostPhone: string; hostPhotoUrl: string; welcomeMessage: string; parkingSpace: string; parking: string;
   airConditioning: string; heating: string; hotWater: string; rubbish: string;
   quietHours: string; houseRules: string; checkoutInstructions: string; emergencyPhone: string;
-  testAccessCode?: string;
   defaultCleaningFeeMkd?: number;
   step1PhotoUrl?: string; step2PhotoUrl?: string; step3PhotoUrl?: string; step4PhotoUrl?: string; step5PhotoUrl?: string; step6PhotoUrl?: string;
   messageTemplates: MessageTemplate[];
@@ -142,7 +158,7 @@ export type GuestGuide = {
 };
 
 export const defaultGuestGuide: GuestGuide = {
-  checkInTime: "06:00", checkOutTime: "10:00",
+  checkInTime: "15:00", checkOutTime: "10:00",
   defaultCleaningFeeMkd: 750,
   propertyName: "Konios House", address: "Zil Vern 12, Skopje", mapsUrl: "https://www.google.com/maps/search/?api=1&query=Zil%20Vern%2012%2C%20Skopje", floor: "5", apartmentNumber: "32",
   directions: "Look for the building and the main glass entrance.", buildingCode: "2812", buildingEntryInstructions: "1. Press the telephone button.\n2. Enter the building code.\n3. Open the building door.", apartmentDirections: "Take the elevator or stairs to the 5th floor. Go straight, walk down the hall, and apartment 32 is on the right.", lockboxCode: "3007", lockboxInstructions: "The keybox is next to apartment 32.",
@@ -150,11 +166,10 @@ export const defaultGuestGuide: GuestGuide = {
   airConditioning: "", heating: "", hotWater: "", rubbish: "",
   quietHours: "22:00–08:00", houseRules: "Please respect our neighbours, do not smoke indoors, and keep noise low during quiet hours.",
   checkoutInstructions: "Turn off lights and air conditioning, close the windows, lock the apartment, and return the key to the lockbox.", emergencyPhone: "112",
-  testAccessCode: "1508",
-  step1PhotoUrl: "/self-checkin-guide.png",
-  step2PhotoUrl: "/self-checkin-guide.png",
-  step3PhotoUrl: "/self-checkin-guide.png",
-  step4PhotoUrl: "/self-checkin-guide.png",
+  step1PhotoUrl: "/arrival-building.jpg",
+  step2PhotoUrl: "/arrival-parking.jpg",
+  step3PhotoUrl: "/arrival-intercom-optimized.jpg",
+  step4PhotoUrl: "/arrival-elevator-optimized.jpg",
   step5PhotoUrl: "/self-checkin-guide.png",
   step6PhotoUrl: "/apartment-main.png",
   messageTemplates: defaultMessageTemplates,
@@ -166,14 +181,11 @@ export async function getGuestGuide() {
   const stored = await getRedis().get<Partial<GuestGuide>>("guest-guide");
   if (!stored) return defaultGuestGuide;
   const merged: GuestGuide = { ...defaultGuestGuide, ...stored };
-  merged.checkInTime = "06:00";
-  merged.checkOutTime = "10:00";
-  if (!merged.testAccessCode) {
-    merged.testAccessCode = "1508";
-  }
-  if (!merged.messageTemplates || !Array.isArray(merged.messageTemplates) || merged.messageTemplates.length === 0) {
-    merged.messageTemplates = defaultMessageTemplates;
-  }
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(merged.checkInTime)) merged.checkInTime = "15:00";
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(merged.checkOutTime)) merged.checkOutTime = "10:00";
+  if (!merged.messageTemplates || !Array.isArray(merged.messageTemplates)) merged.messageTemplates = [];
+  const storedTemplateIds = new Set(merged.messageTemplates.map((template) => template.id));
+  merged.messageTemplates = [...merged.messageTemplates, ...defaultMessageTemplates.filter((template) => !storedTemplateIds.has(template.id))];
   if (!merged.faqs || !Array.isArray(merged.faqs) || merged.faqs.length === 0) {
     merged.faqs = defaultFaqs;
   }
@@ -187,4 +199,3 @@ export async function saveGuestGuide(value: GuestGuide) {
   await getRedis().set("guest-guide", value);
   return value;
 }
-

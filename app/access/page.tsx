@@ -6,6 +6,7 @@ export default function AccessPage() {
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [token] = useState(() => typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("token") || "");
   const [notice, setNotice] = useState<{ title: string; copy: string } | null>(null);
 
   async function unlock(event: FormEvent) {
@@ -13,7 +14,7 @@ export default function AccessPage() {
     setLoading(true);
     setError("");
     setNotice(null);
-    const response = await fetch("/api/access", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code }) });
+    const response = await fetch("/api/access", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code, token }) });
     const result = await response.json();
     if (result.state === "upcoming") {
       const available = new Intl.DateTimeFormat("en", { timeZone: "Europe/Skopje", dateStyle: "long", timeStyle: "short" }).format(new Date(result.availableAt));
@@ -39,11 +40,11 @@ export default function AccessPage() {
           <p className="eyebrow">Private guest access</p>
           <h1>Welcome to<br />your stay.</h1>
           {notice ? <div className="access-notice"><h2>{notice.title}</h2><p>{notice.copy}</p><button onClick={() => { setNotice(null); setCode(""); }}>Try another code</button></div> : <>
-            <p>Enter the access code sent by your host to open the apartment guide.</p>
+            <p>{token ? "Enter the five-digit PIN sent with your private reservation link." : "This page only opens from the private reservation link sent by your host."}</p>
             <form onSubmit={unlock}>
-              <label>Guest access code<input required value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 5))} placeholder="Enter code (e.g. 1508)" inputMode="numeric" pattern="[0-9]{4,5}" maxLength={5} autoComplete="one-time-code" /></label>
+              <label>Guest PIN<input required disabled={!token} value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 5))} placeholder="Five-digit PIN" inputMode="numeric" pattern="[0-9]{5}" maxLength={5} autoComplete="one-time-code" /></label>
               {error && <p className="form-error" role="alert">{error}</p>}
-              <button className="submit-button" disabled={loading}>{loading ? "Checking…" : "Enter apartment guide"}<span>→</span></button>
+              <button className="submit-button" disabled={loading || !token}>{loading ? "Checking…" : "Enter apartment guide"}<span>→</span></button>
             </form>
           </>}
         </div>
