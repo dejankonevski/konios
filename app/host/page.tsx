@@ -385,6 +385,12 @@ export default function HostPage() {
 
   async function toggleNoShow(booking: Booking) {
     const newNoShow = !booking.isNoShow;
+    const promptMsg = newNoShow
+      ? `Are you sure you want to flag ${booking.firstName} ${booking.lastName} as No-Show / Unpaid?\n\nThis will keep their reservation recorded but EXCLUDE the amount from revenue totals.`
+      : `Are you sure you want to unmark No-Show status for ${booking.firstName} ${booking.lastName}?`;
+
+    if (!window.confirm(promptMsg)) return;
+
     await fetch(`/api/host/bookings/${booking.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -394,13 +400,14 @@ export default function HostPage() {
   }
 
   async function changeBooking(booking: Booking, action: "toggle" | "delete") {
-    if (
-      action === "delete" &&
-      !window.confirm(
-        `Delete ${booking.firstName} ${booking.lastName}'s booking?`,
-      )
-    )
-      return;
+    const promptMsg = action === "delete"
+      ? `Are you sure you want to permanently delete ${booking.firstName} ${booking.lastName}'s reservation?`
+      : booking.revoked
+      ? `Are you sure you want to restore access code for ${booking.firstName} ${booking.lastName}?`
+      : `Are you sure you want to revoke access code for ${booking.firstName} ${booking.lastName}?`;
+
+    if (!window.confirm(promptMsg)) return;
+
     await fetch(
       `/api/host/bookings/${booking.id}`,
       action === "delete"
@@ -645,16 +652,6 @@ export default function HostPage() {
 
               <div className="row-actions" onClick={(e) => e.stopPropagation()}>
                 <button
-                  className={`noshow-btn ${isNoShow ? "active-noshow" : ""}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleNoShow(b);
-                  }}
-                  title={isNoShow ? "Unmark No-Show status" : "Flag as No-Show / Unpaid (excludes from totals)"}
-                >
-                  {isNoShow ? "Unmark No-Show" : "🛑 No-Show"}
-                </button>
-                <button
                   className="msg-action-chip"
                   onClick={(e) => {
                     e.stopPropagation();
@@ -680,6 +677,16 @@ export default function HostPage() {
                   }}
                 >
                   {b.revoked ? "Restore" : "Revoke"}
+                </button>
+                <button
+                  className={`noshow-btn ${isNoShow ? "active-noshow" : ""}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleNoShow(b);
+                  }}
+                  title={isNoShow ? "Unmark No-Show status" : "Flag as No-Show / Unpaid (excludes from totals)"}
+                >
+                  {isNoShow ? "Unmark No-Show" : "🛑 No-Show"}
                 </button>
                 <button
                   className="danger"

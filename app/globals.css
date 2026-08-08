@@ -1442,7 +1442,7 @@ body { top: 0!important; position: static!important; }
 
 .countdown-pill.chip-noshow { background: #fef2f2; color: #dc2626; border: 1px solid #fca5a5; font-weight: 800; }
 
-.noshow-btn { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; font-weight: 700; padding: 5px 10px; border-radius: 6px; cursor: pointer; transition: all .12s ease; }
+.noshow-btn { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; font-weight: 700; padding: 5px 10px; border-radius: 6px; cursor: pointer; transition: all .12s ease; margin-left: 6px; }
 .noshow-btn:hover { background: #fee2e2; }
 .noshow-btn.active-noshow { background: #dc2626!important; color: #ffffff!important; border-color: #dc2626!important; }
 
