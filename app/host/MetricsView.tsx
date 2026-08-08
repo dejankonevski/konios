@@ -183,21 +183,33 @@ export default function MetricsView({ bookings }: { bookings: Booking[] }) {
       if (m.gross > maxMonthlyGross) maxMonthlyGross = m.gross;
     });
 
-    // Calculate Operating Days starting from First Month with Reservations
+    // Filter out past empty months prior to first reservation month
     const firstActiveIndex = monthlyBreakdown.findIndex((m) => m.nights > 0 || m.bookingCount > 0);
     const startMonthIdx = firstActiveIndex >= 0 ? firstActiveIndex : 0;
+    const displayMonthlyBreakdown = monthlyBreakdown.filter((_, idx) => idx >= startMonthIdx);
 
-    let operatingDays = 0;
-    for (let m = startMonthIdx; m < 12; m++) {
-      operatingDays += monthlyBreakdown[m].daysInMonth;
+    // Sum days only for active months with reservations
+    let activeDays = 0;
+    displayMonthlyBreakdown.forEach((m) => {
+      if (m.nights > 0) {
+        activeDays += m.daysInMonth;
+      }
+    });
+    if (activeDays === 0) {
+      displayMonthlyBreakdown.forEach((m) => {
+        activeDays += m.daysInMonth;
+      });
     }
-    if (operatingDays === 0) operatingDays = 365;
+    if (activeDays === 0) activeDays = 365;
 
-    const periodOccupancyPct = Math.min(100, Math.round((totalNights / operatingDays) * 100));
-    const periodLabel = startMonthIdx > 0 ? `${monthNames[startMonthIdx].slice(0, 3)} – Dec` : "Full Year";
+    const periodOccupancyPct = Math.min(100, Math.round((totalNights / activeDays) * 100));
+    const endMonthIdx = 11;
+    const periodLabel = startMonthIdx > 0
+      ? `${monthNames[startMonthIdx].slice(0, 3)} – ${monthNames[endMonthIdx].slice(0, 3)}`
+      : "Full Year";
 
     const adr = totalNights > 0 ? totalGross / totalNights : 0;
-    const revPar = totalGross / operatingDays;
+    const revPar = totalGross / activeDays;
     const netMarginPct = totalGross > 0 ? Math.round((totalNet / totalGross) * 100) : 0;
     const commPct = totalGross > 0 ? Math.round((totalCommission / totalGross) * 100) : 0;
 
@@ -208,7 +220,7 @@ export default function MetricsView({ bookings }: { bookings: Booking[] }) {
       totalNights,
       totalBookings,
       yearOccupancyPct: periodOccupancyPct,
-      operatingDays,
+      operatingDays: activeDays,
       periodLabel,
       adr,
       revPar,
@@ -216,6 +228,7 @@ export default function MetricsView({ bookings }: { bookings: Booking[] }) {
       commPct,
       maxMonthlyGross,
       monthlyBreakdown,
+      displayMonthlyBreakdown,
       channelStats,
     };
   }, [bookings, selectedYear, filterFrom, filterTo]);
@@ -379,7 +392,7 @@ export default function MetricsView({ bookings }: { bookings: Booking[] }) {
             <span className="chart-legend">💶 Gross Revenue Bar</span>
           </div>
           <div className="bar-chart-container">
-            {metrics.monthlyBreakdown.map((m) => {
+            {metrics.displayMonthlyBreakdown.map((m) => {
               const heightPct =
                 metrics.maxMonthlyGross > 0
                   ? Math.max(6, Math.round((m.gross / metrics.maxMonthlyGross) * 100))
@@ -442,8 +455,8 @@ export default function MetricsView({ bookings }: { bookings: Booking[] }) {
       {/* Detailed Monthly Metrics Table */}
       <div className="analytics-table-card">
         <div className="table-card-head">
-          <h3>Monthly Financial Performance ({selectedYear})</h3>
-          <span className="table-count-badge">12 Calendar Months</span>
+          <h3>Active Monthly Performance ({metrics.periodLabel} {selectedYear})</h3>
+          <span className="table-count-badge">{metrics.displayMonthlyBreakdown.length} Active Months</span>
         </div>
         <div className="table-responsive">
           <table className="analytics-data-table">
@@ -459,7 +472,7 @@ export default function MetricsView({ bookings }: { bookings: Booking[] }) {
               </tr>
             </thead>
             <tbody>
-              {metrics.monthlyBreakdown.map((m) => {
+              {metrics.displayMonthlyBreakdown.map((m) => {
                 const avgRate = m.nights > 0 ? m.gross / m.nights : 0;
                 const sharePct =
                   metrics.maxMonthlyGross > 0
