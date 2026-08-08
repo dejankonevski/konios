@@ -12,6 +12,7 @@ import MetricsView from "./MetricsView";
 import ExpensesView from "./ExpensesView";
 import GuestMessageModal from "./GuestMessageModal";
 import PropertyManager from "./PropertyManager";
+import CalendarView from "./CalendarView";
 import type { GuestGuide } from "@/lib/guest-guide";
 import type { Property } from "@/lib/portfolio";
 
@@ -113,7 +114,7 @@ export default function HostPage() {
     [error, setError] = useState(""),
     [copied, setCopied] = useState(false);
   const [view, setView] = useState<
-    "overview" | "bookings" | "new" | "guide" | "templates" | "faqs" | "gallery" | "metrics" | "expenses" | "properties"
+    "overview" | "calendar" | "bookings" | "new" | "guide" | "templates" | "faqs" | "gallery" | "metrics" | "expenses" | "properties"
   >("overview"),
     [bookings, setBookings] = useState<Booking[]>([]),
     [search, setSearch] = useState("");
@@ -877,6 +878,7 @@ export default function HostPage() {
           >
             <span>▤</span>Bookings
           </button>
+          <button className={view === "calendar" ? "active" : ""} onClick={() => setView("calendar")}><span>▦</span>Calendar</button>
           <button
             className={view === "new" ? "active" : ""}
             onClick={() => {
@@ -939,6 +941,8 @@ export default function HostPage() {
                 ? "Good day, Dejan."
                 : view === "bookings"
                   ? "All bookings"
+                  : view === "calendar"
+                    ? "Monthly calendar"
                   : view === "metrics"
                     ? "Revenue & Performance Insights"
                     : view === "expenses"
@@ -1461,6 +1465,7 @@ export default function HostPage() {
           </div>
         )}
         {view === "metrics" && <MetricsView bookings={bookings} />}
+        {view === "calendar" && <CalendarView bookings={bookings} propertyId={selectedPropertyId} checkInTime={times.checkInTime} checkOutTime={times.checkOutTime} onOpenBooking={setEditingBooking} />}
         {view === "expenses" && <ExpensesView bookings={bookings} propertyId={selectedPropertyId} />}
         {view === "guide" && <GuideEditor propertyId={selectedPropertyId} />}
         {view === "templates" && <TemplateManager propertyId={selectedPropertyId} onUpdate={() => loadGuide(selectedPropertyId)} />}
