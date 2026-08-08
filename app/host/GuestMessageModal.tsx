@@ -12,7 +12,7 @@ export function populateTemplate(
 ): string {
   const origin = typeof window !== "undefined" ? window.location.origin : "https://konios.vercel.app";
   const guestName = `${booking.firstName} ${booking.lastName}`.trim();
-  const guideUrl = `${origin}/${propertySlug || "access"}?token=${booking.accessToken}`;
+  const guideUrl = `${origin}/${propertySlug || "access"}`;
   const currency = booking.currency || "EUR";
   const amountDue = Math.max(0, (Number(booking.grossAmount) || 0) - (Number(booking.paymentCollected) || 0));
 

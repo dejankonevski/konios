@@ -415,8 +415,8 @@ export default function HostPage() {
   async function copyCode() {
     if (result) {
       const propertySlug = properties.find((property) => property.id === (result.propertyId || selectedPropertyId))?.slug;
-      const link = `${window.location.origin}/${propertySlug || "access"}?token=${result.accessToken}`;
-      await navigator.clipboard.writeText(`Private guest guide: ${link}\nFive-digit PIN: ${result.code}`);
+      const link = `${window.location.origin}/${propertySlug || "access"}`;
+      await navigator.clipboard.writeText(`Guest guide: ${link}\nFive-digit PIN: ${result.code}`);
       setCopied(true);
     }
   }
@@ -1196,10 +1196,10 @@ export default function HostPage() {
               <p className="eyebrow">Manual reservation</p>
               <h2>Prepare their stay.</h2>
               <p>
-                Create a private reservation link plus a separate PIN. Sensitive access details remain hidden until 14:30 on arrival day.
+                Create a five-digit guest PIN for this property. Sensitive access details remain hidden until the configured arrival release time.
               </p>
               <ul>
-                <li>Unguessable private link + five-digit PIN</li>
+                <li>Simple five-digit guest PIN</li>
                 <li>Automatic activation and expiry</li>
                 <li>One-click copy, revoke or archive with undo</li>
               </ul>
@@ -1448,7 +1448,7 @@ export default function HostPage() {
                     Portal opens {times.portalLeadHours}h before arrival · sensitive details reveal {times.sensitiveRevealMinutes}m before check-in · expires {times.accessExpiryMinutes}m after checkout
                   </p>
                   <button className="submit-button" onClick={copyCode}>
-                    {copied ? "Private link + PIN copied" : "Copy private link + PIN"}
+                    {copied ? "Property URL + PIN copied" : "Copy property URL + PIN"}
                     <span>{copied ? "✓" : "⧉"}</span>
                   </button>
                   <button

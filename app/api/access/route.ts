@@ -1,16 +1,17 @@
 import { cookies } from "next/headers";
-import { bookingState, getBookingByToken } from "@/lib/bookings";
+import { bookingState, getBookingByCode } from "@/lib/bookings";
 import { getGuestGuide } from "@/lib/guest-guide";
+import { getPropertyBySlug } from "@/lib/portfolio";
 import { rateLimit, requestIp } from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
   const limited = await rateLimit("guest-access", requestIp(request), 8, 10 * 60);
   if (!limited.success) return Response.json({ error: "Too many attempts. Please wait 10 minutes or contact your host." }, { status: 429, headers: { "Retry-After": "600" } });
-  const { code, token } = (await request.json()) as { code?: string; token?: string };
-  if (!token || !/^[a-f0-9]{64}$/.test(token)) return Response.json({ error: "Open the private reservation link sent by your host." }, { status: 400 });
+  const { code, propertySlug } = (await request.json()) as { code?: string; propertySlug?: string };
   if (!code || !/^\d{5}$/.test(code.trim())) return Response.json({ error: "Enter your five-digit PIN." }, { status: 400 });
-  const booking = await getBookingByToken(token);
-  if (!booking || booking.code !== code.trim()) return Response.json({ error: "That private link and PIN do not match." }, { status: 401 });
+  const booking = await getBookingByCode(code.trim());
+  const property = propertySlug ? await getPropertyBySlug(propertySlug) : null;
+  if (!booking || (propertySlug && (!property || (booking.propertyId || "konios-house") !== property.id))) return Response.json({ error: "That guest PIN is not valid for this property." }, { status: 401 });
   const guide = await getGuestGuide(booking.propertyId || "konios-house");
   const state = bookingState(booking, new Date(), guide);
   if (state.status === "upcoming") return Response.json({ state: "upcoming", guest: booking.firstName, availableAt: state.portalOpensAt.toISOString() }, { status: 403 });
