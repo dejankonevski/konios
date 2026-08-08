@@ -1019,12 +1019,120 @@ body { top: 0!important; position: static!important; }
 .btn-mark-cleaned { padding: 9px 18px; border-radius: 8px; font-size: .82rem; font-weight: 800; border: 0; cursor: pointer; background: #0f172a; color: #ffffff; transition: opacity .15s ease; flex-shrink: 0; }
 .btn-mark-cleaned:hover { opacity: .9; }
 
-.cleaning-schedule-section { background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 10px; padding: 12px 14px; margin-top: 14px; }
-.checkbox-field-label { display: flex; align-items: center; gap: 8px; font-size: .85rem; font-weight: 700; color: #1e293b; cursor: pointer; }
-.checkbox-field-label input[type="checkbox"] { width: 16px; height: 16px; accent-color: #2563eb; }
-.cleaning-fee-sub-field { margin-top: 10px; display: flex; flex-direction: column; gap: 4px; }
-.cleaning-fee-sub-field label { font-size: .75rem; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: .05em; }
-.cleaning-fee-sub-field input { padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: .9rem; }
+.row-tag.cleaning-scheduled-tag { background: #fff7ed; color: #ea580c; border: 1px solid #ffedd5; font-weight: 800; }
+.row-tag.cleaning-cleaned-tag { background: #f0fdf4; color: #16a34a; border: 1px solid #dcfce7; font-weight: 800; }
+
+/* Modern Cleaning Agency Toggle Card UI */
+.cleaning-card-toggle {
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 16px 18px;
+  margin-top: 14px;
+  transition: all .15s ease;
+  text-align: left;
+}
+.cleaning-card-toggle.is-active {
+  background: #fff7ed;
+  border-color: #fdba74;
+  box-shadow: 0 4px 14px rgba(249, 115, 22, 0.08);
+}
+
+.cleaning-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.cleaning-card-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+}
+
+.cleaning-card-icon {
+  font-size: 1.4rem;
+  background: #ffffff;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  flex-shrink: 0;
+}
+
+.cleaning-card-info strong {
+  display: block;
+  font-size: .92rem;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.2;
+}
+
+.cleaning-card-info p {
+  margin: 2px 0 0;
+  font-size: .78rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+/* iOS Style Switch Slider */
+.switch-toggle {
+  position: relative;
+  display: inline-block;
+  width: 46px;
+  height: 26px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.switch-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.switch-slider {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: #cbd5e1;
+  border-radius: 34px;
+  transition: .2s ease;
+}
+
+.switch-slider:before {
+  position: absolute;
+  content: "";
+  height: 20px;
+  width: 20px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  border-radius: 50%;
+  transition: .2s ease;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.switch-toggle input:checked + .switch-slider {
+  background-color: #ea580c;
+}
+
+.switch-toggle input:checked + .switch-slider:before {
+  transform: translateX(20px);
+}
+
+.cleaning-card-body {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #fed7aa;
+  display: grid;
+  grid-template-columns: 1fr 1.3fr;
+  gap: 12px;
+}
 
 /* Expenses Management Module */
 .expenses-view-container { display: flex; flex-direction: column; gap: 24px; padding-bottom: 40px; }

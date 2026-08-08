@@ -510,6 +510,13 @@ export default function HostPage() {
                   {isNextArrival && !isNoShow && (
                     <span className="row-tag next-tag">✦ Closest upcoming arrival</span>
                   )}
+                  {b.hasCleaningAgency && (
+                    <span className={`row-tag ${b.cleaningStatus === "completed" ? "cleaning-cleaned-tag" : "cleaning-scheduled-tag"}`}>
+                      {b.cleaningStatus === "completed"
+                        ? `✓ Agency Cleaned (${b.cleaningFeeMkd || 750} MKD)`
+                        : `🧹 Agency Scheduled (${b.cleaningFeeMkd || 750} MKD)`}
+                    </span>
+                  )}
                   <div className="guest-sub-meta">
                     <small className="guest-count-sub">
                       {b.guests} {b.guests === 1 ? "guest" : "guests"}
@@ -1178,23 +1185,34 @@ export default function HostPage() {
                       placeholder="Arrival details, preferences, reminders…"
                     />
                   </label>
-                  <div className="cleaning-schedule-section">
-                    <label className="checkbox-field-label">
-                      <input
-                        type="checkbox"
-                        name="hasCleaningAgency"
-                        defaultChecked={false}
-                        onChange={(e) => {
-                          const wrap = document.getElementById("new-cleaning-fee-input-wrap");
-                          if (wrap) wrap.style.display = e.target.checked ? "flex" : "none";
-                        }}
-                      />
-                      <span>🧹 Schedule Cleaning Agency for Checkout Day</span>
-                    </label>
-                    <div id="new-cleaning-fee-input-wrap" className="cleaning-fee-sub-field" style={{ display: "none" }}>
-                      <label>
-                        Agency Fee (MKD)
+                  <div className="cleaning-card-toggle">
+                    <div className="cleaning-card-header">
+                      <div className="cleaning-card-info">
+                        <span className="cleaning-card-icon">🧹</span>
+                        <div>
+                          <strong>Schedule Cleaning Agency</strong>
+                          <p>Assign cleaning agency for checkout day</p>
+                        </div>
+                      </div>
+                      <label className="switch-toggle" htmlFor="new-cleaning-toggle">
                         <input
+                          id="new-cleaning-toggle"
+                          type="checkbox"
+                          name="hasCleaningAgency"
+                          defaultChecked={false}
+                          onChange={(e) => {
+                            const wrap = document.getElementById("new-cleaning-fee-input-wrap");
+                            if (wrap) wrap.style.display = e.target.checked ? "grid" : "none";
+                          }}
+                        />
+                        <span className="switch-slider" />
+                      </label>
+                    </div>
+                    <div id="new-cleaning-fee-input-wrap" className="cleaning-card-body" style={{ display: "none" }}>
+                      <div className="form-group">
+                        <label htmlFor="new-cleaning-fee">Agency Fee (MKD)</label>
+                        <input
+                          id="new-cleaning-fee"
                           type="number"
                           step="50"
                           min="0"
@@ -1202,7 +1220,7 @@ export default function HostPage() {
                           defaultValue={750}
                           placeholder="750"
                         />
-                      </label>
+                      </div>
                     </div>
                   </div>
                   {error && <p className="form-error">{error}</p>}
@@ -1467,26 +1485,35 @@ export default function HostPage() {
               ) : null}
 
               {/* Cleaning Agency Scheduling Box */}
-              <div className="cleaning-scheduling-box">
-                <label className="checkbox-label" htmlFor="edit-cleaning-toggle">
-                  <input
-                    id="edit-cleaning-toggle"
-                    type="checkbox"
-                    checked={Boolean(editingBooking.hasCleaningAgency)}
-                    onChange={(e) =>
-                      setEditingBooking({
-                        ...editingBooking,
-                        hasCleaningAgency: e.target.checked,
-                        cleaningFeeMkd: e.target.checked ? (editingBooking.cleaningFeeMkd || 750) : 0,
-                        cleaningStatus: e.target.checked ? (editingBooking.cleaningStatus || "scheduled") : "scheduled",
-                      })
-                    }
-                  />
-                  <span>🧹 Schedule Cleaning Agency for Checkout Day ({editingBooking.checkOut})</span>
-                </label>
+              <div className={`cleaning-card-toggle ${editingBooking.hasCleaningAgency ? "is-active" : ""}`}>
+                <div className="cleaning-card-header">
+                  <div className="cleaning-card-info">
+                    <span className="cleaning-card-icon">🧹</span>
+                    <div>
+                      <strong>Agency Cleaning Service</strong>
+                      <p>Schedule cleaning agency for checkout day ({editingBooking.checkOut})</p>
+                    </div>
+                  </div>
+                  <label className="switch-toggle" htmlFor="edit-cleaning-toggle">
+                    <input
+                      id="edit-cleaning-toggle"
+                      type="checkbox"
+                      checked={Boolean(editingBooking.hasCleaningAgency)}
+                      onChange={(e) =>
+                        setEditingBooking({
+                          ...editingBooking,
+                          hasCleaningAgency: e.target.checked,
+                          cleaningFeeMkd: e.target.checked ? (editingBooking.cleaningFeeMkd || 750) : 0,
+                          cleaningStatus: e.target.checked ? (editingBooking.cleaningStatus || "scheduled") : "scheduled",
+                        })
+                      }
+                    />
+                    <span className="switch-slider" />
+                  </label>
+                </div>
 
                 {editingBooking.hasCleaningAgency ? (
-                  <div className="modal-field-row cleaning-details-sub" style={{ marginTop: "12px" }}>
+                  <div className="cleaning-card-body">
                     <div className="form-group">
                       <label htmlFor="edit-cleaning-fee">Agency Fee (MKD)</label>
                       <input
