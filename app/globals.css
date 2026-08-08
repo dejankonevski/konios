@@ -1074,4 +1074,42 @@ body { top: 0!important; position: static!important; }
   .expense-content-grid { grid-template-columns: 1fr; }
 }
 
+/* Guest Message Selector Modal */
+.msg-action-chip { background: #eff6ff!important; color: #1d4ed8!important; border: 1px solid #bfdbfe!important; font-weight: 700!important; }
+.msg-action-chip:hover { background: #dbeafe!important; }
+
+.guest-msg-modal-card { background: #ffffff; width: min(840px, 94vw); border-radius: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.22); overflow: hidden; display: flex; flex-direction: column; animation: modalPop .2s cubic-bezier(0.16, 1, 0.3, 1); }
+.msg-modal-body { display: grid; grid-template-columns: 280px 1fr; border-top: 1px solid #e2e8f0; min-height: 380px; }
+
+.msg-tpl-sidebar { background: #f8fafc; border-right: 1px solid #e2e8f0; padding: 18px 14px; display: flex; flex-direction: column; gap: 12px; }
+.msg-sidebar-title { font-size: .66rem; font-weight: 800; color: #64748b; letter-spacing: .08em; }
+.msg-tpl-list { display: flex; flex-direction: column; gap: 8px; overflow-y: auto; max-height: 420px; }
+.msg-tpl-item { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; padding: 10px 12px; border-radius: 10px; border: 1px solid #e2e8f0; background: #ffffff; text-align: left; cursor: pointer; transition: all .12s ease; }
+.msg-tpl-item:hover { background: #f1f5f9; border-color: #cbd5e1; }
+.msg-tpl-item.active { background: #eff6ff; border-color: #3b82f6; box-shadow: 0 2px 8px rgba(37,99,235,0.12); }
+.msg-tpl-cat { font-size: .64rem; font-weight: 800; color: #3b82f6; text-transform: uppercase; letter-spacing: .05em; }
+.msg-tpl-title { font-size: .84rem; font-weight: 700; color: #0f172a; line-height: 1.25; }
+
+.msg-preview-panel { padding: 20px 24px; display: flex; flex-direction: column; gap: 12px; background: #ffffff; }
+.msg-preview-head { display: flex; flex-direction: column; gap: 2px; }
+.msg-preview-label { font-size: .68rem; font-weight: 800; color: #64748b; letter-spacing: .06em; }
+.msg-preview-hint { font-size: .76rem; color: #94a3b8; font-weight: 600; }
+.msg-preview-textarea { width: 100%; padding: 14px 16px; border-radius: 12px; border: 1.5px solid #e2e8f0; font-family: inherit; font-size: .92rem; color: #0f172a; line-height: 1.55; outline: none; resize: vertical; min-height: 180px; background: #fafcff; transition: border-color .15s ease; }
+.msg-preview-textarea:focus { border-color: #3b82f6; background: #ffffff; }
+
+.msg-action-bar { display: flex; align-items: center; gap: 12px; margin-top: auto; padding-top: 8px; }
+.msg-copy-btn { flex: 1; padding: 12px 18px; border-radius: 10px; font-size: .88rem; font-weight: 800; border: 0; background: #0f172a; color: #ffffff; cursor: pointer; transition: all .15s ease; text-align: center; }
+.msg-copy-btn:hover { background: #1e293b; }
+.msg-copy-btn.copied { background: #16a34a!important; }
+
+.msg-wa-btn { flex: 1; padding: 12px 18px; border-radius: 10px; font-size: .88rem; font-weight: 800; border: 0; background: #25d366; color: #ffffff!important; cursor: pointer; transition: all .15s ease; text-align: center; text-decoration: none!important; display: inline-flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 4px 14px rgba(37,211,102,0.25); }
+.msg-wa-btn:hover { background: #20bd5a; }
+
+@media(max-width: 700px) {
+  .msg-modal-body { grid-template-columns: 1fr; }
+  .msg-action-bar { flex-direction: column; }
+  .msg-copy-btn, .msg-wa-btn { width: 100%; }
+}
+
+
 

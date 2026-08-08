@@ -10,6 +10,7 @@ import FaqManager from "./FaqManager";
 import GalleryManager from "./GalleryManager";
 import MetricsView from "./MetricsView";
 import ExpensesView from "./ExpensesView";
+import GuestMessageModal from "./GuestMessageModal";
 
 type Booking = {
   id: string;
@@ -105,6 +106,7 @@ export default function HostPage() {
     [hoverDate, setHoverDate] = useState<string>(),
     [result, setResult] = useState<Generated | null>(null);
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
+  const [messagingBooking, setMessagingBooking] = useState<Booking | null>(null);
   const [editError, setEditError] = useState("");
   const [editSaving, setEditSaving] = useState(false);
 
@@ -597,6 +599,16 @@ export default function HostPage() {
               </div>
 
               <div className="row-actions" onClick={(e) => e.stopPropagation()}>
+                <button
+                  className="msg-action-chip"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setMessagingBooking(b);
+                  }}
+                  title="View & copy populated messages for this guest"
+                >
+                  ✉ Message
+                </button>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -1508,6 +1520,13 @@ export default function HostPage() {
             </form>
           </div>
         </div>
+      )}
+
+      {messagingBooking && (
+        <GuestMessageModal
+          booking={messagingBooking}
+          onClose={() => setMessagingBooking(null)}
+        />
       )}
     </main>
   );
