@@ -177,10 +177,21 @@ export default function MetricsView({ bookings }: { bookings: Booking[] }) {
       if (m.gross > maxMonthlyGross) maxMonthlyGross = m.gross;
     });
 
-    const totalDaysInYear = 365;
-    const yearOccupancyPct = Math.min(100, Math.round((totalNights / totalDaysInYear) * 100));
+    // Calculate Operating Days starting from First Month with Reservations
+    const firstActiveIndex = monthlyBreakdown.findIndex((m) => m.nights > 0 || m.bookingCount > 0);
+    const startMonthIdx = firstActiveIndex >= 0 ? firstActiveIndex : 0;
+
+    let operatingDays = 0;
+    for (let m = startMonthIdx; m < 12; m++) {
+      operatingDays += monthlyBreakdown[m].daysInMonth;
+    }
+    if (operatingDays === 0) operatingDays = 365;
+
+    const periodOccupancyPct = Math.min(100, Math.round((totalNights / operatingDays) * 100));
+    const periodLabel = startMonthIdx > 0 ? `${monthNames[startMonthIdx].slice(0, 3)} – Dec` : "Full Year";
+
     const adr = totalNights > 0 ? totalGross / totalNights : 0;
-    const revPar = totalGross / totalDaysInYear;
+    const revPar = totalGross / operatingDays;
     const netMarginPct = totalGross > 0 ? Math.round((totalNet / totalGross) * 100) : 0;
     const commPct = totalGross > 0 ? Math.round((totalCommission / totalGross) * 100) : 0;
 
@@ -190,7 +201,9 @@ export default function MetricsView({ bookings }: { bookings: Booking[] }) {
       totalCommission,
       totalNights,
       totalBookings,
-      yearOccupancyPct,
+      yearOccupancyPct: periodOccupancyPct,
+      operatingDays,
+      periodLabel,
       adr,
       revPar,
       netMarginPct,
@@ -346,7 +359,7 @@ export default function MetricsView({ bookings }: { bookings: Booking[] }) {
           </div>
           <strong className="insight-val">{metrics.totalNights} nights</strong>
           <div className="insight-foot">
-            <span>Across {metrics.totalBookings} stay{metrics.totalBookings !== 1 ? "s" : ""}</span>
+            <span>Operating Period: <b>{metrics.periodLabel}</b> ({metrics.operatingDays} days)</span>
           </div>
         </div>
       </div>
@@ -490,8 +503,8 @@ export default function MetricsView({ bookings }: { bookings: Booking[] }) {
             </tbody>
             <tfoot>
               <tr className="analytics-total-row">
-                <td>Full Year Total ({selectedYear})</td>
-                <td><b>{metrics.totalNights}</b> nights</td>
+                <td>Operating Period Total ({metrics.periodLabel} {selectedYear})</td>
+                <td><b>{metrics.totalNights}</b> / {metrics.operatingDays} nights</td>
                 <td>{metrics.yearOccupancyPct}% avg</td>
                 <td className="col-gross">{formatEuro(metrics.totalGross)}</td>
                 <td className="col-comm">{formatEuro(metrics.totalCommission)}</td>

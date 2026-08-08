@@ -194,6 +194,59 @@ export default function HostPage() {
     );
   }, [sortedBookings, search]);
 
+  const overviewFinancials = useMemo(() => {
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, "0");
+    const currentMonthKey = `${yyyy}-${mm}`;
+
+    const currentActiveBooking = bookings.find(
+      (b) => !b.revoked && b.accessStatus === "active"
+    );
+    const nextArrivalBooking = bookings
+      .filter((b) => !b.revoked && b.accessStatus === "upcoming")
+      .sort((a, b) => a.checkIn.localeCompare(b.checkIn))[0];
+
+    let currentMonthGross = 0;
+    let currentMonthNet = 0;
+    let currentMonthNights = 0;
+
+    bookings
+      .filter((b) => !b.revoked)
+      .forEach((b) => {
+        const checkInDate = new Date(`${b.checkIn}T00:00:00`);
+        const checkOutDate = new Date(`${b.checkOut}T00:00:00`);
+        const diffTime = checkOutDate.getTime() - checkInDate.getTime();
+        const totalNights = Math.max(1, Math.round(diffTime / (1000 * 60 * 60 * 24)));
+        const bGross = Number(b.grossAmount) || 0;
+        const bNet = Number(b.netAmount) || 0;
+        const nightlyGross = bGross / totalNights;
+        const nightlyNet = bNet / totalNights;
+
+        const curr = new Date(checkInDate);
+        while (curr < checkOutDate) {
+          const cYyyy = curr.getFullYear();
+          const cMm = String(curr.getMonth() + 1).padStart(2, "0");
+          if (`${cYyyy}-${cMm}` === currentMonthKey) {
+            currentMonthGross += nightlyGross;
+            currentMonthNet += nightlyNet;
+            currentMonthNights += 1;
+          }
+          curr.setDate(curr.getDate() + 1);
+        }
+      });
+
+    const monthName = monthNames[now.getMonth()];
+    return {
+      monthName,
+      currentMonthGross,
+      currentMonthNet,
+      currentMonthNights,
+      currentActiveBooking,
+      nextArrivalBooking,
+    };
+  }, [bookings]);
+
   async function loadBookings() {
     const response = await fetch("/api/host/code", { cache: "no-store" });
     if (response.ok) {
@@ -645,6 +698,71 @@ export default function HostPage() {
                     : "No arrival scheduled"}
                 </small>
               </article>
+            </div>
+
+            {/* Financial Overview Cards Panel */}
+            <div className="overview-financial-grid">
+              <div className="overview-fin-card">
+                <div className="fin-head">
+                  <span className="fin-title">{overviewFinancials.monthName} Revenue</span>
+                  <span className="fin-chip month-chip">Current Month</span>
+                </div>
+                <strong className="fin-amount">
+                  {new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(overviewFinancials.currentMonthGross)}
+                </strong>
+                <div className="fin-sub">
+                  <span>Net Profit: <b>{new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(overviewFinancials.currentMonthNet)}</b></span>
+                  <span><b>{overviewFinancials.currentMonthNights}</b> nights booked</span>
+                </div>
+              </div>
+
+              <div className="overview-fin-card">
+                <div className="fin-head">
+                  <span className="fin-title">Current Staying Guest</span>
+                  <span className={`fin-chip ${overviewFinancials.currentActiveBooking ? "active-chip" : "empty-chip"}`}>
+                    {overviewFinancials.currentActiveBooking ? "In Apartment" : "Empty"}
+                  </span>
+                </div>
+                {overviewFinancials.currentActiveBooking ? (
+                  <>
+                    <strong className="fin-amount">
+                      {new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(overviewFinancials.currentActiveBooking.grossAmount || 0)}
+                    </strong>
+                    <div className="fin-sub">
+                      <span>{overviewFinancials.currentActiveBooking.firstName} {overviewFinancials.currentActiveBooking.lastName} · Net <b>{new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(overviewFinancials.currentActiveBooking.netAmount || 0)}</b></span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <strong className="fin-amount empty-amount">—</strong>
+                    <div className="fin-sub"><span>Apartment is currently between stays</span></div>
+                  </>
+                )}
+              </div>
+
+              <div className="overview-fin-card">
+                <div className="fin-head">
+                  <span className="fin-title">Next Arrival Payout</span>
+                  <span className="fin-chip upcoming-chip">
+                    {overviewFinancials.nextArrivalBooking ? formatShort(overviewFinancials.nextArrivalBooking.checkIn) : "None"}
+                  </span>
+                </div>
+                {overviewFinancials.nextArrivalBooking ? (
+                  <>
+                    <strong className="fin-amount">
+                      {new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(overviewFinancials.nextArrivalBooking.grossAmount || 0)}
+                    </strong>
+                    <div className="fin-sub">
+                      <span>{overviewFinancials.nextArrivalBooking.firstName} {overviewFinancials.nextArrivalBooking.lastName} · Net <b>{new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(overviewFinancials.nextArrivalBooking.netAmount || 0)}</b></span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <strong className="fin-amount empty-amount">—</strong>
+                    <div className="fin-sub"><span>No upcoming arrival scheduled</span></div>
+                  </>
+                )}
+              </div>
             </div>
             <div className="dashboard-section-title">
               <div>
