@@ -106,6 +106,11 @@ export default function GuestManualView({
   }, []);
 
   useEffect(() => {
+    if (booking.id === "host-preview") return;
+    void fetch("/api/access", { method: "DELETE", keepalive: true });
+  }, [booking.id]);
+
+  useEffect(() => {
     // Inject Google Translate script if needed
     if (!document.getElementById("google-translate-script")) {
       const script = document.createElement("script");

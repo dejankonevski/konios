@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { bookingState, getBookingByCode } from "@/lib/bookings";
 import { getGuestGuide } from "@/lib/guest-guide";
-import { getPropertyBySlug } from "@/lib/portfolio";
+import { getPropertyById, getPropertyBySlug } from "@/lib/portfolio";
 import { rateLimit, requestIp } from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
@@ -18,8 +18,9 @@ export async function POST(request: Request) {
   if (state.status === "expired") return Response.json({ state: "expired", guest: booking.firstName, expiredAt: state.closesAt.toISOString() }, { status: 410 });
   if (state.status === "revoked") return Response.json({ error: "This code is no longer active. Please contact your host." }, { status: 403 });
 
-  (await cookies()).set("konios_access", booking.accessToken, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", path: "/", expires: state.closesAt });
-  return Response.json({ ok: true, stage: state.stayStage, guest: `${booking.firstName} ${booking.lastName}` });
+  (await cookies()).set("konios_access", booking.accessToken, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", path: "/", maxAge: 90 });
+  const bookingProperty = await getPropertyById(booking.propertyId || "konios-house");
+  return Response.json({ ok: true, stage: state.stayStage, guest: `${booking.firstName} ${booking.lastName}`, propertySlug: bookingProperty?.slug || "konios-house" });
 }
 
 export async function DELETE() { (await cookies()).delete("konios_access"); return Response.json({ ok: true }); }

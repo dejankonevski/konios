@@ -27,7 +27,7 @@ export default function AccessView({ propertySlug, propertyName = "Konios House"
       setLoading(false);
       return;
     }
-    window.location.href = propertySlug ? `/${propertySlug}` : "/";
+    window.location.href = `/${propertySlug || result.propertySlug || "konios-house"}`;
   }
 
   const accessUrl = propertySlug ? `/${propertySlug}` : "/access";
