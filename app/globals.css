@@ -646,6 +646,7 @@ footer>div { display:flex; justify-content:flex-end; gap:30px; }
 .countdown-pill.chip-active { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; font-size: .84rem; font-weight: 800; }
 .countdown-pill.chip-next-hero { background: #2563eb; color: #fff; font-size: .92rem; font-weight: 800; padding: 8px 18px; box-shadow: 0 4px 14px rgba(37,99,235,.3); }
 .countdown-pill.chip-subsequent { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
+.countdown-pill.chip-expired { background: #f1f5f9; color: #94a3b8; border: 1px solid #e2e8f0; font-weight: 600; }
 
 .hero-code-chip-inline { border: 2px solid #bfdbfe!important; background: #fff!important; box-shadow: 0 4px 14px rgba(37,99,235,.15)!important; padding: 9px 14px!important; border-radius: 10px!important; }
 .hero-code-chip-inline strong { font-size: 1.25rem!important; font-weight: 800!important; color: #1d4ed8!important; letter-spacing: .08em; }

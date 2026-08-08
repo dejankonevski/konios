@@ -74,7 +74,8 @@ function getDaysUntilLabel(checkInDateStr: string, checkInTime = "06:00"): strin
   const diffDays = Math.round(
     (target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
   );
-  if (diffDays <= 0) return `Arriving today at ${checkInTime}`;
+  if (diffDays < 0) return "Expired";
+  if (diffDays === 0) return `Arriving today at ${checkInTime}`;
   if (diffDays === 1) return `Tomorrow at ${checkInTime}`;
   return `in ${diffDays} days`;
 }
@@ -426,8 +427,11 @@ export default function HostPage() {
       ) : (
         items.map((b) => {
           const isActive = b.accessStatus === "active";
+          const isExpired = b.accessStatus === "expired" || b.revoked;
           const isNextArrival = b.id === nextArrivalId;
-          const countdown = isActive
+          const countdown = isExpired
+            ? (b.revoked ? "Revoked" : "Expired")
+            : isActive
             ? "Active now"
             : getDaysUntilLabel(b.checkIn, times.checkInTime);
 
@@ -511,9 +515,11 @@ export default function HostPage() {
                   className={`countdown-pill ${
                     isActive
                       ? "chip-active"
-                      : isNextArrival
-                        ? "chip-next-hero"
-                        : "chip-subsequent"
+                      : isExpired
+                        ? "chip-expired"
+                        : isNextArrival
+                          ? "chip-next-hero"
+                          : "chip-subsequent"
                   }`}
                 >
                   {countdown}
