@@ -588,7 +588,7 @@ export default function HostPage() {
                 : view === "bookings"
                   ? "All bookings"
                   : view === "metrics"
-                    ? "Financial Metrics & Revenue"
+                    ? "Revenue & Performance Insights"
                     : view === "guide"
                       ? "Guest guide"
                       : view === "templates"
