@@ -76,19 +76,12 @@ export default function GuestManualView({
     return "en";
   });
   const [previewImage, setPreviewImage] = useState<{ src: string; title: string; subtitle?: string } | null>(null);
-  const [eventStatus, setEventStatus] = useState("");
   const [activeSection, setActiveSection] = useState<GuideSection>(() => sectionForStage(accessState.stayStage));
   const accessDetailsLabel = new Intl.DateTimeFormat("en", {
     timeZone: "Europe/Skopje",
     dateStyle: "long",
     timeStyle: "short",
   }).format(new Date(accessState.accessDetailsAt));
-
-  async function sendStayEvent(type: string) {
-    setEventStatus("Sending…");
-    const response = await fetch("/api/guest/events", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ type }) });
-    setEventStatus(response.ok ? "Sent to your host ✓" : "Could not send. Please call your host.");
-  }
 
   function showSection(section: GuideSection) {
     setActiveSection(section);
@@ -312,10 +305,6 @@ export default function GuestManualView({
           <p className="eyebrow">Start here</p>
           <h2>Arrival, step by step.</h2>
           <p>Keep this page open as you approach the building.</p>
-        </div>
-        <div className="guest-action-bar"><div><strong>Quick update for your host</strong><span>{eventStatus || "Tap once—we’ll record it on your reservation."}</span></div><div>{[["arrived","I have arrived"],["entered","I entered successfully"],["payment-placed","Payment placed"],["parking-occupied","Parking occupied"],["help","I need help"]].map(([type,label])=><button key={type} type="button" onClick={()=>sendStayEvent(type)}>{label}</button>)}</div></div>
-        <div className="arrival-landmarks" aria-label="Arrival landmarks">
-          {[["/arrival-building.jpg","The building"],["/arrival-parking.jpg","Parking space 32"],["/arrival-entrance.jpg","Main glass entrance"]].map(([src,label])=><button key={src} type="button" onClick={()=>setPreviewImage({src,title:label,subtitle:"Tap close to return to the check-in steps"})}><span><Image src={src} alt={label} fill sizes="(max-width: 600px) 90vw, 33vw" /></span><b>{label}</b><small>Open full photo ↗</small></button>)}
         </div>
         {!accessState.revealAccess ? <div className="access-release-notice"><strong>Apartment access details unlock {accessDetailsLabel}.</strong><p>You can already use the general guide, directions and parking information. The intercom, building and lockbox codes remain hidden until the apartment is ready.</p></div> : null}
         <div className="arrival-steps">
