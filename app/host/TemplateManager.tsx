@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import type { GuestGuide, MessageTemplate } from "@/lib/guest-guide";
 
-export default function TemplateManager() {
+export default function TemplateManager({ onUpdate }: { onUpdate?: () => void }) {
   const [guide, setGuide] = useState<GuestGuide | null>(null);
   const [templates, setTemplates] = useState<MessageTemplate[]>([]);
   const [status, setStatus] = useState("Loading templates…");
@@ -58,6 +58,7 @@ export default function TemplateManager() {
       setGuide(updatedGuide);
       setTemplates(updatedTemplates);
       setStatus("Saved automatically.");
+      onUpdate?.();
       setTimeout(() => setStatus(""), 2000);
     } else {
       setStatus("Failed to save changes. Please try again.");

@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Booking } from "@/lib/bookings";
-import type { GuestGuide, MessageTemplate } from "@/lib/guest-guide";
+import { defaultMessageTemplates, GuestGuide, MessageTemplate } from "@/lib/guest-guide";
 
 export function populateTemplate(
   content: string,
   booking: Booking,
-  guide?: GuestGuide
+  guide?: GuestGuide | null
 ): string {
   const origin = typeof window !== "undefined" ? window.location.origin : "https://konios.vercel.app";
   const guestName = `${booking.firstName} ${booking.lastName}`.trim();
@@ -28,69 +28,57 @@ export function populateTemplate(
     .replaceAll("{wifiPassword}", guide?.wifiPassword || "")
     .replaceAll("{lockboxCode}", guide?.lockboxCode || "3007")
     .replaceAll("{buildingCode}", guide?.buildingCode || "2812")
-    .replaceAll("{apartmentNumber}", guide?.apartmentNumber || "32");
+    .replaceAll("{apartmentNumber}", guide?.apartmentNumber || "32")
+    .replaceAll("{phone}", booking.phone || "")
+    .replaceAll("{source}", booking.source || "Direct");
 }
 
 type Props = {
   booking: Booking;
-  guide?: GuestGuide;
+  guide?: GuestGuide | null;
   onClose: () => void;
 };
 
 export default function GuestMessageModal({ booking, guide, onClose }: Props) {
-  const templates: MessageTemplate[] = guide?.messageTemplates?.length
-    ? guide.messageTemplates
-    : [
-        {
-          id: "tpl-3",
-          title: "Check-in Instructions & Access Code",
-          category: "Arrival",
-          content:
-            "Hi {guestName}! Your stay at Konios House is coming up soon. Your private entry code is {code}, valid from 10:00 AM on check-in day. You can view your full digital guide and directions here: {guideUrl}",
-        },
-        {
-          id: "tpl-1",
-          title: "Payment / Tourist Tax in Keybox",
-          category: "Payment & Tax",
-          content:
-            "Hi {guestName}! Hope you are settling in nicely. Please leave the remaining cash/tourist tax inside the key lockbox (code 3007) when convenient and send us a quick message so someone from our team can come by to pick it up. Thank you so much!",
-        },
-        {
-          id: "tpl-2",
-          title: "Airport Taxi Transfer Offer",
-          category: "Arrival",
-          content:
-            "Hello {guestName}! Do you need a taxi transfer arranged from Skopje International Airport directly to Konios House? If so, please share your flight number and expected landing time, and we'll gladly arrange a driver to meet you!",
-        },
-        {
-          id: "tpl-4",
-          title: "Mid-Stay Courtesy Check-in",
-          category: "Stay",
-          content:
-            "Hi {guestName}, checking in to see if everything is comfortable with your stay! If you need extra towels, toilet paper, or local recommendations for Skopje, please let us know anytime.",
-        },
-        {
-          id: "tpl-5",
-          title: "Checkout Instructions & Reminder",
-          category: "Departure",
-          content:
-            "Dear {guestName}, as a reminder, checkout is tomorrow at 10:00 AM. Please turn off AC/heating, close windows, lock the door, and return the key to lockbox 3007. Wishing you safe travels ahead!",
-        },
-      ];
-
-  const [selectedTplId, setSelectedTplId] = useState<string>(templates[0]?.id || "");
+  const [liveGuide, setLiveGuide] = useState<GuestGuide | null>(guide || null);
+  const [selectedTplId, setSelectedTplId] = useState<string>("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [copied, setCopied] = useState(false);
   const [customText, setCustomText] = useState<string | null>(null);
 
-  const selectedTpl = templates.find((t) => t.id === selectedTplId) || templates[0];
+  useEffect(() => {
+    fetch("/api/host/guide")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d?.guide) {
+          setLiveGuide(d.guide);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const templates: MessageTemplate[] = liveGuide?.messageTemplates?.length
+    ? liveGuide.messageTemplates
+    : defaultMessageTemplates;
+
+  // Categories list
+  const categories = ["All", ...Array.from(new Set(templates.map((t) => t.category || "General")))];
+
+  const filteredTemplates = templates.filter(
+    (t) => selectedCategory === "All" || (t.category || "General") === selectedCategory
+  );
+
+  const selectedTpl =
+    templates.find((t) => t.id === selectedTplId) || filteredTemplates[0] || templates[0];
+
   const defaultPopulated = selectedTpl
-    ? populateTemplate(selectedTpl.content, booking, guide)
+    ? populateTemplate(selectedTpl.content, booking, liveGuide)
     : "";
   const currentText = customText !== null ? customText : defaultPopulated;
 
   function handleSelectTemplate(tpl: MessageTemplate) {
     setSelectedTplId(tpl.id);
-    setCustomText(populateTemplate(tpl.content, booking, guide));
+    setCustomText(populateTemplate(tpl.content, booking, liveGuide));
     setCopied(false);
   }
 
@@ -114,10 +102,10 @@ export default function GuestMessageModal({ booking, guide, onClose }: Props) {
   return (
     <div className="edit-modal-overlay" onClick={onClose}>
       <div className="guest-msg-modal-card" onClick={(e) => e.stopPropagation()}>
-        <div className="edit-modal-head">
+        <div className="msg-modal-header">
           <div>
             <span className="eyebrow">Guest Communication</span>
-            <h3>Messages for {booking.firstName} {booking.lastName}</h3>
+            <h3>Quick Messages for {booking.firstName} {booking.lastName}</h3>
           </div>
           <button type="button" className="close-modal-btn" onClick={onClose}>
             ✕
@@ -125,12 +113,27 @@ export default function GuestMessageModal({ booking, guide, onClose }: Props) {
         </div>
 
         <div className="msg-modal-body">
-          {/* Left Panel: Template List */}
+          {/* Left Panel: Template List & Category Filter */}
           <div className="msg-tpl-sidebar">
-            <span className="msg-sidebar-title">SELECT TEMPLATE</span>
+            <div className="msg-sidebar-head">
+              <span className="msg-sidebar-title">TEMPLATES ({templates.length})</span>
+              <div className="msg-cat-pills">
+                {categories.map((cat) => (
+                  <button
+                    key={cat}
+                    type="button"
+                    className={`msg-cat-pill ${selectedCategory === cat ? "active" : ""}`}
+                    onClick={() => setSelectedCategory(cat)}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="msg-tpl-list">
-              {templates.map((tpl) => {
-                const isSelected = tpl.id === selectedTplId;
+              {filteredTemplates.map((tpl) => {
+                const isSelected = (selectedTpl?.id === tpl.id);
                 return (
                   <button
                     key={tpl.id}
@@ -149,15 +152,21 @@ export default function GuestMessageModal({ booking, guide, onClose }: Props) {
           {/* Right Panel: Populated Message Editor & Action Buttons */}
           <div className="msg-preview-panel">
             <div className="msg-preview-head">
-              <span className="msg-preview-label">PREVIEW & EDIT (POPULATED)</span>
-              <span className="msg-preview-hint">Placeholders automatically populated with guest details</span>
+              <div className="msg-preview-meta">
+                <span className="msg-preview-label">POPULATED MESSAGE PREVIEW</span>
+                <span className="msg-preview-sub">Placeholders replaced with guest details</span>
+              </div>
+              {selectedTpl && (
+                <span className="msg-selected-badge">{selectedTpl.category || "General"}</span>
+              )}
             </div>
 
             <textarea
               className="msg-preview-textarea"
-              rows={7}
+              rows={9}
               value={currentText}
               onChange={(e) => setCustomText(e.target.value)}
+              placeholder="Select a template on the left..."
             />
 
             <div className="msg-action-bar">
@@ -166,7 +175,7 @@ export default function GuestMessageModal({ booking, guide, onClose }: Props) {
                 className={`msg-copy-btn ${copied ? "copied" : ""}`}
                 onClick={handleCopy}
               >
-                {copied ? "✓ Copied to Clipboard" : "⧉ Copy Message"}
+                {copied ? "✓ Copied to Clipboard!" : "⧉ Copy Message"}
               </button>
 
               <a

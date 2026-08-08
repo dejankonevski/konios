@@ -11,6 +11,7 @@ import GalleryManager from "./GalleryManager";
 import MetricsView from "./MetricsView";
 import ExpensesView from "./ExpensesView";
 import GuestMessageModal from "./GuestMessageModal";
+import type { GuestGuide } from "@/lib/guest-guide";
 
 type Booking = {
   id: string;
@@ -262,6 +263,20 @@ export default function HostPage() {
     };
   }, [bookings]);
 
+  const [guestGuide, setGuestGuide] = useState<GuestGuide | null>(null);
+
+  async function loadGuide() {
+    try {
+      const res = await fetch("/api/host/guide", { cache: "no-store" });
+      if (res.ok) {
+        const data = await res.json();
+        setGuestGuide(data.guide);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
   async function loadBookings() {
     const response = await fetch("/api/host/code", { cache: "no-store" });
     if (response.ok) {
@@ -269,6 +284,7 @@ export default function HostPage() {
       setBookings(data.bookings);
       if (data.times) setTimes(data.times);
     }
+    await loadGuide();
   }
   async function login(event: FormEvent) {
     event.preventDefault();
@@ -1263,7 +1279,7 @@ export default function HostPage() {
         {view === "metrics" && <MetricsView bookings={bookings} />}
         {view === "expenses" && <ExpensesView bookings={bookings} />}
         {view === "guide" && <GuideEditor />}
-        {view === "templates" && <TemplateManager />}
+        {view === "templates" && <TemplateManager onUpdate={loadGuide} />}
         {view === "faqs" && <FaqManager />}
         {view === "gallery" && <GalleryManager />}
       </section>
@@ -1602,6 +1618,7 @@ export default function HostPage() {
       {messagingBooking && (
         <GuestMessageModal
           booking={messagingBooking}
+          guide={guestGuide}
           onClose={() => setMessagingBooking(null)}
         />
       )}
