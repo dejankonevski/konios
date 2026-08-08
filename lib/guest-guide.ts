@@ -133,6 +133,7 @@ export type GuestGuide = {
   wifiName: string; wifiPassword: string; hostName: string; hostPhone: string; hostPhotoUrl: string; welcomeMessage: string; parkingSpace: string; parking: string;
   airConditioning: string; heating: string; hotWater: string; rubbish: string;
   quietHours: string; houseRules: string; checkoutInstructions: string; emergencyPhone: string;
+  testAccessCode?: string;
   step1PhotoUrl?: string; step2PhotoUrl?: string; step3PhotoUrl?: string; step4PhotoUrl?: string; step5PhotoUrl?: string; step6PhotoUrl?: string;
   messageTemplates: MessageTemplate[];
   faqs: FaqItem[];
@@ -147,6 +148,7 @@ export const defaultGuestGuide: GuestGuide = {
   airConditioning: "", heating: "", hotWater: "", rubbish: "",
   quietHours: "22:00–08:00", houseRules: "Please respect our neighbours, do not smoke indoors, and keep noise low during quiet hours.",
   checkoutInstructions: "Turn off lights and air conditioning, close the windows, lock the apartment, and return the key to the lockbox.", emergencyPhone: "112",
+  testAccessCode: "1508",
   step1PhotoUrl: "/self-checkin-guide.png",
   step2PhotoUrl: "/self-checkin-guide.png",
   step3PhotoUrl: "/self-checkin-guide.png",
@@ -162,6 +164,9 @@ export async function getGuestGuide() {
   const stored = await getRedis().get<Partial<GuestGuide>>("guest-guide");
   if (!stored) return defaultGuestGuide;
   const merged: GuestGuide = { ...defaultGuestGuide, ...stored };
+  if (!merged.testAccessCode) {
+    merged.testAccessCode = "1508";
+  }
   if (!merged.messageTemplates || !Array.isArray(merged.messageTemplates) || merged.messageTemplates.length === 0) {
     merged.messageTemplates = defaultMessageTemplates;
   }

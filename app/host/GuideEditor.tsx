@@ -134,6 +134,27 @@ export default function GuideEditor(){
         <a href="/" target="_blank" rel="noreferrer">Preview guest guide ↗</a>
       </div>
 
+      <section className="test-code-section">
+        <div>
+          <h2>Master Test / Preview Access Code</h2>
+          <p>Configure a master test code to log into the guest portal and preview the guest guide anytime.</p>
+        </div>
+        <div className="guide-fields">
+          <label>
+            Test Access Code
+            <input
+              type="text"
+              value={guide.testAccessCode || "1508"}
+              onChange={(e) => setGuide({ ...guide, testAccessCode: e.target.value.trim() })}
+              placeholder="1508"
+            />
+            <small className="field-hint">
+              Enter <strong>{guide.testAccessCode || "1508"}</strong> on the <a href="/access" target="_blank" rel="noreferrer">Guest Portal (/access) ↗</a> to preview the guest guide live.
+            </small>
+          </label>
+        </div>
+      </section>
+
       <section>
         <div>
           <h2>Arrival Journey Photos (Steps 01 – 06)</h2>

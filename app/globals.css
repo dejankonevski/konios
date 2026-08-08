@@ -832,6 +832,13 @@ body { top: 0!important; position: static!important; }
 .price-calc-strip { display: flex; align-items: center; gap: 14px; background: #f0fdf4; border: 1px solid #bbf7d0; padding: 10px 14px; border-radius: 10px; font-size: .84rem; font-weight: 700; color: #166534; }
 .price-calc-strip .calc-comm { margin-left: auto; color: #b45309; }
 
+.field-hint { display: block; margin-top: 6px; font-size: .8rem; color: #64748b; font-weight: 600; }
+.field-hint strong { color: #0f172a; }
+.field-hint a { color: #2563eb; text-decoration: none; font-weight: 700; }
+.field-hint a:hover { text-decoration: underline; }
+
+.test-code-section { background: linear-gradient(135deg, #f0fdf4 0%, #eff6ff 100%)!important; border: 1px solid #bfdbfe!important; border-radius: 16px!important; padding: 22px!important; margin-bottom: 24px!important; }
+
 @media(max-width: 768px) {
   .metrics-header-row { flex-direction: column; }
   .metrics-filter-bar { width: 100%; justify-content: space-between; }

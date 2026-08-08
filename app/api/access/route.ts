@@ -4,7 +4,7 @@ import { getGuestGuide } from "@/lib/guest-guide";
 
 export async function POST(request: Request) {
   const { code } = (await request.json()) as { code?: string };
-  if (!code || !/^\d{5}$/.test(code.trim())) return Response.json({ error: "Enter your five-digit access code." }, { status: 400 });
+  if (!code || !/^\d{4,5}$/.test(code.trim())) return Response.json({ error: "Enter a valid access code." }, { status: 400 });
   const booking = await getBookingByCode(code.trim());
   if (!booking) return Response.json({ error: "We couldn't find that code. Please check it and try again." }, { status: 401 });
   const guide = await getGuestGuide();

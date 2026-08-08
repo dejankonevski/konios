@@ -39,9 +39,9 @@ export default function AccessPage() {
           <p className="eyebrow">Private guest access</p>
           <h1>Welcome to<br />your stay.</h1>
           {notice ? <div className="access-notice"><h2>{notice.title}</h2><p>{notice.copy}</p><button onClick={() => { setNotice(null); setCode(""); }}>Try another code</button></div> : <>
-            <p>Enter the five-digit code sent by your host to open the apartment guide.</p>
+            <p>Enter the access code sent by your host to open the apartment guide.</p>
             <form onSubmit={unlock}>
-              <label>Guest access code<input required value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 5))} placeholder="00000" inputMode="numeric" pattern="[0-9]{5}" maxLength={5} autoComplete="one-time-code" /></label>
+              <label>Guest access code<input required value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 5))} placeholder="Enter code (e.g. 1508)" inputMode="numeric" pattern="[0-9]{4,5}" maxLength={5} autoComplete="one-time-code" /></label>
               {error && <p className="form-error" role="alert">{error}</p>}
               <button className="submit-button" disabled={loading}>{loading ? "Checking…" : "Enter apartment guide"}<span>→</span></button>
             </form>

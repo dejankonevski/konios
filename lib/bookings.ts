@@ -70,6 +70,29 @@ export async function createBooking(input: Omit<Booking, "id" | "code" | "revoke
 
 export async function getBookingByCode(code: string) {
   const redis = getRedis();
+  const storedGuide = await redis.get<Record<string, unknown>>("guest-guide");
+  const testCode = String(storedGuide?.testAccessCode || "1508").trim();
+
+  if (code.trim() === testCode) {
+    const today = new Date();
+    const checkIn = new Date(today.getTime() - 86400000).toISOString().split("T")[0];
+    const checkOut = new Date(today.getTime() + 86400000 * 30).toISOString().split("T")[0];
+    return {
+      id: "test-preview-mode",
+      code: testCode,
+      firstName: "Test",
+      lastName: "Guest",
+      checkIn,
+      checkOut,
+      guests: 2,
+      source: "Direct",
+      phone: "+389 70 000 000",
+      notes: "Master Test / Preview Access Code",
+      revoked: false,
+      createdAt: Date.now(),
+    } as Booking;
+  }
+
   const id = await redis.get<string>(`code:${code}`);
   return id ? redis.get<Booking>(`booking:${id}`) : null;
 }
