@@ -337,8 +337,14 @@ export default function HostPage() {
   }, [bookings]);
 
   const nextArrivalId = useMemo(() => {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    // Find stays that are currently occupying the property
+    const activeOccupiedIds = bookings
+      .filter((b) => !b.revoked && (b.stayStage === "during-stay" || b.stayStage === "checkout-day"))
+      .map((b) => b.id);
+
     const firstUpcoming = bookings
-      .filter((b) => b.accessStatus === "upcoming")
+      .filter((b) => !b.revoked && !b.isNoShow && !activeOccupiedIds.includes(b.id) && b.checkIn >= todayStr)
       .sort((a, b) => a.checkIn.localeCompare(b.checkIn))[0];
     return firstUpcoming?.id;
   }, [bookings]);
