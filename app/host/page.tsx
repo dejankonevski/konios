@@ -120,6 +120,72 @@ function getDaysUntilLabel(checkInDateStr: string, checkInTime = "15:00"): strin
   return `in ${diffDays} days`;
 }
 
+function calculateGuestProgress(
+  b: Booking,
+  todayStr: string,
+  checkInTimeStr = "15:00",
+  checkOutTimeStr = "10:00"
+): number {
+  if (b.revoked || b.isNoShow) return 0;
+
+  const now = new Date();
+  const todayVal = new Date(`${todayStr}T00:00:00`);
+  const checkInVal = new Date(`${b.checkIn}T00:00:00`);
+  const checkOutVal = new Date(`${b.checkOut}T00:00:00`);
+
+  // 1. Expired/Past stays
+  if (b.accessStatus === "expired" || todayStr > b.checkOut) {
+    return 100;
+  }
+
+  // 2. Checkout Day
+  if (todayStr === b.checkOut) {
+    const [h] = checkOutTimeStr.split(":").map(Number);
+    const checkoutHour = h || 10;
+    const currentHour = now.getHours();
+    if (currentHour >= checkoutHour) {
+      return 100; // checked out
+    }
+    return 66.6 + (currentHour / checkoutHour) * 33.3; // moving through checkout day
+  }
+
+  // 3. During Stay
+  if (todayStr >= b.checkIn && todayStr < b.checkOut) {
+    const totalDays = Math.max(1, Math.round((checkOutVal.getTime() - checkInVal.getTime()) / 86400000));
+    const elapsedDays = Math.max(0, Math.round((todayVal.getTime() - checkInVal.getTime()) / 86400000));
+    
+    // Add partial progress for today
+    const [h] = checkInTimeStr.split(":").map(Number);
+    const checkInHour = h || 15;
+    const currentHour = now.getHours();
+    const dayProgress = currentHour / 24;
+
+    const fraction = (elapsedDays + dayProgress) / totalDays;
+    return 33.3 + Math.min(1, fraction) * 33.3;
+  }
+
+  // 4. Upcoming Arrivals
+  if (todayStr < b.checkIn) {
+    const daysToArrival = Math.round((checkInVal.getTime() - todayVal.getTime()) / 86400000);
+    if (daysToArrival > 7) {
+      return 8;
+    }
+    if (daysToArrival > 3) {
+      return 16;
+    }
+    if (daysToArrival > 1) {
+      return 24;
+    }
+    if (daysToArrival === 1) {
+      return 28;
+    }
+    // Arriving today (before checkin)
+    return 31;
+  }
+
+  return 0;
+}
+
 export default function HostPage() {
   const [unlocked, setUnlocked] = useState(false),
     [username, setUsername] = useState("master"),
@@ -789,9 +855,29 @@ export default function HostPage() {
                         </span>
                       ) : null}
                     </div>
-                    <div className="reservation-ops-timeline" aria-label="Reservation operational timeline">
-                      <span className="done">Booked</span><span className={b.accessStatus === "upcoming" ? "current" : "done"}>Arrival</span><span className={b.accessStatus === "active" ? "current" : b.accessStatus === "expired" ? "done" : ""}>Stay</span><span className={b.accessStatus === "expired" ? "done" : ""}>Checkout</span>
-                    </div>
+                    {(() => {
+                      const pct = calculateGuestProgress(b, todayKey, times.checkInTime, times.checkOutTime);
+                      const progressColor = b.revoked
+                        ? "#cbd5e1"
+                        : b.accessStatus === "active"
+                          ? "#f59e0b"
+                          : b.accessStatus === "expired"
+                            ? "#10b981"
+                            : "#3b82f6";
+                      return (
+                        <div className="reservation-ops-timeline" aria-label="Reservation operational timeline">
+                          <div className="timeline-track">
+                            <div className="timeline-progress" style={{ width: `${pct}%`, background: progressColor }} />
+                          </div>
+                          <div className="timeline-labels">
+                            <span className={pct >= 0 ? "active" : ""}>Booked</span>
+                            <span className={pct >= 33 ? "active" : ""}>Arrival</span>
+                            <span className={pct >= 66 ? "active" : ""}>Stay</span>
+                            <span className={pct >= 99 ? "active" : ""}>Checkout</span>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
 
