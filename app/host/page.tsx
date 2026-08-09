@@ -186,6 +186,42 @@ function calculateGuestProgress(
   return 0;
 }
 
+function getJourneyStatusText(b: Booking, todayStr: string, stayNights: number): string {
+  if (b.revoked) return "Access Revoked";
+  if (b.isNoShow) return "No-Show";
+
+  // Expired
+  if (b.accessStatus === "expired" || todayStr > b.checkOut) {
+    return "Stay Completed";
+  }
+
+  // Checkout Day
+  if (todayStr === b.checkOut) {
+    return "Checking out today";
+  }
+
+  // During Stay
+  if (todayStr >= b.checkIn && todayStr < b.checkOut) {
+    const checkInVal = new Date(`${b.checkIn}T00:00:00`);
+    const todayVal = new Date(`${todayStr}T00:00:00`);
+    const elapsedNights = Math.max(0, Math.round((todayVal.getTime() - checkInVal.getTime()) / 86400000));
+    const currentNight = Math.min(stayNights, elapsedNights + 1);
+    return `Stay: Night ${currentNight} of ${stayNights}`;
+  }
+
+  // Upcoming
+  if (todayStr < b.checkIn) {
+    const checkInVal = new Date(`${b.checkIn}T00:00:00`);
+    const todayVal = new Date(`${todayStr}T00:00:00`);
+    const daysToArrival = Math.round((checkInVal.getTime() - todayVal.getTime()) / 86400000);
+    if (daysToArrival === 0) return "Arriving today";
+    if (daysToArrival === 1) return "Arriving tomorrow";
+    return `Arriving in ${daysToArrival} days`;
+  }
+
+  return "Booked";
+}
+
 export default function HostPage() {
   const [unlocked, setUnlocked] = useState(false),
     [username, setUsername] = useState("master"),
@@ -885,6 +921,7 @@ export default function HostPage() {
                     </div>
                     {(() => {
                       const pct = calculateGuestProgress(b, todayKey, times.checkInTime, times.checkOutTime);
+                      const statusText = getJourneyStatusText(b, todayKey, stayNights);
                       const progressColor = b.revoked
                         ? "#cbd5e1"
                         : b.accessStatus === "active"
@@ -897,11 +934,9 @@ export default function HostPage() {
                           <div className="timeline-track">
                             <div className="timeline-progress" style={{ width: `${pct}%`, background: progressColor }} />
                           </div>
-                          <div className="timeline-labels">
-                            <span className={pct >= 0 ? "active" : ""}>Booked</span>
-                            <span className={pct >= 33 ? "active" : ""}>Arrival</span>
-                            <span className={pct >= 66 ? "active" : ""}>Stay</span>
-                            <span className={pct >= 99 ? "active" : ""}>Checkout</span>
+                          <div className="timeline-status-info">
+                            <span className="timeline-status-bullet" style={{ backgroundColor: progressColor }} />
+                            <span className="timeline-status-text">{statusText}</span>
                           </div>
                         </div>
                       );
