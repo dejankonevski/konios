@@ -1,13 +1,14 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import type { Property } from "@/lib/portfolio";
+import type { Property, Unit } from "@/lib/portfolio";
 
 type SafeAdmin = { id: string; username: string; propertyIds: string[]; active: boolean; createdAt: number };
 type StripeStatus = { configured: boolean; last4: string | null; mode: "test" | "live" | null; source: "admin" | "environment" | null; updatedAt: number | null };
 
 export default function PropertyManager({ role, properties, onPropertiesChanged }: { role: "master" | "property-admin"; properties: Property[]; onPropertiesChanged: () => Promise<void> }) {
   const [admins, setAdmins] = useState<SafeAdmin[]>([]);
+  const [units, setUnits] = useState<Unit[]>([]);
   const [status, setStatus] = useState("");
   const [resetPasswords, setResetPasswords] = useState<Record<string, string>>({});
   const [propertyDrafts, setPropertyDrafts] = useState<Record<string, string[]>>({});
@@ -34,6 +35,15 @@ export default function PropertyManager({ role, properties, onPropertiesChanged 
       .catch(() => {});
     return () => { live = false; };
   }, [role]);
+
+  useEffect(() => {
+    let live = true;
+    fetch("/api/host/properties", { cache: "no-store" })
+      .then((response) => response.ok ? response.json() : null)
+      .then((data) => { if (live && data?.units) setUnits(data.units); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, []);
 
   useEffect(() => {
     if (role !== "master") return;
@@ -216,6 +226,36 @@ export default function PropertyManager({ role, properties, onPropertiesChanged 
                 </button>
               </div>
             </form>
+
+            <div className="property-export-ical">
+              <h5>Export iCal Feeds (for Airbnb & Booking.com)</h5>
+              <div className="ical-export-list">
+                {units
+                  .filter((unit) => unit.propertyId === property.id)
+                  .map((unit) => {
+                    const exportUrl = typeof window !== "undefined"
+                      ? `${window.location.protocol}//${window.location.host}/api/ical/${unit.id}`
+                      : `/api/ical/${unit.id}`;
+                    return (
+                      <div key={unit.id} className="ical-export-item">
+                        <span>{unit.name}</span>
+                        <div className="ical-link-copy">
+                          <input type="text" readOnly value={exportUrl} onClick={(e) => (e.target as HTMLInputElement).select()} />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(exportUrl);
+                              setStatus(`Copied iCal link for ${unit.name}!`);
+                            }}
+                          >
+                            Copy Link
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
           </article>
         ))}
       </div>

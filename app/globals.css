@@ -2216,4 +2216,71 @@ body { top: 0!important; position: static!important; }
   border: 1px solid #dfe5ef !important;
 }
 
+.property-export-ical {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px dashed #cbd5e1;
+  text-align: left;
+}
+
+.property-export-ical h5 {
+  font-size: 0.76rem;
+  font-weight: 750;
+  color: #475569;
+  margin: 0 0 10px;
+}
+
+.ical-export-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ical-export-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ical-export-item span {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.ical-link-copy {
+  display: flex;
+  gap: 8px;
+}
+
+.ical-link-copy input {
+  flex: 1;
+  padding: 8px 10px !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 6px !important;
+  background: #f8fafc !important;
+  font-size: 0.7rem !important;
+  color: #64748b !important;
+  font-family: monospace;
+  font-weight: 500 !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ical-link-copy button {
+  padding: 8px 12px !important;
+  border-radius: 6px !important;
+  font-size: 0.68rem !important;
+  font-weight: 750 !important;
+  cursor: pointer;
+  background: #2563eb !important;
+  color: #ffffff !important;
+  border: 0 !important;
+  transition: opacity 0.1s ease;
+}
+
+.ical-link-copy button:hover {
+  opacity: 0.9;
+}
+
 
