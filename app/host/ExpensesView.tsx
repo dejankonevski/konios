@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import type { Booking } from "@/lib/bookings";
 import { EUR_TO_MKD, EXPENSE_CATEGORIES, Expense, ExpenseCategory } from "@/lib/expenses";
 
-export default function ExpensesView({ bookings }: { bookings: Booking[] }) {
+export default function ExpensesView({ bookings, propertyId = "konios-house" }: { bookings: Booking[]; propertyId?: string }) {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -22,7 +22,7 @@ export default function ExpensesView({ bookings }: { bookings: Booking[] }) {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch("/api/host/expenses");
+        const res = await fetch(`/api/host/expenses?propertyId=${encodeURIComponent(propertyId)}`);
         if (res.ok) {
           const data = await res.json();
           setExpenses(data.expenses || []);
@@ -34,7 +34,7 @@ export default function ExpensesView({ bookings }: { bookings: Booking[] }) {
       }
     }
     load();
-  }, []);
+  }, [propertyId]);
 
   function handleEurChange(val: string) {
     setAmountEur(val);
@@ -77,6 +77,7 @@ export default function ExpensesView({ bookings }: { bookings: Booking[] }) {
           amountMkd: mkdVal,
           notes,
           bookingId: bookingId || undefined,
+          propertyId,
         }),
       });
 
@@ -89,7 +90,7 @@ export default function ExpensesView({ bookings }: { bookings: Booking[] }) {
       setAmountMkd("");
       setNotes("");
       setBookingId("");
-      const fetchRes = await fetch("/api/host/expenses");
+      const fetchRes = await fetch(`/api/host/expenses?propertyId=${encodeURIComponent(propertyId)}`);
       if (fetchRes.ok) {
         const data = await fetchRes.json();
         setExpenses(data.expenses || []);

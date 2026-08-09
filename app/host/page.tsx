@@ -11,11 +11,16 @@ import GalleryManager from "./GalleryManager";
 import MetricsView from "./MetricsView";
 import ExpensesView from "./ExpensesView";
 import GuestMessageModal from "./GuestMessageModal";
+import PropertyManager from "./PropertyManager";
+import CalendarView from "./CalendarView";
 import type { GuestGuide } from "@/lib/guest-guide";
+import type { Property } from "@/lib/portfolio";
 
 type Booking = {
   id: string;
+  propertyId?: string;
   code: string;
+  accessToken: string;
   firstName: string;
   lastName: string;
   checkIn: string;
@@ -27,8 +32,13 @@ type Booking = {
   revoked: boolean;
   createdAt: number;
   accessStatus: "upcoming" | "active" | "expired" | "revoked";
+  stayStage?: "before-arrival" | "arrival-ready" | "during-stay" | "checkout-day" | "after-departure";
   grossAmount?: number;
   netAmount?: number;
+  currency?: string;
+  paymentCollected?: number;
+  idRegistrationComplete?: boolean;
+  archivedAt?: number | null;
   hasCleaningAgency?: boolean;
   cleaningFeeMkd?: number;
   cleaningStatus?: "scheduled" | "completed";
@@ -87,7 +97,17 @@ function formatShort(value?: string) {
     : "Select date";
 }
 
-function getDaysUntilLabel(checkInDateStr: string, checkInTime = "06:00"): string {
+function nightsBetween(checkIn: string, checkOut: string) {
+  return Math.max(
+    1,
+    Math.round(
+      (new Date(`${checkOut}T12:00:00`).getTime() - new Date(`${checkIn}T12:00:00`).getTime()) /
+        86_400_000
+    )
+  );
+}
+
+function getDaysUntilLabel(checkInDateStr: string, checkInTime = "15:00"): string {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const target = new Date(`${checkInDateStr}T00:00:00`);
@@ -102,17 +122,25 @@ function getDaysUntilLabel(checkInDateStr: string, checkInTime = "06:00"): strin
 
 export default function HostPage() {
   const [unlocked, setUnlocked] = useState(false),
+    [username, setUsername] = useState("master"),
     [password, setPassword] = useState(""),
     [error, setError] = useState(""),
     [copied, setCopied] = useState(false);
   const [view, setView] = useState<
-    "overview" | "bookings" | "new" | "guide" | "templates" | "faqs" | "gallery" | "metrics" | "expenses"
+    "overview" | "calendar" | "bookings" | "new" | "guide" | "templates" | "faqs" | "gallery" | "metrics" | "expenses" | "properties"
   >("overview"),
     [bookings, setBookings] = useState<Booking[]>([]),
     [search, setSearch] = useState("");
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [selectedPropertyId, setSelectedPropertyId] = useState("konios-house");
+  const [propertyLoading, setPropertyLoading] = useState(false);
+  const [hostRole, setHostRole] = useState<"master" | "property-admin">("master");
   const [times, setTimes] = useState({
     checkInTime: "15:00",
     checkOutTime: "10:00",
+    portalLeadHours: 48,
+    sensitiveRevealMinutes: 30,
+    accessExpiryMinutes: 30,
   });
   const [monthOffset, setMonthOffset] = useState(0),
     [start, setStart] = useState<string>(),
@@ -120,13 +148,18 @@ export default function HostPage() {
     [hoverDate, setHoverDate] = useState<string>(),
     [result, setResult] = useState<Generated | null>(null);
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
+  const [lastArchived, setLastArchived] = useState<Booking | null>(null);
   const [messagingBooking, setMessagingBooking] = useState<Booking | null>(null);
   const [editError, setEditError] = useState("");
   const [editSaving, setEditSaving] = useState(false);
+  const [paymentLinkBookingId, setPaymentLinkBookingId] = useState<string | null>(null);
+  const [paymentLinkMessage, setPaymentLinkMessage] = useState("");
 
   const dragStartRef = useRef<string | null>(null);
   const isDraggingRef = useRef(false);
   const pointerDownPosRef = useRef<{ x: number; y: number } | null>(null);
+  const activePropertyIdRef = useRef("konios-house");
+  const bookingsRequestRef = useRef(0);
 
   async function handleSaveEdit(e: FormEvent) {
     e.preventDefault();
@@ -148,6 +181,9 @@ export default function HostPage() {
           notes: editingBooking.notes,
           grossAmount: Number(editingBooking.grossAmount) || 0,
           netAmount: Number(editingBooking.netAmount) || 0,
+          currency: editingBooking.currency || "EUR",
+          paymentCollected: Number(editingBooking.paymentCollected) || 0,
+          idRegistrationComplete: Boolean(editingBooking.idRegistrationComplete),
           hasCleaningAgency: Boolean(editingBooking.hasCleaningAgency),
           cleaningFeeMkd: Number(editingBooking.cleaningFeeMkd) || 750,
           cleaningStatus: editingBooking.cleaningStatus || "scheduled",
@@ -225,13 +261,6 @@ export default function HostPage() {
     const mm = String(now.getMonth() + 1).padStart(2, "0");
     const currentMonthKey = `${yyyy}-${mm}`;
 
-    const currentActiveBooking = bookings.find(
-      (b) => !b.revoked && b.accessStatus === "active"
-    );
-    const nextArrivalBooking = bookings
-      .filter((b) => !b.revoked && b.accessStatus === "upcoming")
-      .sort((a, b) => a.checkIn.localeCompare(b.checkIn))[0];
-
     let currentMonthGross = 0;
     let currentMonthNet = 0;
     let currentMonthNights = 0;
@@ -270,33 +299,63 @@ export default function HostPage() {
       currentMonthGross,
       currentMonthNet,
       currentMonthNights,
-      currentActiveBooking,
-      nextArrivalBooking,
     };
   }, [bookings]);
 
   const [guestGuide, setGuestGuide] = useState<GuestGuide | null>(null);
 
-  async function loadGuide() {
+  async function loadGuide(propertyId = selectedPropertyId) {
     try {
-      const res = await fetch("/api/host/guide", { cache: "no-store" });
+      const res = await fetch(`/api/host/guide?propertyId=${encodeURIComponent(propertyId)}`, { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
-        setGuestGuide(data.guide);
+        if (activePropertyIdRef.current === propertyId) setGuestGuide(data.guide);
       }
     } catch (e) {
       console.error(e);
     }
   }
 
-  async function loadBookings() {
-    const response = await fetch("/api/host/code", { cache: "no-store" });
-    if (response.ok) {
-      const data = await response.json();
-      setBookings(data.bookings);
-      if (data.times) setTimes(data.times);
+  async function loadBookings(propertyId = activePropertyIdRef.current) {
+    const requestId = ++bookingsRequestRef.current;
+    setPropertyLoading(true);
+    try {
+      const response = await fetch(`/api/host/code?propertyId=${encodeURIComponent(propertyId)}`, { cache: "no-store" });
+      if (response.ok) {
+        const data = await response.json();
+        if (requestId !== bookingsRequestRef.current || activePropertyIdRef.current !== propertyId) return;
+        const propertyBookings = (data.bookings || []).filter(
+          (booking: Booking) => (booking.propertyId || "konios-house") === propertyId
+        );
+        setBookings(propertyBookings);
+        if (data.times) setTimes(data.times);
+      }
+      await loadGuide(propertyId);
+    } finally {
+      if (requestId === bookingsRequestRef.current) setPropertyLoading(false);
     }
-    await loadGuide();
+  }
+  async function loadPortfolio() {
+    const response = await fetch("/api/host/properties", { cache: "no-store" });
+    if (!response.ok) return selectedPropertyId;
+    const data = await response.json();
+    const nextProperties = (data.properties || []) as Property[];
+    setProperties(nextProperties);
+    setHostRole(data.session?.role || "property-admin");
+    const nextPropertyId = nextProperties.some((property) => property.id === selectedPropertyId) ? selectedPropertyId : nextProperties[0]?.id || "konios-house";
+    activePropertyIdRef.current = nextPropertyId;
+    setSelectedPropertyId(nextPropertyId);
+    return nextPropertyId;
+  }
+
+  async function changeProperty(propertyId: string) {
+    if (!propertyId || propertyId === activePropertyIdRef.current) return;
+    activePropertyIdRef.current = propertyId;
+    setSelectedPropertyId(propertyId);
+    setBookings([]);
+    setResult(null);
+    setEditingBooking(null);
+    await loadBookings(propertyId);
   }
   async function login(event: FormEvent) {
     event.preventDefault();
@@ -304,13 +363,15 @@ export default function HostPage() {
     const response = await fetch("/api/host/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password }),
+      body: JSON.stringify({ username, password }),
     });
     const data = await response.json();
     if (!response.ok) return setError(data.error);
     setUnlocked(true);
     setPassword("");
-    await loadBookings();
+    setHostRole(data.session?.role || "property-admin");
+    const propertyId = await loadPortfolio();
+    await loadBookings(propertyId);
   }
 
   function handleDateClick(value: string) {
@@ -366,6 +427,7 @@ export default function HostPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ...Object.fromEntries(form),
+        propertyId: selectedPropertyId,
         checkIn: start,
         checkOut: end,
       }),
@@ -381,7 +443,9 @@ export default function HostPage() {
   }
   async function copyCode() {
     if (result) {
-      await navigator.clipboard.writeText(result.code);
+      const propertySlug = properties.find((property) => property.id === (result.propertyId || selectedPropertyId))?.slug;
+      const link = `${window.location.origin}/${propertySlug || "access"}`;
+      await navigator.clipboard.writeText(`Guest guide: ${link}\nFive-digit PIN: ${result.code}`);
       setCopied(true);
     }
   }
@@ -432,9 +496,25 @@ export default function HostPage() {
     await loadBookings();
   }
 
+  async function copyPaymentLink(booking: Booking) {
+    setPaymentLinkBookingId(booking.id);
+    setPaymentLinkMessage("");
+    try {
+      const response = await fetch(`/api/host/bookings/${booking.id}/payment-link`, { method: "POST" });
+      const data = await response.json();
+      if (!response.ok || !data.url) throw new Error(data.error || "Could not create payment link.");
+      await navigator.clipboard.writeText(data.url);
+      setPaymentLinkMessage(`Payment link copied for ${booking.firstName} ${booking.lastName}.`);
+    } catch (linkError) {
+      setPaymentLinkMessage(linkError instanceof Error ? linkError.message : "Could not create payment link.");
+    } finally {
+      setPaymentLinkBookingId(null);
+    }
+  }
+
   async function changeBooking(booking: Booking, action: "toggle" | "delete") {
     const promptMsg = action === "delete"
-      ? `Are you sure you want to permanently delete ${booking.firstName} ${booking.lastName}'s reservation?`
+      ? `Archive ${booking.firstName} ${booking.lastName}'s reservation? You can undo this action.`
       : booking.revoked
       ? `Are you sure you want to restore access code for ${booking.firstName} ${booking.lastName}?`
       : `Are you sure you want to revoke access code for ${booking.firstName} ${booking.lastName}?`;
@@ -451,6 +531,7 @@ export default function HostPage() {
             body: JSON.stringify({ revoked: !booking.revoked }),
           },
     );
+    if (action === "delete") setLastArchived(booking);
     await loadBookings();
   }
 
@@ -465,17 +546,21 @@ export default function HostPage() {
           <p className="eyebrow">Private host desk</p>
           <h1>Host access.</h1>
           <p>
-            Enter the host password to manage reservations and guest access.
+            Sign in as master or with the username assigned to a property manager.
           </p>
+          <label>
+            Username
+            <input required value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" />
+          </label>
           <label>
             Password
             <input
               autoFocus
               required
               type="password"
-              inputMode="numeric"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
             />
           </label>
           {error && (
@@ -490,12 +575,34 @@ export default function HostPage() {
       </main>
     );
 
-  const active = bookings.filter((b) => b.accessStatus === "active").length,
-    upcoming = bookings.filter((b) => b.accessStatus === "upcoming").length;
-  const arrivals = bookings
-    .filter((b) => b.accessStatus === "upcoming")
-    .sort((a, b) => a.checkIn.localeCompare(b.checkIn))
-    .slice(0, 4);
+  const currentStay = bookings
+    .filter((booking) => !booking.revoked && (booking.stayStage === "during-stay" || booking.stayStage === "checkout-day"))
+    .sort((a, b) => a.checkIn.localeCompare(b.checkIn))[0];
+  const selectedProperty = properties.find((property) => property.id === selectedPropertyId);
+  const todayKey = dateKey(new Date());
+  const arrivingToday = bookings.filter((b) => !b.revoked && b.checkIn === todayKey);
+  const departingToday = bookings.filter((b) => !b.revoked && b.checkOut === todayKey);
+  const paymentDue = bookings.filter((b) => !b.revoked && (Number(b.grossAmount) || 0) > (Number(b.paymentCollected) || 0));
+  const nextUnoccupiedGap = (() => {
+    const stays = bookings
+      .filter((booking) => !booking.revoked && booking.checkOut > todayKey)
+      .sort((a, b) => a.checkIn.localeCompare(b.checkIn));
+    let cursor = todayKey;
+
+    for (const stay of stays) {
+      if (stay.checkOut <= cursor) continue;
+      if (stay.checkIn > cursor) {
+        const nights = Math.round(
+          (new Date(`${stay.checkIn}T12:00:00`).getTime() - new Date(`${cursor}T12:00:00`).getTime()) /
+            86_400_000
+        );
+        return { start: cursor, end: stay.checkIn, nights };
+      }
+      if (stay.checkOut > cursor) cursor = stay.checkOut;
+    }
+
+    return { start: cursor, end: undefined, nights: undefined };
+  })();
   const rows = (items: Booking[]) => (
     <div className="booking-table arrivals-unified-table">
       <div className="booking-table-head">
@@ -518,7 +625,7 @@ export default function HostPage() {
           const isSameDayTurnaround = Boolean(
             nextB && !b.revoked && !nextB.revoked && b.checkOut === nextB.checkIn
           );
-          const isActive = b.accessStatus === "active";
+          const isActive = b.stayStage === "during-stay" || b.stayStage === "checkout-day";
           const isExpired = b.accessStatus === "expired" || b.revoked;
           const isNextArrival = b.id === nextArrivalId;
           const isNoShow = Boolean(b.isNoShow);
@@ -557,7 +664,7 @@ export default function HostPage() {
                 onClick={() => setEditingBooking(b)}
                 title="Click to view and edit reservation details"
               >
-                <div className="guest-cell">
+                <div className="guest-cell" data-label="Guest">
                   <span className={`guest-avatar ${isNextArrival ? "hero-avatar-mid" : ""} ${isNoShow ? "noshow-avatar" : ""}`}>
                     {b.firstName[0]}
                     {b.lastName[0]}
@@ -614,10 +721,13 @@ export default function HostPage() {
                         </span>
                       ) : null}
                     </div>
+                    <div className="reservation-ops-timeline" aria-label="Reservation operational timeline">
+                      <span className="done">Booked</span><span className={b.accessStatus === "upcoming" ? "current" : "done"}>Arrival</span><span className={b.accessStatus === "active" ? "current" : b.accessStatus === "expired" ? "done" : ""}>Stay</span><span className={b.accessStatus === "expired" ? "done" : ""}>Checkout</span>
+                    </div>
                   </div>
                 </div>
 
-                <div className="stay-cell">
+                <div className="stay-cell" data-label="Stay">
                   <strong className={isNextArrival ? "hero-date-txt" : "stay-date-txt"}>
                     {formatShort(b.checkIn)}
                   </strong>
@@ -643,14 +753,14 @@ export default function HostPage() {
                   </button>
                 </div>
 
-                <div className="source-cell">
+                <div className="source-cell" data-label="Source">
                   <span
                     className={`source-dot ${b.source.toLowerCase().replace(".com", "").replace(" ", "-")}`}
                   />
                   <span>{b.source}</span>
                 </div>
 
-                <div className="amount-cell">
+                <div className="amount-cell" data-label="Total amount">
                   {(effectiveGross > 0 || effectiveNet > 0) ? (
                     <div className="amount-stack">
                       <strong className={`amount-gross-val ${isNextArrival ? "hero-gross-txt" : ""} ${isNoShow ? "strikethrough-gross" : ""}`}>
@@ -669,7 +779,7 @@ export default function HostPage() {
                   )}
                 </div>
 
-                <div className="timing-cell">
+                <div className="timing-cell" data-label="Status / timing">
                   <span
                     className={`countdown-pill ${
                       isNoShow
@@ -687,7 +797,7 @@ export default function HostPage() {
                   </span>
                 </div>
 
-                <div className="code-cell">
+                <div className="code-cell" data-label="Guest PIN">
                   <button
                     className={`code-chip ${isNextArrival ? "hero-code-chip-inline" : ""}`}
                     onClick={(e) => {
@@ -700,7 +810,20 @@ export default function HostPage() {
                   </button>
                 </div>
 
-                <div className="row-actions" onClick={(e) => e.stopPropagation()}>
+                <div className="row-actions" data-label="Actions" onClick={(e) => e.stopPropagation()}>
+                  {!b.revoked && !isNoShow && effectiveGross > Number(b.paymentCollected || 0) ? (
+                    <button
+                      className="payment-link-action"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        copyPaymentLink(b);
+                      }}
+                      disabled={paymentLinkBookingId === b.id}
+                      title={`Create and copy a Stripe payment link for ${new Intl.NumberFormat("de-DE", { style: "currency", currency: b.currency || "EUR" }).format(effectiveGross - Number(b.paymentCollected || 0))}`}
+                    >
+                      {paymentLinkBookingId === b.id ? "Creating…" : "💳 Payment link"}
+                    </button>
+                  ) : null}
                   <button
                     className="msg-action-chip"
                     onClick={(e) => {
@@ -745,7 +868,7 @@ export default function HostPage() {
                       changeBooking(b, "delete");
                     }}
                   >
-                    Delete
+                    Archive
                   </button>
                 </div>
               </article>
@@ -814,6 +937,7 @@ export default function HostPage() {
           >
             <span>▤</span>Bookings
           </button>
+          <button className={view === "calendar" ? "active" : ""} onClick={() => setView("calendar")}><span>▦</span>Calendar</button>
           <button
             className={view === "new" ? "active" : ""}
             onClick={() => {
@@ -859,11 +983,12 @@ export default function HostPage() {
           >
             <span>🖼</span>Gallery
           </button>
+          <button className={view === "properties" ? "active" : ""} onClick={() => setView("properties")}><span>▦</span>{hostRole === "master" ? "Properties & admins" : "Account"}</button>
         </nav>
         <div className="sidebar-foot">
-          <span>Access window</span>
+          <span>Official stay times</span>
           <strong>{times.checkInTime} → {times.checkOutTime}</strong>
-          <small>Europe/Skopje</small>
+          <small>Portal −{times.portalLeadHours}h · Codes −{times.sensitiveRevealMinutes}m · Expires +{times.accessExpiryMinutes}m</small>
         </div>
       </aside>
       <section className="dashboard-main">
@@ -875,6 +1000,8 @@ export default function HostPage() {
                 ? "Good day, Dejan."
                 : view === "bookings"
                   ? "All bookings"
+                  : view === "calendar"
+                    ? "Monthly calendar"
                   : view === "metrics"
                     ? "Revenue & Performance Insights"
                     : view === "expenses"
@@ -885,16 +1012,23 @@ export default function HostPage() {
                         ? "Message templates"
                         : view === "faqs"
                           ? "Frequent answers (FAQs)"
-                          : view === "gallery"
+                      : view === "gallery"
                             ? "Photo gallery"
+                            : view === "properties"
+                              ? hostRole === "master" ? "Properties & administrators" : "My account"
                             : "New booking"}
             </h1>
           </div>
           <div className="header-actions">
-            <div className="property-badge">
+            <label className={`property-badge property-selector ${propertyLoading ? "is-loading" : ""}`}>
               <span className="property-label">Property</span>
-              <span className="property-name">Konios House</span>
-            </div>
+              <div className="property-select-control">
+                <select value={selectedPropertyId} onChange={(event) => void changeProperty(event.target.value)} disabled={propertyLoading || properties.length < 2} aria-label="Select property">
+                  {properties.map((property) => <option key={property.id} value={property.id}>{property.name}</option>)}
+                </select>
+                <b aria-hidden="true">{propertyLoading ? "…" : "⌄"}</b>
+              </div>
+            </label>
             <button
               className="quick-add"
               onClick={() => {
@@ -904,8 +1038,34 @@ export default function HostPage() {
             >
               ＋ Add guest
             </button>
+            {lastArchived ? <button className="undo-archive" onClick={async()=>{await fetch(`/api/host/bookings/${lastArchived.id}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({archivedAt:null})});setLastArchived(null);await loadBookings();}}>Undo archive: {lastArchived.firstName}</button> : null}
           </div>
         </header>
+        {(view === "overview" || view === "bookings") ? (
+          <section className={`current-stay-strip ${currentStay ? "is-occupied" : "is-vacant"}`} aria-label="Current property occupancy">
+            <div className="current-stay-icon">{currentStay ? "●" : "○"}</div>
+            <div className="current-stay-copy">
+              <span>{selectedProperty?.name || "Selected property"} · Current stay</span>
+              {currentStay ? (
+                <strong>{currentStay.firstName} {currentStay.lastName}</strong>
+              ) : (
+                <strong>No guest is currently staying</strong>
+              )}
+            </div>
+            {currentStay ? (
+              <div className="current-stay-meta">
+                <strong>{nightsBetween(currentStay.checkIn, currentStay.checkOut)} nights</strong>
+                <span>{formatShort(currentStay.checkIn)} → {formatShort(currentStay.checkOut)}</span>
+              </div>
+            ) : <span className="current-stay-vacant-label">Vacant now</span>}
+          </section>
+        ) : null}
+        {paymentLinkMessage && (view === "overview" || view === "bookings") ? (
+          <div className="dashboard-toast" role="status">
+            <span>{paymentLinkMessage}</span>
+            <button type="button" onClick={() => setPaymentLinkMessage("")} aria-label="Dismiss">×</button>
+          </div>
+        ) : null}
         {view === "overview" && (
           <>
             {(() => {
@@ -1015,6 +1175,12 @@ export default function HostPage() {
                 </div>
               );
             })()}
+            {paymentDue.length > 0 ? (
+              <button className="payment-due-banner" type="button" onClick={() => setView("bookings")}>
+                <span><b>💳 {paymentDue.length} payment{paymentDue.length === 1 ? "" : "s"} still due</b> · Open a reservation and use “Payment link” to copy a secure Stripe checkout link.</span>
+                <strong>View bookings →</strong>
+              </button>
+            ) : null}
             {(() => {
               const todayStr = new Date().toISOString().slice(0, 10);
               const cleaningToday = bookings.filter(
@@ -1057,17 +1223,6 @@ export default function HostPage() {
               <button onClick={() => setView("bookings")}>View all →</button>
             </div>
             {rows(overviewList)}
-            <div className="pro-tip">
-              <span>✦</span>
-              <div>
-                <strong>Timing handled automatically</strong>
-                <p>
-                  Every code opens at {times.checkInTime} on arrival day and
-                  closes at {times.checkOutTime} on checkout day in Skopje
-                  time, including daylight-saving changes.
-                </p>
-              </div>
-            </div>
           </>
         )}
         {view === "bookings" && (
@@ -1105,13 +1260,12 @@ export default function HostPage() {
               <p className="eyebrow">Manual reservation</p>
               <h2>Prepare their stay.</h2>
               <p>
-                Create one secure code for the full stay. It will be stored here
-                and controlled by the exact arrival window.
+                Create a five-digit guest PIN for this property. Sensitive access details remain hidden until the configured arrival release time.
               </p>
               <ul>
-                <li>Five-digit guest code</li>
+                <li>Simple five-digit guest PIN</li>
                 <li>Automatic activation and expiry</li>
-                <li>One-click copy, revoke or delete</li>
+                <li>One-click copy, revoke or archive with undo</li>
               </ul>
             </div>
             <div className="host-card host-card-wide">
@@ -1289,6 +1443,10 @@ export default function HostPage() {
                       />
                     </label>
                   </div>
+                  <div className="host-name-row">
+                    <label>Payment collected<input type="number" step="0.01" min="0" name="paymentCollected" placeholder="0.00" /></label>
+                    <label>Currency<select name="currency" defaultValue="EUR"><option>EUR</option><option>MKD</option><option>USD</option></select></label>
+                  </div>
                   <label>
                     Private notes
                     <textarea
@@ -1351,10 +1509,10 @@ export default function HostPage() {
                   </p>
                   <div className="big-code">{result.code}</div>
                   <p className="code-window">
-                    Valid from {times.checkInTime} on arrival until {times.checkOutTime} on checkout
+                    Portal opens {times.portalLeadHours}h before arrival · sensitive details reveal {times.sensitiveRevealMinutes}m before check-in · expires {times.accessExpiryMinutes}m after checkout
                   </p>
                   <button className="submit-button" onClick={copyCode}>
-                    {copied ? "Copied" : "Copy guest code"}
+                    {copied ? "Property URL + PIN copied" : "Copy property URL + PIN"}
                     <span>{copied ? "✓" : "⧉"}</span>
                   </button>
                   <button
@@ -1372,12 +1530,14 @@ export default function HostPage() {
             </div>
           </div>
         )}
-        {view === "metrics" && <MetricsView bookings={bookings} />}
-        {view === "expenses" && <ExpensesView bookings={bookings} />}
-        {view === "guide" && <GuideEditor />}
-        {view === "templates" && <TemplateManager onUpdate={loadGuide} />}
-        {view === "faqs" && <FaqManager />}
-        {view === "gallery" && <GalleryManager />}
+        {view === "metrics" && <MetricsView bookings={bookings} propertyId={selectedPropertyId} />}
+        {view === "calendar" && <CalendarView bookings={bookings} propertyId={selectedPropertyId} checkInTime={times.checkInTime} checkOutTime={times.checkOutTime} onOpenBooking={setEditingBooking} />}
+        {view === "expenses" && <ExpensesView bookings={bookings} propertyId={selectedPropertyId} />}
+        {view === "guide" && <GuideEditor propertyId={selectedPropertyId} />}
+        {view === "templates" && <TemplateManager propertyId={selectedPropertyId} onUpdate={() => loadGuide(selectedPropertyId)} />}
+        {view === "faqs" && <FaqManager propertyId={selectedPropertyId} />}
+        {view === "gallery" && <GalleryManager propertyId={selectedPropertyId} />}
+        {view === "properties" && <PropertyManager role={hostRole} properties={properties} onPropertiesChanged={async () => { const propertyId = await loadPortfolio(); await loadBookings(propertyId); }} />}
       </section>
 
       {editingBooking && (
@@ -1551,7 +1711,7 @@ export default function HostPage() {
                   />
                 </div>
                 <div className="form-group">
-                  <label htmlFor="edit-net">Net Host Profit (€)</label>
+                  <label htmlFor="edit-net">Net payout after platform fees (€)</label>
                   <input
                     id="edit-net"
                     type="number"
@@ -1715,6 +1875,7 @@ export default function HostPage() {
         <GuestMessageModal
           booking={messagingBooking}
           guide={guestGuide}
+          propertySlug={properties.find((property) => property.id === (messagingBooking.propertyId || "konios-house"))?.slug}
           onClose={() => setMessagingBooking(null)}
         />
       )}

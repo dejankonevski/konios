@@ -1,0 +1,148 @@
+"use client";
+
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import type { Booking } from "@/lib/bookings";
+import type { CalendarBlock } from "@/lib/calendar-blocks";
+
+const weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const monthTitle = (date: Date) => new Intl.DateTimeFormat("en", { month: "long", year: "numeric" }).format(date);
+const dateKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+const addDays = (value: string, count: number) => { const date = new Date(`${value}T12:00:00`); date.setDate(date.getDate() + count); return dateKey(date); };
+const nightsBetween = (start: string, end: string) => Math.max(0, Math.round((new Date(`${end}T12:00:00`).getTime() - new Date(`${start}T12:00:00`).getTime()) / 86_400_000));
+
+type Props = {
+  bookings: CalendarBooking[];
+  propertyId: string;
+  checkInTime: string;
+  checkOutTime: string;
+  onOpenBooking: (booking: CalendarBooking) => void;
+};
+
+type CalendarBooking = Booking & {
+  accessStatus: "upcoming" | "active" | "expired" | "revoked";
+  stayStage?: "before-arrival" | "arrival-ready" | "during-stay" | "checkout-day" | "after-departure";
+};
+
+export default function CalendarView({ bookings, propertyId, checkInTime, checkOutTime, onOpenBooking }: Props) {
+  const [monthOffset, setMonthOffset] = useState(0);
+  const [blocks, setBlocks] = useState<CalendarBlock[]>([]);
+  const [status, setStatus] = useState("");
+
+  async function loadBlocks() {
+    const response = await fetch(`/api/host/blocked-dates?propertyId=${encodeURIComponent(propertyId)}`, { cache: "no-store" });
+    if (response.ok) setBlocks((await response.json()).blocks || []);
+  }
+
+  useEffect(() => {
+    let live = true;
+    fetch(`/api/host/blocked-dates?propertyId=${encodeURIComponent(propertyId)}`, { cache: "no-store" })
+      .then((response) => response.ok ? response.json() : null)
+      .then((data) => { if (live && data?.blocks) setBlocks(data.blocks); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [propertyId]);
+
+  const month = useMemo(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth() + monthOffset, 1);
+  }, [monthOffset]);
+
+  const cells = useMemo(() => {
+    const leading = (month.getDay() + 6) % 7;
+    const days = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+    const total = Math.ceil((leading + days) / 7) * 7;
+    return Array.from({ length: total }, (_, index) => new Date(month.getFullYear(), month.getMonth(), index - leading + 1));
+  }, [month]);
+
+  const validBookings = useMemo(() => bookings.filter((booking) => !booking.revoked).sort((a, b) => a.checkIn.localeCompare(b.checkIn)), [bookings]);
+  const gapNights = useMemo(() => {
+    const periods = [
+      ...validBookings.map((booking) => ({ start: booking.checkIn, end: booking.checkOut })),
+      ...blocks.map((block) => ({ start: block.start, end: block.end })),
+    ].sort((a, b) => a.start.localeCompare(b.start));
+    const merged: { start: string; end: string }[] = [];
+    periods.forEach((period) => {
+      const last = merged.at(-1);
+      if (!last || period.start > last.end) merged.push({ ...period });
+      else if (period.end > last.end) last.end = period.end;
+    });
+    const gaps = new Map<string, number>();
+    for (let index = 0; index < merged.length - 1; index += 1) {
+      const start = merged[index].end;
+      const end = merged[index + 1].start;
+      const nights = nightsBetween(start, end);
+      for (let day = 0; day < nights; day += 1) gaps.set(addDays(start, day), nights);
+    }
+    return gaps;
+  }, [validBookings, blocks]);
+
+  const monthStart = dateKey(month);
+  const monthEnd = dateKey(new Date(month.getFullYear(), month.getMonth() + 1, 1));
+  const monthRevenue = validBookings.reduce((sum, booking) => {
+    const overlapStart = booking.checkIn > monthStart ? booking.checkIn : monthStart;
+    const overlapEnd = booking.checkOut < monthEnd ? booking.checkOut : monthEnd;
+    const occupied = nightsBetween(overlapStart, overlapEnd);
+    const total = nightsBetween(booking.checkIn, booking.checkOut) || 1;
+    return sum + occupied * ((Number(booking.grossAmount) || 0) / total);
+  }, 0);
+  const monthOccupied = cells.filter((date) => {
+    const key = dateKey(date);
+    return date.getMonth() === month.getMonth() && validBookings.some((booking) => key >= booking.checkIn && key < booking.checkOut);
+  }).length;
+  const oneNightGaps = [...gapNights.values()].filter((nights) => nights === 1).length;
+
+  async function addBlock(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const response = await fetch("/api/host/blocked-dates", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...Object.fromEntries(form), propertyId }) });
+    const data = await response.json();
+    setStatus(response.ok ? "Personal dates blocked." : data.error || "Could not block dates.");
+    if (response.ok) { event.currentTarget.reset(); await loadBlocks(); }
+  }
+
+  async function removeBlock(id: string) {
+    const response = await fetch(`/api/host/blocked-dates?propertyId=${encodeURIComponent(propertyId)}&id=${encodeURIComponent(id)}`, { method: "DELETE" });
+    if (response.ok) { setStatus("Personal block removed."); await loadBlocks(); }
+  }
+
+  return <div className="operations-calendar-page">
+    <div className="calendar-summary-row">
+      <article><span>Occupied nights</span><strong>{monthOccupied}</strong><small>{monthTitle(month)}</small></article>
+      <article><span>Booked revenue</span><strong>{new Intl.NumberFormat("en", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(monthRevenue)}</strong><small>Allocated by occupied night</small></article>
+      <article className={oneNightGaps ? "calendar-warning-stat" : ""}><span>One-night gaps</span><strong>{oneNightGaps}</strong><small>{oneNightGaps ? "Difficult to sell — review pricing" : "No difficult gaps this month"}</small></article>
+      <article><span>Personal blocks</span><strong>{blocks.filter((block) => block.start < monthEnd && block.end > monthStart).length}</strong><small>Owner-use periods</small></article>
+    </div>
+
+    <section className="calendar-panel">
+      <div className="calendar-toolbar"><div><p className="eyebrow">Monthly operations</p><h2>{monthTitle(month)}</h2></div><div><button onClick={() => setMonthOffset((offset) => offset - 1)} aria-label="Previous month">←</button><button onClick={() => setMonthOffset(0)}>Today</button><button onClick={() => setMonthOffset((offset) => offset + 1)} aria-label="Next month">→</button></div></div>
+      <div className="calendar-legend"><span className="legend-occupied">Occupied</span><span className="legend-arrival">Check-in</span><span className="legend-cleaning">Cleaning</span><span className="legend-blocked">Personal block</span><span className="legend-gap">Gap night</span><span className="legend-one-gap">One-night gap</span></div>
+      <div className="operations-calendar-scroll">
+        <div className="operations-calendar-grid">
+          {weekDays.map((day) => <div className="calendar-weekday" key={day}>{day}</div>)}
+          {cells.map((date) => {
+            const key = dateKey(date);
+            const outside = date.getMonth() !== month.getMonth();
+            const staying = validBookings.find((booking) => key >= booking.checkIn && key < booking.checkOut);
+            const arrival = validBookings.find((booking) => booking.checkIn === key);
+            const departure = validBookings.find((booking) => booking.checkOut === key);
+            const personalBlock = blocks.find((block) => key >= block.start && key < block.end);
+            const gapLength = gapNights.get(key);
+            const nextArrival = departure ? validBookings.find((booking) => booking.checkIn === key) : undefined;
+            const nightlyAmount = staying ? (Number(staying.grossAmount) || 0) / (nightsBetween(staying.checkIn, staying.checkOut) || 1) : 0;
+            const classes = ["operations-calendar-day", outside ? "outside" : "", staying ? "occupied" : "", personalBlock ? "blocked" : "", gapLength === 1 ? "one-night-gap" : gapLength ? "gap-night" : ""].filter(Boolean).join(" ");
+            return <div className={classes} key={key}>
+              <div className="calendar-day-number"><span>{date.getDate()}</span>{!outside && !staying && !personalBlock && !gapLength ? <small>Empty</small> : null}</div>
+              {personalBlock ? <div className="calendar-block-event"><b>Personal block</b><span>{personalBlock.note}</span></div> : null}
+              {gapLength ? <div className={gapLength === 1 ? "calendar-gap-event critical" : "calendar-gap-event"}><b>{gapLength === 1 ? "⚠ 1-night gap" : `${gapLength}-night gap`}</b><span>{gapLength === 1 ? "Hard to sell" : "Available"}</span></div> : null}
+              {staying ? <button className={`calendar-booking-event source-${staying.source.toLowerCase().replace(/[^a-z]/g, "")}`} onClick={() => onOpenBooking(staying)}><span>{arrival ? `Check-in · ${checkInTime}` : "Occupied night"}</span><b>{staying.firstName} {staying.lastName}</b><small>{staying.source} · {arrival ? "stay total " : "night "}{new Intl.NumberFormat("en", { style: "currency", currency: staying.currency || "EUR", maximumFractionDigits: 0 }).format(arrival ? Number(staying.grossAmount) || 0 : nightlyAmount)}</small></button> : null}
+              {departure ? <button className="calendar-departure-event" onClick={() => onOpenBooking(departure)}><b>Checkout · {checkOutTime}</b><span>{departure.firstName}</span></button> : null}
+              {departure ? <div className={nextArrival ? "calendar-cleaning-event turnaround" : "calendar-cleaning-event"}><b>{nextArrival ? "Fast turnaround" : "Cleaning window"}</b><span>{checkOutTime} → {nextArrival ? checkInTime : "ready"}</span></div> : null}
+            </div>;
+          })}
+        </div>
+      </div>
+    </section>
+
+    <section className="calendar-block-manager"><div><p className="eyebrow">Owner use</p><h3>Block personal dates</h3><p>Blocked nights cannot be booked and appear directly in the calendar.</p></div><form onSubmit={addBlock}><label>From<input name="start" type="date" required /></label><label>Until (not included)<input name="end" type="date" required /></label><label>Reason<input name="note" placeholder="Personal stay / maintenance" /></label><button>Block dates</button></form>{status ? <p role="status">{status}</p> : null}<div className="calendar-block-list">{blocks.map((block) => <article key={block.id}><div><strong>{block.note}</strong><span>{block.start} → {block.end}</span></div><button onClick={() => removeBlock(block.id)}>Remove</button></article>)}</div></section>
+  </div>;
+}

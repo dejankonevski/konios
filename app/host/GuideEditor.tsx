@@ -7,7 +7,8 @@ import type { GuestGuide } from "@/lib/guest-guide";
 type GuideFieldKey = keyof GuestGuide;
 
 const groups: { title: string; note: string; fields: [GuideFieldKey, string, "input" | "textarea"][] }[] = [
-  { title:"Stay timing & Cleaning", note:"Set check-in/checkout window and standard cleaning agency fee (MKD).", fields:[["checkInTime","Default check-in time","input"],["checkOutTime","Default checkout time","input"],["defaultCleaningFeeMkd","Standard Cleaning Agency Fee (MKD)","input"]] },
+  { title:"Guest access timing", note:"Control the official stay times separately from early portal access and sensitive entry details.", fields:[["checkInTime","Official check-in time","input"],["checkOutTime","Official checkout time","input"],["portalLeadHours","Guest portal opens (hours before check-in)","input"],["sensitiveRevealMinutes","Building & lockbox details reveal (minutes before check-in)","input"],["accessExpiryMinutes","Guest access expires (minutes after checkout)","input"]] },
+  { title:"Cleaning", note:"Set the standard cleaning agency fee for new reservations.", fields:[["defaultCleaningFeeMkd","Standard Cleaning Agency Fee (MKD)","input"]] },
   { title:"Arrival & access", note:"Everything guests need between the street and the apartment door.", fields:[["propertyName","Property name","input"],["address","Full address","input"],["mapsUrl","Google or Apple Maps link","input"],["directions","How to recognise the building / main entrance","textarea"],["parkingSpace","Parking space number","input"],["parking","Parking instructions","textarea"],["buildingCode","Building entrance code","input"],["buildingEntryInstructions","Building entry steps","textarea"],["floor","Floor","input"],["apartmentNumber","Apartment number / door","input"],["apartmentDirections","Directions from entrance to apartment","textarea"],["lockboxCode","Key lockbox code","input"],["lockboxInstructions","Where the lockbox is and how to use it","textarea"]] },
   { title:"Stay essentials", note:"The details guests usually ask for first.", fields:[["wifiName","Wi-Fi network","input"],["wifiPassword","Wi-Fi password","input"],["hostName","Host name(s)","input"],["hostPhone","Host phone with country code","input"],["hostPhotoUrl","Host profile image URL / path","input"],["welcomeMessage","Welcome message for guest","textarea"]] },
   { title:"Using the apartment", note:"Short, clear instructions prevent most support messages.", fields:[["airConditioning","Air conditioning","textarea"],["heating","Heating","textarea"],["hotWater","Hot water","textarea"],["rubbish","Rubbish and recycling","textarea"]] },
@@ -15,10 +16,10 @@ const groups: { title: string; note: string; fields: [GuideFieldKey, string, "in
 ];
 
 const stepConfig: { key: keyof GuestGuide; label: string; defaultUrl: string }[] = [
-  { key: "step1PhotoUrl", label: "Step 01: Find the building", defaultUrl: "/self-checkin-guide.png" },
-  { key: "step2PhotoUrl", label: "Step 02: Park", defaultUrl: "/self-checkin-guide.png" },
-  { key: "step3PhotoUrl", label: "Step 03: Enter the building", defaultUrl: "/self-checkin-guide.png" },
-  { key: "step4PhotoUrl", label: "Step 04: Find your door", defaultUrl: "/self-checkin-guide.png" },
+  { key: "step1PhotoUrl", label: "Step 01: Find the building", defaultUrl: "/arrival-building.jpg" },
+  { key: "step2PhotoUrl", label: "Step 02: Park", defaultUrl: "/arrival-parking.jpg" },
+  { key: "step3PhotoUrl", label: "Step 03: Entrance & intercom", defaultUrl: "/arrival-intercom-optimized.jpg" },
+  { key: "step4PhotoUrl", label: "Step 04: Hallway to elevator", defaultUrl: "/arrival-elevator-optimized.jpg" },
   { key: "step5PhotoUrl", label: "Step 05: Collect the key", defaultUrl: "/self-checkin-guide.png" },
   { key: "step6PhotoUrl", label: "Step 06: Get connected / Wi-Fi", defaultUrl: "/apartment-main.png" },
 ];
@@ -72,19 +73,19 @@ async function compressImageFile(file: File, maxWidth = 1200, quality = 0.82): P
   });
 }
 
-export default function GuideEditor(){
+export default function GuideEditor({ propertyId = "konios-house" }: { propertyId?: string }){
   const [guide,setGuide]=useState<GuestGuide|null>(null);
   const [state,setState]=useState("Loading guide…");
   const [uploadingKey, setUploadingKey] = useState<string | null>(null);
 
   useEffect(()=>{
     let live=true;
-    fetch("/api/host/guide",{cache:"no-store"})
+    fetch(`/api/host/guide?propertyId=${encodeURIComponent(propertyId)}`,{cache:"no-store"})
       .then(async r=>{if(!r.ok)throw new Error();return r.json();})
       .then(data=>{if(live){setGuide(data.guide);setState("");}})
       .catch(()=>live&&setState("Could not load the guide."));
     return()=>{live=false};
-  },[]);
+  },[propertyId]);
 
   async function handleStepUpload(key: keyof GuestGuide, e: ChangeEvent<HTMLInputElement>) {
     const rawFile = e.target.files?.[0];
@@ -113,7 +114,7 @@ export default function GuideEditor(){
     if(!guide)return;
     setState("Saving…");
     try {
-      const response=await fetch("/api/host/guide",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(guide)});
+      const response=await fetch(`/api/host/guide?propertyId=${encodeURIComponent(propertyId)}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(guide)});
       const data = await response.json();
       if (response.ok) {
         setState("Saved. Guest guide is live.");
@@ -131,27 +132,15 @@ export default function GuideEditor(){
     <form className="guide-editor" onSubmit={save}>
       <div className="guide-editor-intro">
         <p>Your changes appear immediately for guests with an active stay code. Leave a field blank if it does not apply.</p>
-        <a href="/" target="_blank" rel="noreferrer">Preview guest guide ↗</a>
+        <a href={`/host/preview?propertyId=${encodeURIComponent(propertyId)}`} target="_blank" rel="noreferrer">Secure host preview ↗</a>
       </div>
+      <div className="security-warning"><strong>Physical access security</strong><p>Rotate the physical lockbox code regularly and after any concern. Website revocation cannot make a remembered physical code invalid. For multiple properties, use programmable locks with reservation-specific codes.</p></div>
 
-      <section className="test-code-section">
-        <div>
-          <h2>Master Test / Preview Access Code</h2>
-          <p>Configure a master test code to log into the guest portal and preview the guest guide anytime.</p>
-        </div>
-        <div className="guide-fields">
-          <label>
-            Test Access Code
-            <input
-              type="text"
-              value={guide.testAccessCode || "1508"}
-              onChange={(e) => setGuide({ ...guide, testAccessCode: e.target.value.trim() })}
-              placeholder="1508"
-            />
-            <small className="field-hint">
-              Enter <strong>{guide.testAccessCode || "1508"}</strong> on the <a href="/access" target="_blank" rel="noreferrer">Guest Portal (/access) ↗</a> to preview the guest guide live.
-            </small>
-          </label>
+      <section>
+        <div><h2>Host contact card</h2><p>The selected host name, phone, welcome message and photo appear at the top of every guest guide.</p></div>
+        <div className="step-photo-card host-photo-admin-card">
+          <div className="step-photo-preview"><Image src={guide.hostPhotoUrl || "/host-profile-new-optimized.jpg"} alt="Current host" fill unoptimized style={{objectFit:"cover",borderRadius:"10px"}} /></div>
+          <label className="step-upload-btn">{uploadingKey === "hostPhotoUrl" ? "Uploading photo…" : "📷 Change host photo"}<input type="file" accept="image/*" disabled={uploadingKey === "hostPhotoUrl"} onChange={(e)=>handleStepUpload("hostPhotoUrl",e)} /></label>
         </div>
       </section>
 
@@ -207,7 +196,8 @@ export default function GuideEditor(){
           <div><h2>{group.title}</h2><p>{group.note}</p></div>
           <div className="guide-fields">
             {group.fields.map(([key,label,type])=>{
-              const val = (guide as unknown as Record<string, string>)[key] || "";
+              const val = (guide as unknown as Record<string, string | number>)[key] ?? "";
+              const numericField = key === "portalLeadHours" || key === "sensitiveRevealMinutes" || key === "accessExpiryMinutes" || key === "defaultCleaningFeeMkd";
               return (
                 <label key={key}>
                   {label}
@@ -219,9 +209,11 @@ export default function GuideEditor(){
                     />
                   ) : (
                     <input
-                      type={key==="checkInTime"||key==="checkOutTime"?"time":"text"}
+                      type={key==="checkInTime"||key==="checkOutTime"?"time":numericField?"number":"text"}
+                      min={key === "portalLeadHours" ? 1 : 0}
+                      max={key === "portalLeadHours" ? 168 : key === "sensitiveRevealMinutes" ? 180 : key === "accessExpiryMinutes" ? 1440 : undefined}
                       value={val}
-                      onChange={(e) => setGuide({ ...guide, [key]: e.target.value })}
+                      onChange={(e) => setGuide({ ...guide, [key]: numericField ? Number(e.target.value) : e.target.value })}
                     />
                   )}
                 </label>

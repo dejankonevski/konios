@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyHostToken } from "@/lib/access-code";
+import { getRedis } from "@/lib/bookings";
 
 export async function POST(request: Request) {
   try {
@@ -28,10 +29,10 @@ export async function POST(request: Request) {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     const mimeType = file.type || "image/jpeg";
-    const base64 = buffer.toString("base64");
-    const dataUrl = `data:${mimeType};base64,${base64}`;
+    const id = crypto.randomUUID();
+    await getRedis().set(`media:${id}`, { mimeType, base64: buffer.toString("base64") });
 
-    return NextResponse.json({ success: true, url: dataUrl });
+    return NextResponse.json({ success: true, url: `/api/media/${id}` });
   } catch (error) {
     console.error("Upload error:", error);
     return NextResponse.json({ error: "Failed to upload image file" }, { status: 500 });

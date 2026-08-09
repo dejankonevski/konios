@@ -19,6 +19,7 @@ export const EXPENSE_CATEGORIES: ExpenseCategory[] = [
 
 export type Expense = {
   id: string;
+  propertyId?: string;
   date: string; // YYYY-MM-DD
   category: ExpenseCategory;
   amountEur: number;
@@ -37,11 +38,11 @@ function randomId() {
   return `exp_${Date.now()}_${values[0] % 10000}`;
 }
 
-export async function listExpenses(): Promise<Expense[]> {
+export async function listExpenses(propertyId?: string): Promise<Expense[]> {
   const redis = getRedis();
   const raw = await redis.get<Expense[]>(EXPENSES_KEY);
   if (!raw || !Array.isArray(raw)) return [];
-  return raw.sort((a, b) => b.date.localeCompare(a.date));
+  return raw.filter((expense) => !propertyId || (expense.propertyId || "konios-house") === propertyId).sort((a, b) => b.date.localeCompare(a.date));
 }
 
 export async function createExpense(
@@ -55,6 +56,7 @@ export async function createExpense(
 
   const newExpense: Expense = {
     id: randomId(),
+    propertyId: input.propertyId || "konios-house",
     date: input.date || new Date().toISOString().slice(0, 10),
     category: input.category || "Other",
     amountEur,
@@ -67,6 +69,10 @@ export async function createExpense(
   const updated = [newExpense, ...existing];
   await redis.set(EXPENSES_KEY, updated);
   return newExpense;
+}
+
+export async function getExpense(id: string) {
+  return (await listExpenses()).find((expense) => expense.id === id) || null;
 }
 
 export async function deleteExpense(id: string): Promise<boolean> {

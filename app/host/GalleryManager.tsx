@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import Image from "next/image";
 import type { GalleryItem, GuestGuide } from "@/lib/guest-guide";
 
-export default function GalleryManager() {
+export default function GalleryManager({ propertyId = "konios-house" }: { propertyId?: string }) {
   const [guide, setGuide] = useState<GuestGuide | null>(null);
   const [gallery, setGallery] = useState<GalleryItem[]>([]);
   const [status, setStatus] = useState("Loading gallery…");
@@ -26,7 +26,7 @@ export default function GalleryManager() {
 
   useEffect(() => {
     let live = true;
-    fetch("/api/host/guide", { cache: "no-store" })
+    fetch(`/api/host/guide?propertyId=${encodeURIComponent(propertyId)}`, { cache: "no-store" })
       .then(async (r) => {
         if (!r.ok) throw new Error();
         return r.json();
@@ -42,7 +42,7 @@ export default function GalleryManager() {
     return () => {
       live = false;
     };
-  }, []);
+  }, [propertyId]);
 
   async function persist(updatedGallery: GalleryItem[]) {
     if (!guide) return;
@@ -51,7 +51,7 @@ export default function GalleryManager() {
       ...guide,
       gallery: updatedGallery,
     };
-    const res = await fetch("/api/host/guide", {
+    const res = await fetch(`/api/host/guide?propertyId=${encodeURIComponent(propertyId)}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(updatedGuide),
