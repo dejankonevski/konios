@@ -2283,4 +2283,78 @@ body { top: 0!important; position: static!important; }
   opacity: 0.9;
 }
 
+.telegram-settings-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.telegram-settings-heading h3 {
+  margin: 0 !important;
+}
+
+.telegram-mode-badge {
+  padding: 4px 10px;
+  border-radius: 99px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.telegram-mode-badge.on {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.telegram-mode-badge.off {
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+}
+
+.telegram-action-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.telegram-action-buttons .checkbox-label {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 8px !important;
+  cursor: pointer;
+  text-transform: none !important;
+  font-size: 0.72rem !important;
+  font-weight: 600 !important;
+  color: #1e293b !important;
+  letter-spacing: normal !important;
+}
+
+.telegram-action-buttons .checkbox-label input {
+  width: auto !important;
+  cursor: pointer;
+}
+
+.telegram-btn-group {
+  display: flex;
+  gap: 8px;
+}
+
+.telegram-btn-group button {
+  flex: 1;
+  padding: 12px 14px !important;
+  font-size: 0.75rem !important;
+  font-weight: 750 !important;
+}
+
+.telegram-btn-group .test-btn {
+  background: #f1f5f9 !important;
+  color: #1e293b !important;
+  border: 1px solid #dfe5ef !important;
+}
+
 

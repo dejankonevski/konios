@@ -14,6 +14,10 @@ export default function PropertyManager({ role, properties, onPropertiesChanged 
   const [propertyDrafts, setPropertyDrafts] = useState<Record<string, string[]>>({});
   const [stripeStatus, setStripeStatus] = useState<StripeStatus | null>(null);
   const [stripeSaving, setStripeSaving] = useState(false);
+  const [telegramToken, setTelegramToken] = useState("");
+  const [telegramChatId, setTelegramChatId] = useState("");
+  const [telegramEnabled, setTelegramEnabled] = useState(false);
+  const [telegramSaving, setTelegramSaving] = useState(false);
 
   function applyAdmins(nextAdmins: SafeAdmin[]) {
     setAdmins(nextAdmins);
@@ -107,6 +111,73 @@ export default function PropertyManager({ role, properties, onPropertiesChanged 
     setStripeSaving(false);
   }
 
+  useEffect(() => {
+    if (role !== "master") return;
+    fetch("/api/host/telegram", { cache: "no-store" })
+      .then((response) => response.ok ? response.json() : null)
+      .then((data) => {
+        if (data) {
+          setTelegramToken(data.botToken || "");
+          setTelegramChatId(data.chatId || "");
+          setTelegramEnabled(data.enabled || false);
+        }
+      })
+      .catch(() => {});
+  }, [role]);
+
+  async function saveTelegramSettings(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setTelegramSaving(true);
+    setStatus("Saving Telegram settings...");
+    const form = new FormData(event.currentTarget);
+    const botToken = form.get("botToken")?.toString() || "";
+    const chatId = form.get("chatId")?.toString() || "";
+    const enabled = form.get("enabled") === "on";
+
+    try {
+      const response = await fetch("/api/host/telegram", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ botToken, chatId, enabled })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setStatus("Telegram settings saved successfully.");
+        setTelegramToken(botToken);
+        setTelegramChatId(chatId);
+        setTelegramEnabled(enabled);
+      } else {
+        setStatus(data.error || "Could not save Telegram settings.");
+      }
+    } catch (err: any) {
+      setStatus(`Error: ${err.message}`);
+    } finally {
+      setTelegramSaving(false);
+    }
+  }
+
+  async function testTelegramSettings() {
+    setTelegramSaving(true);
+    setStatus("Sending test Telegram message...");
+    try {
+      const response = await fetch("/api/host/telegram", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ botToken: telegramToken, chatId: telegramChatId, enabled: true, test: true })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setStatus("Test message sent successfully! Check your Telegram.");
+      } else {
+        setStatus(data.error || "Could not send test message. Verify bot token and chat ID.");
+      }
+    } catch (err: any) {
+      setStatus(`Error: ${err.message}`);
+    } finally {
+      setTelegramSaving(false);
+    }
+  }
+
   const [syncingPropertyId, setSyncingPropertyId] = useState<string | null>(null);
   const [savingPropertyId, setSavingPropertyId] = useState<string | null>(null);
 
@@ -176,6 +247,37 @@ export default function PropertyManager({ role, properties, onPropertiesChanged 
         <form className="property-admin-card" onSubmit={createProperty}><h3>Add property</h3><label>Property name<input name="name" required placeholder="City Centre Apartment" /></label><label>URL name<input name="slug" placeholder="city-centre-apartment" /></label><label>Address<input name="address" required placeholder="Full street address" /></label><label>Currency<input name="currency" defaultValue="EUR" maxLength={3} /></label><button>Create property</button></form>
         <form className="property-admin-card" onSubmit={createAdmin}><h3>Create property manager</h3><label>Username<input name="username" required autoComplete="off" /></label><label>Temporary password<input name="password" required type="password" minLength={12} autoComplete="new-password" /></label><fieldset className="property-checklist"><legend>Property access</legend><p>Choose every property this manager can open.</p>{properties.map((property) => <label key={property.id}><input type="checkbox" name="propertyIds" value={property.id} defaultChecked={properties.length === 1} /><span><b>{property.name}</b><small>/{property.slug}</small></span></label>)}</fieldset><button>Create manager</button></form>
         <form className="property-admin-card stripe-settings-card" onSubmit={saveStripeKey}><div className="stripe-settings-heading"><h3>Stripe payments</h3><span className={`stripe-mode-badge ${stripeStatus?.mode || "off"}`}>{stripeStatus?.configured ? `${stripeStatus.mode} mode` : "Not configured"}</span></div><p>Guests with an outstanding balance can pay through secure Stripe Checkout. The key remains server-only and is never displayed again.</p>{stripeStatus?.configured ? <div className="stripe-key-status"><span>Connected secret key</span><strong>•••• •••• •••• {stripeStatus.last4}</strong><small>{stripeStatus.source === "admin" ? "Saved from this admin page" : "Configured in the secure deployment environment"}</small></div> : null}<label>Replace secret key<input name="secretKey" required type="password" placeholder="sk_test_…" autoComplete="off" /></label><small>Only the master administrator can replace this credential.</small><button disabled={stripeSaving}>{stripeSaving ? "Verifying with Stripe…" : stripeStatus?.configured ? "Verify & replace key" : "Verify & connect Stripe"}</button></form>
+        <form className="property-admin-card telegram-settings-card" onSubmit={saveTelegramSettings}>
+          <div className="telegram-settings-heading">
+            <h3>Telegram Alerts</h3>
+            <span className={`telegram-mode-badge ${telegramEnabled ? "on" : "off"}`}>
+              {telegramEnabled ? "Active" : "Disabled"}
+            </span>
+          </div>
+          <p>Get a morning summary message directly on your Telegram about today's departures and arrivals so you never lose track.</p>
+          <label>
+            Telegram Bot Token
+            <input name="botToken" type="password" placeholder="123456:ABC-DEF…" defaultValue={telegramToken} />
+          </label>
+          <label>
+            Telegram Chat ID
+            <input name="chatId" placeholder="987654321" defaultValue={telegramChatId} />
+          </label>
+          <div className="telegram-action-buttons">
+            <label className="checkbox-label">
+              <input type="checkbox" name="enabled" defaultChecked={telegramEnabled} />
+              <span>Enable daily summaries</span>
+            </label>
+            <div className="telegram-btn-group">
+              <button type="submit" disabled={telegramSaving}>
+                {telegramSaving ? "Saving..." : "Save Settings"}
+              </button>
+              <button type="button" className="test-btn" onClick={testTelegramSettings} disabled={telegramSaving}>
+                Send Test
+              </button>
+            </div>
+          </div>
+        </form>
       </> : null}
       <form className="property-admin-card" onSubmit={changeOwnPassword}><h3>Change my password</h3><label>Current password<input name="currentPassword" required type="password" autoComplete="current-password" /></label><label>New password<input name="newPassword" required type="password" minLength={12} autoComplete="new-password" /></label><small>Use at least 12 characters.</small><button>Update my password</button></form>
     </div>
