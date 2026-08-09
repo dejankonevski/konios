@@ -890,15 +890,21 @@ export default function HostPage() {
                             : "New booking"}
             </h1>
           </div>
-          <button
-            className="quick-add"
-            onClick={() => {
-              setView("new");
-              setResult(null);
-            }}
-          >
-            ＋ Add guest
-          </button>
+          <div className="header-actions">
+            <div className="property-badge">
+              <span className="property-label">Property</span>
+              <span className="property-name">Konios House</span>
+            </div>
+            <button
+              className="quick-add"
+              onClick={() => {
+                setView("new");
+                setResult(null);
+              }}
+            >
+              ＋ Add guest
+            </button>
+          </div>
         </header>
         {view === "overview" && (
           <>
