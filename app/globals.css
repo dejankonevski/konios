@@ -2009,3 +2009,30 @@ body { top: 0!important; position: static!important; }
   color: #dc2626;
 }
 
+/* Sidebar Logout Button */
+.logout-btn {
+  margin-top: 14px;
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 9px;
+  border: 1px solid rgba(255,255,255,0.15) !important;
+  background: transparent !important;
+  color: #fca5a5 !important;
+  font-size: 0.72rem !important;
+  font-weight: 750 !important;
+  cursor: pointer;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  transition: all 0.15s ease !important;
+}
+
+.logout-btn:hover {
+  background: rgba(239, 68, 68, 0.1) !important;
+  border-color: rgba(239, 68, 68, 0.3) !important;
+  color: #ef4444 !important;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.08);
+}
+
+

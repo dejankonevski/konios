@@ -166,6 +166,38 @@ export default function HostPage() {
     return () => window.removeEventListener("click", handleWindowClick);
   }, []);
 
+  useEffect(() => {
+    async function checkSession() {
+      try {
+        const response = await fetch("/api/host/properties");
+        if (response.ok) {
+          setUnlocked(true);
+          const propertyId = await loadPortfolio();
+          await loadBookings(propertyId);
+        }
+      } catch (err) {
+        console.error("Failed to restore session", err);
+      }
+    }
+    checkSession();
+  }, []);
+
+  async function handleLogout() {
+    if (!window.confirm("Are you sure you want to log out?")) return;
+    try {
+      const response = await fetch("/api/host/login", { method: "DELETE" });
+      if (response.ok) {
+        setUnlocked(false);
+        setBookings([]);
+        setProperties([]);
+        setStart(undefined);
+        setEnd(undefined);
+      }
+    } catch (err) {
+      console.error("Logout failed", err);
+    }
+  }
+
   const dragStartRef = useRef<string | null>(null);
   const isDraggingRef = useRef(false);
   const pointerDownPosRef = useRef<{ x: number; y: number } | null>(null);
@@ -1114,6 +1146,15 @@ export default function HostPage() {
           <span>Official stay times</span>
           <strong>{times.checkInTime} → {times.checkOutTime}</strong>
           <small>Portal −{times.portalLeadHours}h · Codes −{times.sensitiveRevealMinutes}m · Expires +{times.accessExpiryMinutes}m</small>
+          <button
+            type="button"
+            className="logout-btn"
+            onClick={handleLogout}
+            title="Log out from Host dashboard"
+          >
+            <svg className="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: "13px", height: "13px" }}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            Log out
+          </button>
         </div>
       </aside>
       <section className="dashboard-main">
