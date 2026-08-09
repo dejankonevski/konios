@@ -154,6 +154,8 @@ export default function HostPage() {
   const [editSaving, setEditSaving] = useState(false);
   const [paymentLinkBookingId, setPaymentLinkBookingId] = useState<string | null>(null);
   const [paymentLinkMessage, setPaymentLinkMessage] = useState("");
+  const [copiedLinkUrl, setCopiedLinkUrl] = useState<string | null>(null);
+  const [copiedLinkGuest, setCopiedLinkGuest] = useState("");
 
   const dragStartRef = useRef<string | null>(null);
   const isDraggingRef = useRef(false);
@@ -246,6 +248,13 @@ export default function HostPage() {
       .sort((a, b) => b.checkIn.localeCompare(a.checkIn));
     return [...activeStays, ...upcomingStays, ...otherStays];
   }, [bookings]);
+
+  const arrivals = useMemo(() => {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    return sortedBookings
+      .filter((b) => !b.revoked && b.checkIn >= todayStr)
+      .slice(0, 4);
+  }, [sortedBookings]);
 
   const visible = useMemo(() => {
     return sortedBookings.filter((b) =>
@@ -504,12 +513,29 @@ export default function HostPage() {
       const data = await response.json();
       if (!response.ok || !data.url) throw new Error(data.error || "Could not create payment link.");
       await navigator.clipboard.writeText(data.url);
+      setCopiedLinkUrl(data.url);
+      setCopiedLinkGuest(`${booking.firstName} ${booking.lastName}`);
       setPaymentLinkMessage(`Payment link copied for ${booking.firstName} ${booking.lastName}.`);
     } catch (linkError) {
       setPaymentLinkMessage(linkError instanceof Error ? linkError.message : "Could not create payment link.");
     } finally {
       setPaymentLinkBookingId(null);
     }
+  }
+
+  async function togglePaidStatus(booking: Booking) {
+    const isPaid = Number(booking.paymentCollected || 0) >= (Number(booking.grossAmount) || 0);
+    const newPaymentCollected = isPaid ? 0 : (Number(booking.grossAmount) || 0);
+    const actionText = isPaid ? "mark as UNPAID" : "mark as PAID";
+    if (!window.confirm(`Are you sure you want to ${actionText} the booking for ${booking.firstName} ${booking.lastName}?`)) {
+      return;
+    }
+    await fetch(`/api/host/bookings/${booking.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ paymentCollected: newPaymentCollected }),
+    });
+    await loadBookings();
   }
 
   async function changeBooking(booking: Booking, action: "toggle" | "delete") {
@@ -768,11 +794,26 @@ export default function HostPage() {
                       </strong>
                       {isNoShow ? (
                         <small className="noshow-unpaid-sub">🛑 Unpaid (Excluded)</small>
-                      ) : effectiveNet > 0 ? (
-                        <small className="amount-net-sub">
-                          Net {new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(effectiveNet)}
-                        </small>
-                      ) : null}
+                      ) : (
+                        <>
+                          {effectiveNet > 0 && (
+                            <small className="amount-net-sub">
+                              Net {new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(effectiveNet)}
+                            </small>
+                          )}
+                          <button
+                            type="button"
+                            className={`payment-status-badge ${Number(b.paymentCollected || 0) >= effectiveGross ? "paid" : "unpaid"}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              togglePaidStatus(b);
+                            }}
+                            title={Number(b.paymentCollected || 0) >= effectiveGross ? "Mark as unpaid" : "Mark as paid"}
+                          >
+                            {Number(b.paymentCollected || 0) >= effectiveGross ? "✓ Paid" : "⏳ Unpaid"}
+                          </button>
+                        </>
+                      )}
                     </div>
                   ) : (
                     <span className="unpriced-pill" title="Click to add stay prices">+ Add price</span>
@@ -834,6 +875,18 @@ export default function HostPage() {
                   >
                     ✉ Message
                   </button>
+                  {!b.revoked && !isNoShow && (
+                    <button
+                      className={`payment-toggle-btn ${Number(b.paymentCollected || 0) >= effectiveGross ? "active-paid" : ""}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        togglePaidStatus(b);
+                      }}
+                      title={Number(b.paymentCollected || 0) >= effectiveGross ? "Mark as unpaid" : "Mark as paid"}
+                    >
+                      {Number(b.paymentCollected || 0) >= effectiveGross ? "✓ Paid" : "💳 Mark Paid"}
+                    </button>
+                  )}
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -1078,7 +1131,7 @@ export default function HostPage() {
               );
 
               let gapNights = -1;
-              const referenceDeparture = departingToday || overviewFinancials.currentActiveBooking;
+              const referenceDeparture = departingToday || currentStay;
               const nextGuest = arrivingToday || arrivals.find((a) => !referenceDeparture || a.id !== referenceDeparture.id);
 
               if (referenceDeparture && nextGuest) {
@@ -1878,6 +1931,59 @@ export default function HostPage() {
           propertySlug={properties.find((property) => property.id === (messagingBooking.propertyId || "konios-house"))?.slug}
           onClose={() => setMessagingBooking(null)}
         />
+      )}
+
+      {copiedLinkUrl && (
+        <div className="edit-modal-overlay" onClick={() => setCopiedLinkUrl(null)}>
+          <div className="edit-modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '520px' }}>
+            <div className="edit-modal-head">
+              <div>
+                <p className="eyebrow" style={{ color: '#16a34a' }}>✓ Link Copied</p>
+                <h3>Payment Link Ready</h3>
+                <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: '0.88rem' }}>For guest <strong>{copiedLinkGuest}</strong></p>
+              </div>
+              <button type="button" className="close-modal-btn" onClick={() => setCopiedLinkUrl(null)}>×</button>
+            </div>
+            
+            <div style={{ padding: '24px' }}>
+              <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '12px', padding: '14px 18px', marginBottom: '20px', color: '#15803d', fontWeight: '600', fontSize: '0.88rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>💳</span> The Stripe checkout link was copied to your clipboard.
+              </div>
+              
+              <label style={{ display: 'block', marginBottom: '8px', fontWeight: '700', fontSize: '0.72rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Shareable Payment URL
+              </label>
+              <textarea
+                readOnly
+                value={copiedLinkUrl}
+                style={{ width: '100%', minHeight: '80px', padding: '12px', borderRadius: '10px', border: '1px solid #cbd5e1', background: '#f8fafc', fontFamily: 'monospace', fontSize: '0.78rem', resize: 'none' }}
+                onClick={(e) => (e.target as HTMLTextAreaElement).select()}
+              />
+            </div>
+            
+            <div className="edit-modal-actions" style={{ padding: '16px 24px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', borderRadius: '0 0 18px 18px' }}>
+              <button
+                type="button"
+                className="submit-button"
+                style={{ background: '#2563eb', padding: '10px 18px', borderRadius: '8px', fontWeight: '750', fontSize: '0.85rem' }}
+                onClick={async () => {
+                  await navigator.clipboard.writeText(copiedLinkUrl);
+                  alert("Link copied again to clipboard!");
+                }}
+              >
+                Copy Link Again
+              </button>
+              <button
+                type="button"
+                className="text-reset"
+                style={{ border: '1px solid #cbd5e1', color: '#64748b', padding: '10px 18px', borderRadius: '8px', fontWeight: '750', fontSize: '0.85rem' }}
+                onClick={() => setCopiedLinkUrl(null)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </main>
   );

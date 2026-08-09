@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { listProperties } from "@/lib/portfolio";
 
+export const dynamic = "force-dynamic";
+
 export default async function Home() {
   const properties = (await listProperties()).filter((property) => property.active);
 
