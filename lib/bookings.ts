@@ -20,6 +20,8 @@ export type Booking = {
   cleaningStatus?: "scheduled" | "completed";
   cleaningNotes?: string;
   isNoShow?: boolean;
+  expectedArrivalTime?: string;
+  expectedDepartureTime?: string;
 };
 
 export function getRedis() {
@@ -48,9 +50,9 @@ function skopjeTime(date: string, time = "06:00") {
   return new Date(approximate.getTime() - (representedAsUtc - approximate.getTime()));
 }
 
-export function bookingState(booking: Booking, now = new Date(), times = { checkInTime: "06:00", checkOutTime: "10:00" }) {
-  const opensAt = skopjeTime(booking.checkIn, times.checkInTime);
-  const closesAt = skopjeTime(booking.checkOut, times.checkOutTime);
+export function bookingState(booking: Booking, now = new Date(), times = { checkInTime: "15:00", checkOutTime: "10:00" }) {
+  const opensAt = skopjeTime(booking.checkIn, "06:00");
+  const closesAt = skopjeTime(booking.checkOut, booking.expectedDepartureTime || times.checkOutTime || "10:00");
   const status = booking.revoked ? "revoked" : now < opensAt ? "upcoming" : now >= closesAt ? "expired" : "active";
   return { status, opensAt, closesAt } as const;
 }

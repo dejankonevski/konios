@@ -989,6 +989,26 @@ body { top: 0!important; position: static!important; }
 .fin-sub { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: .78rem; color: #64748b; font-weight: 600; padding-top: 8px; border-top: 1px solid #f1f5f9; }
 .fin-sub b { color: #0f172a; }
 
+/* Operations Snapshot */
+.ops-snapshot { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px; }
+.ops-card { background: #ffffff; border-radius: 14px; border: 1px solid #e2e8f0; padding: 18px 20px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 4px 14px rgba(0,0,0,0.02); border-left-width: 4px; border-left-style: solid; }
+.ops-departing { border-left-color: #ef4444; }
+.ops-arriving { border-left-color: #22c55e; }
+.ops-gap { border-left-color: #8b5cf6; }
+.ops-month { border-left-color: #3b82f6; }
+.ops-card-title { font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; }
+.ops-main { font-size: 1.1rem; font-weight: 700; color: #0f172a; line-height: 1.2; }
+.ops-main.text-muted { color: #94a3b8; font-weight: 600; }
+.ops-main.gap-warning { color: #ea580c; }
+.ops-sub { font-size: 0.78rem; color: #64748b; font-weight: 600; }
+
+@media(max-width: 900px) {
+  .ops-snapshot { grid-template-columns: repeat(2, 1fr); }
+}
+@media(max-width: 600px) {
+  .ops-snapshot { grid-template-columns: 1fr; }
+}
+
 @media(max-width: 900px) {
   .analytics-visual-grid { grid-template-columns: 1fr; }
   .visual-card.chart-card, .visual-card.channel-card { grid-column: 1 / -1; }

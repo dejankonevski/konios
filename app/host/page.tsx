@@ -34,6 +34,8 @@ type Booking = {
   cleaningStatus?: "scheduled" | "completed";
   cleaningNotes?: string;
   isNoShow?: boolean;
+  expectedDepartureTime?: string;
+  expectedArrivalTime?: string;
 };
 type Generated = Booking & { guest: string };
 const weekDays = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
@@ -109,7 +111,7 @@ export default function HostPage() {
     [bookings, setBookings] = useState<Booking[]>([]),
     [search, setSearch] = useState("");
   const [times, setTimes] = useState({
-    checkInTime: "10:00",
+    checkInTime: "15:00",
     checkOutTime: "10:00",
   });
   const [monthOffset, setMonthOffset] = useState(0),
@@ -749,7 +751,9 @@ export default function HostPage() {
               </article>
 
               {isSameDayTurnaround && nextB && (() => {
-                const windowHours = getCleaningWindowHours(times.checkOutTime, times.checkInTime);
+                const depTime = b.expectedDepartureTime || times.checkOutTime || "10:00";
+                const arrTime = nextB.expectedArrivalTime || times.checkInTime || "15:00";
+                const windowHours = getCleaningWindowHours(depTime, arrTime);
                 return (
                   <div key={`turnaround-${b.id}-${nextB.id}`} className="turnaround-bridge-row">
                     <div className="turnaround-bridge-content">
@@ -764,7 +768,7 @@ export default function HostPage() {
                             <span className="turnaround-tag-title">⚡ SAME-DAY TURNAROUND · {formatShort(b.checkOut)}</span>
                           </div>
                           <p className="turnaround-flow-detail">
-                            <b>{b.firstName} {b.lastName}</b> departs at {times.checkOutTime} &nbsp;➔&nbsp; <b>{nextB.firstName} {nextB.lastName}</b> arrives at {times.checkInTime}
+                            <b>{b.firstName} {b.lastName}</b> departs at {depTime} &nbsp;➔&nbsp; <b>{nextB.firstName} {nextB.lastName}</b> arrives at {arrTime}
                           </p>
                         </div>
                       </div>
@@ -898,119 +902,113 @@ export default function HostPage() {
         </header>
         {view === "overview" && (
           <>
-            <div className="metric-grid">
-              <article>
-                <span>Currently staying</span>
-                <strong>{active}</strong>
-                <small>
-                  {active
-                    ? "Guest access is live"
-                    : "Apartment is between stays"}
-                </small>
-              </article>
-              <article>
-                <span>Upcoming stays</span>
-                <strong>{upcoming}</strong>
-                <small>Codes scheduled automatically</small>
-              </article>
-              <article>
-                <span>Total reservations</span>
-                <strong>{bookings.length}</strong>
-                <small>Stored securely</small>
-              </article>
-              <article className="metric-accent">
-                <span>Next arrival</span>
-                <strong>
-                  {arrivals[0]
-                    ? new Date(`${arrivals[0].checkIn}T12:00:00`).getDate()
-                    : "—"}
-                </strong>
-                <small>
-                  {arrivals[0]
-                    ? `${arrivals[0].firstName} · ${formatShort(arrivals[0].checkIn)}`
-                    : "No arrival scheduled"}
-                </small>
-              </article>
-            </div>
+            {(() => {
+              const todayStr = new Date().toISOString().slice(0, 10);
+              const departingToday = bookings.find(
+                (b) => b.checkOut === todayStr && !b.revoked && (b.accessStatus === "active" || b.accessStatus === "expired")
+              );
+              const arrivingToday = bookings.find(
+                (b) => b.checkIn === todayStr && !b.revoked && (b.accessStatus === "upcoming" || b.accessStatus === "active")
+              );
 
-            {/* Financial Overview Cards Panel */}
-            <div className="overview-financial-grid">
-              <div className="overview-fin-card">
-                <div className="fin-head">
-                  <span className="fin-title">{overviewFinancials.monthName} Revenue</span>
-                  <span className="fin-chip month-chip">Current Month</span>
-                </div>
-                <strong className="fin-amount">
-                  {new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(overviewFinancials.currentMonthGross)}
-                </strong>
-                <div className="fin-sub">
-                  <span>Net Profit: <b>{new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(overviewFinancials.currentMonthNet)}</b></span>
-                  <span><b>{overviewFinancials.currentMonthNights}</b> nights booked</span>
-                </div>
-              </div>
+              let gapNights = -1;
+              const referenceDeparture = departingToday || overviewFinancials.currentActiveBooking;
+              const nextGuest = arrivingToday || arrivals.find((a) => !referenceDeparture || a.id !== referenceDeparture.id);
 
-              <div className="overview-fin-card">
-                <div className="fin-head">
-                  <span className="fin-title">Current Staying Guest</span>
-                  <span className={`fin-chip ${overviewFinancials.currentActiveBooking ? "active-chip" : "empty-chip"}`}>
-                    {overviewFinancials.currentActiveBooking ? "In Apartment" : "Empty"}
-                  </span>
-                </div>
-                {overviewFinancials.currentActiveBooking ? (
-                  <>
-                    <strong className="fin-amount">
-                      {new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(overviewFinancials.currentActiveBooking.grossAmount || 0)}
-                    </strong>
-                    <div className="fin-sub">
-                      {(() => {
-                        const g = Number(overviewFinancials.currentActiveBooking.grossAmount) || 0;
-                        let n = Number(overviewFinancials.currentActiveBooking.netAmount) || 0;
-                        if (g > 0 && n > 0 && n < g * 0.5 && (g - n) > n) n = Math.max(0, g - n);
-                        return (
-                          <span>{overviewFinancials.currentActiveBooking.firstName} {overviewFinancials.currentActiveBooking.lastName} · Net <b>{new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(n)}</b></span>
-                        );
-                      })()}
+              if (referenceDeparture && nextGuest) {
+                const d1 = new Date(`${referenceDeparture.checkOut}T00:00:00`);
+                const d2 = new Date(`${nextGuest.checkIn}T00:00:00`);
+                gapNights = Math.max(0, Math.round((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24)));
+              } else if (nextGuest) {
+                const d1 = new Date(`${todayStr}T00:00:00`);
+                const d2 = new Date(`${nextGuest.checkIn}T00:00:00`);
+                gapNights = Math.max(0, Math.round((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24)));
+              }
+
+              return (
+                <div className="ops-snapshot">
+                  <div className="ops-card ops-departing">
+                    <div className="ops-card-title">🛫 Departing Today</div>
+                    {departingToday ? (
+                      <>
+                        <div className="ops-main">
+                          {departingToday.firstName} {departingToday.lastName}
+                        </div>
+                        <div className="ops-sub">
+                          Checkout {times.checkOutTime} ·{" "}
+                          {new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(
+                            departingToday.grossAmount || 0
+                          )}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="ops-main text-muted">No checkout today</div>
+                    )}
+                  </div>
+
+                  <div className="ops-card ops-arriving">
+                    <div className="ops-card-title">🛬 Arriving Today</div>
+                    {arrivingToday ? (
+                      <>
+                        <div className="ops-main">
+                          {arrivingToday.firstName} {arrivingToday.lastName}
+                        </div>
+                        <div className="ops-sub">
+                          Checkin {times.checkInTime} ·{" "}
+                          {new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(
+                            arrivingToday.grossAmount || 0
+                          )}{" "}
+                          ·{" "}
+                          {Math.max(
+                            1,
+                            Math.round(
+                              (new Date(`${arrivingToday.checkOut}T00:00:00`).getTime() -
+                                new Date(`${arrivingToday.checkIn}T00:00:00`).getTime()) /
+                                (1000 * 60 * 60 * 24)
+                            )
+                          )}{" "}
+                          nights until {formatShort(arrivingToday.checkOut)}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="ops-main text-muted">No check-in today</div>
+                    )}
+                  </div>
+
+                  <div className="ops-card ops-gap">
+                    <div className="ops-card-title">🌙 Next Gap</div>
+                    {gapNights >= 0 ? (
+                      <>
+                        <div className={`ops-main ${gapNights === 0 ? "gap-warning" : ""}`}>
+                          {gapNights === 0 ? "0 nights" : `${gapNights} nights`}
+                        </div>
+                        <div className="ops-sub">
+                          {gapNights === 0 ? "Same-day turnaround" : "Unoccupied between stays"}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="ops-main text-muted">No upcoming stays</div>
+                    )}
+                  </div>
+
+                  <div className="ops-card ops-month">
+                    <div className="ops-card-title">📅 {overviewFinancials.monthName}</div>
+                    <div className="ops-main">
+                      {new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(
+                        overviewFinancials.currentMonthGross
+                      )}
                     </div>
-                  </>
-                ) : (
-                  <>
-                    <strong className="fin-amount empty-amount">—</strong>
-                    <div className="fin-sub"><span>Apartment is currently between stays</span></div>
-                  </>
-                )}
-              </div>
-
-              <div className="overview-fin-card">
-                <div className="fin-head">
-                  <span className="fin-title">Next Arrival Payout</span>
-                  <span className="fin-chip upcoming-chip">
-                    {overviewFinancials.nextArrivalBooking ? formatShort(overviewFinancials.nextArrivalBooking.checkIn) : "None"}
-                  </span>
-                </div>
-                {overviewFinancials.nextArrivalBooking ? (
-                  <>
-                    <strong className="fin-amount">
-                      {new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(overviewFinancials.nextArrivalBooking.grossAmount || 0)}
-                    </strong>
-                    <div className="fin-sub">
-                      {(() => {
-                        const g = Number(overviewFinancials.nextArrivalBooking.grossAmount) || 0;
-                        let n = Number(overviewFinancials.nextArrivalBooking.netAmount) || 0;
-                        if (g > 0 && n > 0 && n < g * 0.5 && (g - n) > n) n = Math.max(0, g - n);
-                        return (
-                          <span>{overviewFinancials.nextArrivalBooking.firstName} {overviewFinancials.nextArrivalBooking.lastName} · Net <b>{new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(n)}</b></span>
-                        );
-                      })()}
+                    <div className="ops-sub">
+                      Net{" "}
+                      {new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(
+                        overviewFinancials.currentMonthNet
+                      )}{" "}
+                      · {overviewFinancials.currentMonthNights} nights
                     </div>
-                  </>
-                ) : (
-                  <>
-                    <strong className="fin-amount empty-amount">—</strong>
-                    <div className="fin-sub"><span>No upcoming arrival scheduled</span></div>
-                  </>
-                )}
-              </div>
-            </div>
+                  </div>
+                </div>
+              );
+            })()}
             {(() => {
               const todayStr = new Date().toISOString().slice(0, 10);
               const cleaningToday = bookings.filter(

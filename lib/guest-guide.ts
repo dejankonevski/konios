@@ -142,7 +142,7 @@ export type GuestGuide = {
 };
 
 export const defaultGuestGuide: GuestGuide = {
-  checkInTime: "06:00", checkOutTime: "10:00",
+  checkInTime: "15:00", checkOutTime: "10:00",
   defaultCleaningFeeMkd: 750,
   propertyName: "Konios House", address: "Zil Vern 12, Skopje", mapsUrl: "https://www.google.com/maps/search/?api=1&query=Zil%20Vern%2012%2C%20Skopje", floor: "5", apartmentNumber: "32",
   directions: "Look for the building and the main glass entrance.", buildingCode: "2812", buildingEntryInstructions: "1. Press the telephone button.\n2. Enter the building code.\n3. Open the building door.", apartmentDirections: "Take the elevator or stairs to the 5th floor. Go straight, walk down the hall, and apartment 32 is on the right.", lockboxCode: "3007", lockboxInstructions: "The keybox is next to apartment 32.",
@@ -166,8 +166,12 @@ export async function getGuestGuide() {
   const stored = await getRedis().get<Partial<GuestGuide>>("guest-guide");
   if (!stored) return defaultGuestGuide;
   const merged: GuestGuide = { ...defaultGuestGuide, ...stored };
-  merged.checkInTime = "06:00";
-  merged.checkOutTime = "10:00";
+  if (!merged.checkInTime || merged.checkInTime === "06:00") {
+    merged.checkInTime = "15:00";
+  }
+  if (!merged.checkOutTime) {
+    merged.checkOutTime = "10:00";
+  }
   if (!merged.testAccessCode) {
     merged.testAccessCode = "1508";
   }
