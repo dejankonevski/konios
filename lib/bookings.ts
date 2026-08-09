@@ -158,7 +158,19 @@ export async function listBookings(propertyId?: string) {
     record.accessToken = randomToken();
     await Promise.all([redis.set(`booking:${record.id}`, record), redis.set(`access-token:${record.accessToken}`, record.id)]);
   }));
-  return records.filter((record) => !record.archivedAt && (!propertyId || (record.propertyId || "konios-house") === propertyId));
+  return records.filter((record) => {
+    if (record.archivedAt) return false;
+    if (propertyId && (record.propertyId || "konios-house") !== propertyId) return false;
+    
+    const fName = (record.firstName || "").toUpperCase();
+    const notes = (record.notes || "").toUpperCase();
+    if (fName.includes("CLOSED") || fName.includes("NOT AVAILABLE") || fName.includes("BLOCKED") ||
+        notes.includes("CLOSED") || notes.includes("NOT AVAILABLE") || notes.includes("BLOCKED")) {
+      return false;
+    }
+    
+    return true;
+  });
 }
 
 export async function updateBooking(
