@@ -696,6 +696,7 @@ export default function HostPage() {
           const isExpired = b.accessStatus === "expired" || b.revoked;
           const isNextArrival = b.id === nextArrivalId;
           const isNoShow = Boolean(b.isNoShow);
+          const isCleaningScheduled = Boolean(b.hasCleaningAgency && b.cleaningStatus === "scheduled");
           const countdown = isNoShow
             ? "🛑 No-Show"
             : isExpired
@@ -707,8 +708,8 @@ export default function HostPage() {
           const rowClass = [
             "booking-table-row",
             isNoShow ? "is-noshow-row" : "",
-            isActive ? "is-active-row" : "",
-            isNextArrival ? "is-next-hero-row" : "is-subsequent-row",
+            isCleaningScheduled ? "is-cleaning-scheduled-row" : (isActive ? "is-active-row" : ""),
+            isNextArrival && !isCleaningScheduled ? "is-next-hero-row" : "is-subsequent-row",
           ]
             .filter(Boolean)
             .join(" ");

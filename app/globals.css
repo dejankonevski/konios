@@ -740,6 +740,7 @@ footer>div { display:flex; justify-content:flex-end; gap:30px; }
 .arrivals-unified-table .booking-table-row > div { display: flex!important; }
 
 .arrivals-unified-table .is-active-row { background: #f0fdf4!important; border-left: 5px solid #16a34a!important; }
+.arrivals-unified-table .is-cleaning-scheduled-row { background: #fffbeb!important; border-left: 6px solid #f59e0b!important; }
 .arrivals-unified-table .is-next-hero-row { background: linear-gradient(135deg, #eff6ff 0%, #ffffff 100%)!important; border-left: 6px solid #2563eb!important; padding: 22px 22px!important; box-shadow: 0 6px 24px rgba(37,99,235,.12); margin: 4px 0; }
 .arrivals-unified-table .is-subsequent-row:hover { background: #fafcff; }
 
@@ -856,6 +857,7 @@ footer>div { display:flex; justify-content:flex-end; gap:30px; }
 .arrivals-unified-table .booking-table-row.interactive-row { cursor: pointer; }
 .arrivals-unified-table .booking-table-row.interactive-row:hover { background: #f1f5f9; }
 .arrivals-unified-table .is-active-row.interactive-row:hover { background: #e6fdf0!important; }
+.arrivals-unified-table .is-cleaning-scheduled-row.interactive-row:hover { background: #fff5d6!important; }
 .arrivals-unified-table .is-next-hero-row.interactive-row:hover { background: linear-gradient(135deg, #e4f0ff 0%, #f4f8ff 100%)!important; }
 
 /* Header Multi-Lingual Switcher */
@@ -1811,6 +1813,7 @@ body { top: 0!important; position: static!important; }
   .arrivals-unified-table .is-next-hero-row{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:0 12px!important;margin:0 0 12px!important;padding:16px!important;border:1px solid #dfe6ef!important;border-left:4px solid #94a3b8!important;border-radius:16px!important;background:#fff!important;box-shadow:0 6px 20px rgba(30,55,90,.07)!important}
   .arrivals-unified-table .is-next-hero-row{border-left-color:#2563eb!important;background:linear-gradient(145deg,#f4f8ff,#fff)!important}
   .arrivals-unified-table .is-active-row{border-left-color:#16a34a!important;background:#f6fff9!important}
+  .arrivals-unified-table .is-cleaning-scheduled-row{border-left-color:#f59e0b!important;background:#fffbeb!important}
   .arrivals-unified-table .booking-table-row>div{position:relative;display:flex!important;min-width:0!important;padding:22px 0 11px!important;border-bottom:1px solid #edf1f5!important;align-items:flex-start!important}
   .arrivals-unified-table .booking-table-row>div:before{content:attr(data-label);position:absolute;top:7px;left:0;color:#7a8799;font-size:.52rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
   .arrivals-unified-table .guest-cell{grid-column:1/-1;padding-top:4px!important;padding-bottom:13px!important}
