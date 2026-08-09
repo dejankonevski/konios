@@ -332,9 +332,12 @@ export default function PropertyManager({ role, properties, onPropertiesChanged 
             <div className="property-export-ical">
               <h5>Export iCal Feeds (for Airbnb & Booking.com)</h5>
               <div className="ical-export-list">
-                {units
-                  .filter((unit) => unit.propertyId === property.id)
-                  .map((unit) => {
+                {(() => {
+                  const propertyUnits = units.filter((unit) => unit.propertyId === property.id);
+                  if (propertyUnits.length > 0) return propertyUnits;
+                  const defaultId = property.id === "konios-house" ? "konios-house-32" : `${property.id}-unit`;
+                  return [{ id: defaultId, propertyId: property.id, name: "Default Unit", guideKey: property.id, active: true }];
+                })().map((unit) => {
                     const exportUrl = typeof window !== "undefined"
                       ? `${window.location.protocol}//${window.location.host}/api/ical/${unit.id}`
                       : `/api/ical/${unit.id}`;

@@ -1,22 +1,31 @@
 import { listBookings } from "@/lib/bookings";
-import { listUnits } from "@/lib/portfolio";
+import { listUnits, listProperties } from "@/lib/portfolio";
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ unitId: string }> }
 ) {
   const { unitId } = await params;
-  const units = await listUnits();
-  const unit = units.find((u) => u.id === unitId);
+  const [properties, units] = await Promise.all([listProperties(), listUnits()]);
+  
+  let unit = units.find((u) => u.id === unitId);
+  let propertyId = unit?.propertyId;
 
   if (!unit) {
-    return new Response("Apartment unit not found", { status: 404 });
+    // If unit is not found, check if it matches a property ID with the "-unit" suffix
+    const potentialPropId = unitId.endsWith("-unit") ? unitId.slice(0, -5) : unitId;
+    const property = properties.find((p) => p.id === potentialPropId || p.slug === potentialPropId);
+    if (property) {
+      propertyId = property.id;
+    } else {
+      return new Response("Apartment unit not found", { status: 404 });
+    }
   }
 
-  // Get active future/current bookings for this apartment
-  const bookings = await listBookings(unit.propertyId);
+  // Get active bookings for this property and unit
+  const bookings = await listBookings(propertyId);
   const unitBookings = bookings.filter(
-    (b) => !b.revoked && (b.unitId === unitId || (!b.unitId && unitId === "konios-house-32"))
+    (b) => !b.revoked && (b.unitId === unitId || (!b.unitId && (unitId === "konios-house-32" || unitId.endsWith("-unit"))))
   );
 
   let icsLines = [
