@@ -11,7 +11,20 @@ export interface IcalEvent {
 
 export function parseIcal(icsString: string): IcalEvent[] {
   const events: IcalEvent[] = [];
-  const lines = icsString.split(/\r?\n/);
+  const rawLines = icsString.split(/\r?\n/);
+  
+  // Unfold folded lines
+  const lines: string[] = [];
+  for (const line of rawLines) {
+    if (line.startsWith(" ") || line.startsWith("\t")) {
+      if (lines.length > 0) {
+        lines[lines.length - 1] += line.slice(1);
+      }
+    } else {
+      lines.push(line);
+    }
+  }
+
   let currentEvent: Partial<IcalEvent> | null = null;
 
   for (let line of lines) {
@@ -34,7 +47,7 @@ export function parseIcal(icsString: string): IcalEvent[] {
         } else if (key === "SUMMARY") {
           currentEvent.summary = value.trim();
         } else if (key === "DESCRIPTION") {
-          currentEvent.description = value.trim();
+          currentEvent.description = value.trim().replace(/\\n/g, "\n").replace(/\\t/g, "\t").replace(/\\,/g, ",");
         } else if (key === "DTSTART") {
           currentEvent.checkIn = parseIcalDate(value.trim());
         } else if (key === "DTEND") {
@@ -56,6 +69,25 @@ function parseIcalDate(val: string): string {
     return `${year}-${month}-${day}`;
   }
   return "";
+}
+
+function extractGuestNameFromDescription(description?: string): { firstName: string; lastName: string } | null {
+  if (!description) return null;
+  const lines = description.split("\n");
+  for (const line of lines) {
+    const cleanLine = line.trim();
+    const match = cleanLine.match(/^(?:Guest|Guest\s*Name|Name)\s*:\s*(.+)$/i);
+    if (match && match[1]) {
+      const name = match[1].trim();
+      if (name && name.toLowerCase() !== "reserved" && name.toLowerCase() !== "blocked") {
+        const parts = name.split(/\s+/);
+        const firstName = parts[0];
+        const lastName = parts.slice(1).join(" ") || "Guest";
+        return { firstName, lastName };
+      }
+    }
+  }
+  return null;
 }
 
 export async function syncPropertyIcal(propertyId: string) {
@@ -108,7 +140,11 @@ export async function syncPropertyIcal(propertyId: string) {
         let firstName: string = feed.source;
         let lastName: string = "Guest";
 
-        if (summary && summary !== "Reserved") {
+        const descName = extractGuestNameFromDescription(event.description);
+        if (descName) {
+          firstName = descName.firstName;
+          lastName = descName.lastName;
+        } else if (summary && summary !== "Reserved") {
           const cleanName = summary.replace(/\([^)]*\)/g, "").trim();
           const parts = cleanName.split(/\s+/);
           if (parts.length > 0 && parts[0] && parts[0].toLowerCase() !== "airbnb" && parts[0].toLowerCase() !== "booking.com") {
@@ -117,7 +153,19 @@ export async function syncPropertyIcal(propertyId: string) {
           }
         }
 
-        const existing = existingIcalMap.get(event.uid);
+        let existing = existingIcalMap.get(event.uid);
+
+        if (!existing) {
+          const manualMatch = existingBookings.find(
+            (b) => !b.icalUid && !b.revoked && b.source === feed.source && b.checkIn === event.checkIn
+          );
+          if (manualMatch) {
+            await updateBooking(manualMatch.id, { icalUid: event.uid });
+            manualMatch.icalUid = event.uid;
+            existingIcalMap.set(event.uid, manualMatch);
+            existing = manualMatch;
+          }
+        }
 
         if (existing) {
           if (existing.checkIn !== event.checkIn || existing.checkOut !== event.checkOut) {
