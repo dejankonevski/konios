@@ -97,6 +97,67 @@ export default function PropertyManager({ role, properties, onPropertiesChanged 
     setStripeSaving(false);
   }
 
+  const [syncingPropertyId, setSyncingPropertyId] = useState<string | null>(null);
+  const [savingPropertyId, setSavingPropertyId] = useState<string | null>(null);
+
+  async function handleSaveIcal(event: FormEvent<HTMLFormElement>, propertyId: string) {
+    event.preventDefault();
+    setSavingPropertyId(propertyId);
+    setStatus("Saving iCal URLs...");
+    
+    const form = new FormData(event.currentTarget);
+    const airbnbIcalUrl = form.get("airbnbIcalUrl")?.toString().trim() || "";
+    const bookingIcalUrl = form.get("bookingIcalUrl")?.toString().trim() || "";
+
+    try {
+      const response = await fetch("/api/host/properties", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: propertyId, airbnbIcalUrl, bookingIcalUrl })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setStatus("iCal URLs saved successfully.");
+        await onPropertiesChanged();
+      } else {
+        setStatus(data.error || "Failed to save iCal URLs.");
+      }
+    } catch (err: any) {
+      setStatus(`Error: ${err.message}`);
+    } finally {
+      setSavingPropertyId(null);
+    }
+  }
+
+  async function handleSyncNow(propertyId: string) {
+    setSyncingPropertyId(propertyId);
+    setStatus("Syncing with Airbnb and Booking.com...");
+
+    try {
+      const response = await fetch("/api/host/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ propertyId })
+      });
+      const data = await response.json();
+      if (response.ok && data.success) {
+        const { added, updated, removed, errors } = data.results;
+        let msg = `Sync complete! Synced: ${added} added, ${updated} updated, ${removed} removed.`;
+        if (errors.length > 0) {
+          msg += ` Errors: ${errors.join(", ")}`;
+        }
+        setStatus(msg);
+        await onPropertiesChanged();
+      } else {
+        setStatus(data.error || "Failed to sync iCal calendars.");
+      }
+    } catch (err: any) {
+      setStatus(`Error: ${err.message}`);
+    } finally {
+      setSyncingPropertyId(null);
+    }
+  }
+
   return <div className="property-admin-page">
     <div className="property-admin-hero"><div><p className="eyebrow">Access & portfolio</p><h2>{role === "master" ? "Properties and managers" : "Your property access"}</h2><p>{role === "master" ? "Create properties, assign managers and control every password from one place." : "You can manage only the properties assigned to your account."}</p></div><strong>{properties.length} {properties.length === 1 ? "property" : "properties"}</strong></div>
     {status ? <p className="property-admin-status" role="status">{status}</p> : null}
@@ -108,7 +169,57 @@ export default function PropertyManager({ role, properties, onPropertiesChanged 
       </> : null}
       <form className="property-admin-card" onSubmit={changeOwnPassword}><h3>Change my password</h3><label>Current password<input name="currentPassword" required type="password" autoComplete="current-password" /></label><label>New password<input name="newPassword" required type="password" minLength={12} autoComplete="new-password" /></label><small>Use at least 12 characters.</small><button>Update my password</button></form>
     </div>
-    <section className="property-list-panel"><div><h3>Properties</h3><p>Select a property in the dashboard header to edit its guide, timings and bookings.</p></div><div className="property-list-grid">{properties.map((property) => <article key={property.id}><span>{property.active ? "Active" : "Inactive"}</span><h4>{property.name}</h4><p>{property.address}</p><small>/{property.slug} · {property.currency}</small></article>)}</div></section>
+    <section className="property-list-panel">
+      <div>
+        <h3>Properties</h3>
+        <p>Select a property in the dashboard header to edit its guide, timings and bookings.</p>
+      </div>
+      <div className="property-list-grid">
+        {properties.map((property) => (
+          <article key={property.id} className="property-card-item">
+            <span>{property.active ? "Active" : "Inactive"}</span>
+            <h4>{property.name}</h4>
+            <p>{property.address}</p>
+            <small>/{property.slug} · {property.currency}</small>
+
+            <form className="property-sync-form" onSubmit={(e) => handleSaveIcal(e, property.id)}>
+              <h4>iCal Calendar Sync</h4>
+              <label>
+                Airbnb iCal Feed URL
+                <input
+                  type="url"
+                  name="airbnbIcalUrl"
+                  defaultValue={property.airbnbIcalUrl || ""}
+                  placeholder="https://www.airbnb.com/calendar/ical/..."
+                />
+              </label>
+              <label>
+                Booking.com iCal Feed URL
+                <input
+                  type="url"
+                  name="bookingIcalUrl"
+                  defaultValue={property.bookingIcalUrl || ""}
+                  placeholder="https://ical.booking.com/v1/..."
+                />
+              </label>
+              <div className="sync-buttons">
+                <button type="submit" className="save-btn" disabled={savingPropertyId === property.id}>
+                  {savingPropertyId === property.id ? "Saving..." : "Save URLs"}
+                </button>
+                <button
+                  type="button"
+                  className="sync-btn"
+                  onClick={() => handleSyncNow(property.id)}
+                  disabled={syncingPropertyId === property.id}
+                >
+                  {syncingPropertyId === property.id ? "Syncing..." : "Sync Now"}
+                </button>
+              </div>
+            </form>
+          </article>
+        ))}
+      </div>
+    </section>
     {role === "master" ? <section className="property-list-panel"><div><h3>Property managers</h3><p>Assign one or many properties, reset passwords, or disable access immediately.</p></div><div className="manager-list">{admins.length ? admins.map((admin) => {
       const draft = propertyDrafts[admin.username] || admin.propertyIds;
       const changed = [...draft].sort().join(",") !== [...admin.propertyIds].sort().join(",");
