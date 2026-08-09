@@ -4,12 +4,15 @@ import { FormEvent, useEffect, useState } from "react";
 import type { Property } from "@/lib/portfolio";
 
 type SafeAdmin = { id: string; username: string; propertyIds: string[]; active: boolean; createdAt: number };
+type StripeStatus = { configured: boolean; last4: string | null; mode: "test" | "live" | null; source: "admin" | "environment" | null; updatedAt: number | null };
 
 export default function PropertyManager({ role, properties, onPropertiesChanged }: { role: "master" | "property-admin"; properties: Property[]; onPropertiesChanged: () => Promise<void> }) {
   const [admins, setAdmins] = useState<SafeAdmin[]>([]);
   const [status, setStatus] = useState("");
   const [resetPasswords, setResetPasswords] = useState<Record<string, string>>({});
   const [propertyDrafts, setPropertyDrafts] = useState<Record<string, string[]>>({});
+  const [stripeStatus, setStripeStatus] = useState<StripeStatus | null>(null);
+  const [stripeSaving, setStripeSaving] = useState(false);
 
   function applyAdmins(nextAdmins: SafeAdmin[]) {
     setAdmins(nextAdmins);
@@ -30,6 +33,14 @@ export default function PropertyManager({ role, properties, onPropertiesChanged 
       .then((data) => { if (live && data?.admins) applyAdmins(data.admins); })
       .catch(() => {});
     return () => { live = false; };
+  }, [role]);
+
+  useEffect(() => {
+    if (role !== "master") return;
+    fetch("/api/host/stripe", { cache: "no-store" })
+      .then((response) => response.ok ? response.json() : null)
+      .then((data) => { if (data?.stripe) setStripeStatus(data.stripe); })
+      .catch(() => {});
   }, [role]);
 
   async function createProperty(event: FormEvent<HTMLFormElement>) {
@@ -72,6 +83,20 @@ export default function PropertyManager({ role, properties, onPropertiesChanged 
     if (response.ok) { event.currentTarget.reset(); window.setTimeout(() => window.location.reload(), 900); }
   }
 
+  async function saveStripeKey(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setStripeSaving(true);
+    const form = new FormData(event.currentTarget);
+    const response = await fetch("/api/host/stripe", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ secretKey: form.get("secretKey") }) });
+    const data = await response.json();
+    setStatus(response.ok ? "Stripe key verified and saved securely." : data.error || "Could not save Stripe settings.");
+    if (response.ok) {
+      setStripeStatus(data.stripe);
+      event.currentTarget.reset();
+    }
+    setStripeSaving(false);
+  }
+
   return <div className="property-admin-page">
     <div className="property-admin-hero"><div><p className="eyebrow">Access & portfolio</p><h2>{role === "master" ? "Properties and managers" : "Your property access"}</h2><p>{role === "master" ? "Create properties, assign managers and control every password from one place." : "You can manage only the properties assigned to your account."}</p></div><strong>{properties.length} {properties.length === 1 ? "property" : "properties"}</strong></div>
     {status ? <p className="property-admin-status" role="status">{status}</p> : null}
@@ -79,6 +104,7 @@ export default function PropertyManager({ role, properties, onPropertiesChanged 
       {role === "master" ? <>
         <form className="property-admin-card" onSubmit={createProperty}><h3>Add property</h3><label>Property name<input name="name" required placeholder="City Centre Apartment" /></label><label>URL name<input name="slug" placeholder="city-centre-apartment" /></label><label>Address<input name="address" required placeholder="Full street address" /></label><label>Currency<input name="currency" defaultValue="EUR" maxLength={3} /></label><button>Create property</button></form>
         <form className="property-admin-card" onSubmit={createAdmin}><h3>Create property manager</h3><label>Username<input name="username" required autoComplete="off" /></label><label>Temporary password<input name="password" required type="password" minLength={12} autoComplete="new-password" /></label><fieldset className="property-checklist"><legend>Property access</legend><p>Choose every property this manager can open.</p>{properties.map((property) => <label key={property.id}><input type="checkbox" name="propertyIds" value={property.id} defaultChecked={properties.length === 1} /><span><b>{property.name}</b><small>/{property.slug}</small></span></label>)}</fieldset><button>Create manager</button></form>
+        <form className="property-admin-card stripe-settings-card" onSubmit={saveStripeKey}><div className="stripe-settings-heading"><h3>Stripe payments</h3><span className={`stripe-mode-badge ${stripeStatus?.mode || "off"}`}>{stripeStatus?.configured ? `${stripeStatus.mode} mode` : "Not configured"}</span></div><p>Guests with an outstanding balance can pay through secure Stripe Checkout. The key remains server-only and is never displayed again.</p>{stripeStatus?.configured ? <div className="stripe-key-status"><span>Connected secret key</span><strong>•••• •••• •••• {stripeStatus.last4}</strong><small>{stripeStatus.source === "admin" ? "Saved from this admin page" : "Configured in the secure deployment environment"}</small></div> : null}<label>Replace secret key<input name="secretKey" required type="password" placeholder="sk_test_…" autoComplete="off" /></label><small>Only the master administrator can replace this credential.</small><button disabled={stripeSaving}>{stripeSaving ? "Verifying with Stripe…" : stripeStatus?.configured ? "Verify & replace key" : "Verify & connect Stripe"}</button></form>
       </> : null}
       <form className="property-admin-card" onSubmit={changeOwnPassword}><h3>Change my password</h3><label>Current password<input name="currentPassword" required type="password" autoComplete="current-password" /></label><label>New password<input name="newPassword" required type="password" minLength={12} autoComplete="new-password" /></label><small>Use at least 12 characters.</small><button>Update my password</button></form>
     </div>

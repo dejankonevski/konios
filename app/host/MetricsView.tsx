@@ -57,7 +57,7 @@ type ExpenseItem = {
   notes: string;
 };
 
-export default function MetricsView({ bookings }: { bookings: Booking[] }) {
+export default function MetricsView({ bookings, propertyId }: { bookings: Booking[]; propertyId: string }) {
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState<number>(currentYear);
   const [filterFrom, setFilterFrom] = useState<string>("");
@@ -67,11 +67,11 @@ export default function MetricsView({ bookings }: { bookings: Booking[] }) {
 
   // Fetch Expenses
   useEffect(() => {
-    fetch("/api/host/expenses")
+    fetch(`/api/host/expenses?propertyId=${encodeURIComponent(propertyId)}`)
       .then((res) => (res.ok ? res.json() : { expenses: [] }))
       .then((data) => setExpenses(data.expenses || []))
       .catch(() => {});
-  }, []);
+  }, [propertyId]);
 
   // Extract available years
   const availableYears = useMemo(() => {

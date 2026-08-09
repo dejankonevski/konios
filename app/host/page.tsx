@@ -95,6 +95,16 @@ function formatShort(value?: string) {
     : "Select date";
 }
 
+function nightsBetween(checkIn: string, checkOut: string) {
+  return Math.max(
+    1,
+    Math.round(
+      (new Date(`${checkOut}T12:00:00`).getTime() - new Date(`${checkIn}T12:00:00`).getTime()) /
+        86_400_000
+    )
+  );
+}
+
 function getDaysUntilLabel(checkInDateStr: string, checkInTime = "15:00"): string {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -121,6 +131,7 @@ export default function HostPage() {
     [search, setSearch] = useState("");
   const [properties, setProperties] = useState<Property[]>([]);
   const [selectedPropertyId, setSelectedPropertyId] = useState("konios-house");
+  const [propertyLoading, setPropertyLoading] = useState(false);
   const [hostRole, setHostRole] = useState<"master" | "property-admin">("master");
   const [times, setTimes] = useState({
     checkInTime: "15:00",
@@ -143,6 +154,8 @@ export default function HostPage() {
   const dragStartRef = useRef<string | null>(null);
   const isDraggingRef = useRef(false);
   const pointerDownPosRef = useRef<{ x: number; y: number } | null>(null);
+  const activePropertyIdRef = useRef("konios-house");
+  const bookingsRequestRef = useRef(0);
 
   async function handleSaveEdit(e: FormEvent) {
     e.preventDefault();
@@ -301,21 +314,31 @@ export default function HostPage() {
       const res = await fetch(`/api/host/guide?propertyId=${encodeURIComponent(propertyId)}`, { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
-        setGuestGuide(data.guide);
+        if (activePropertyIdRef.current === propertyId) setGuestGuide(data.guide);
       }
     } catch (e) {
       console.error(e);
     }
   }
 
-  async function loadBookings(propertyId = selectedPropertyId) {
-    const response = await fetch(`/api/host/code?propertyId=${encodeURIComponent(propertyId)}`, { cache: "no-store" });
-    if (response.ok) {
-      const data = await response.json();
-      setBookings(data.bookings);
-      if (data.times) setTimes(data.times);
+  async function loadBookings(propertyId = activePropertyIdRef.current) {
+    const requestId = ++bookingsRequestRef.current;
+    setPropertyLoading(true);
+    try {
+      const response = await fetch(`/api/host/code?propertyId=${encodeURIComponent(propertyId)}`, { cache: "no-store" });
+      if (response.ok) {
+        const data = await response.json();
+        if (requestId !== bookingsRequestRef.current || activePropertyIdRef.current !== propertyId) return;
+        const propertyBookings = (data.bookings || []).filter(
+          (booking: Booking) => (booking.propertyId || "konios-house") === propertyId
+        );
+        setBookings(propertyBookings);
+        if (data.times) setTimes(data.times);
+      }
+      await loadGuide(propertyId);
+    } finally {
+      if (requestId === bookingsRequestRef.current) setPropertyLoading(false);
     }
-    await loadGuide(propertyId);
   }
   async function loadPortfolio() {
     const response = await fetch("/api/host/properties", { cache: "no-store" });
@@ -325,8 +348,19 @@ export default function HostPage() {
     setProperties(nextProperties);
     setHostRole(data.session?.role || "property-admin");
     const nextPropertyId = nextProperties.some((property) => property.id === selectedPropertyId) ? selectedPropertyId : nextProperties[0]?.id || "konios-house";
+    activePropertyIdRef.current = nextPropertyId;
     setSelectedPropertyId(nextPropertyId);
     return nextPropertyId;
+  }
+
+  async function changeProperty(propertyId: string) {
+    if (!propertyId || propertyId === activePropertyIdRef.current) return;
+    activePropertyIdRef.current = propertyId;
+    setSelectedPropertyId(propertyId);
+    setBookings([]);
+    setResult(null);
+    setEditingBooking(null);
+    await loadBookings(propertyId);
   }
   async function login(event: FormEvent) {
     event.preventDefault();
@@ -532,6 +566,10 @@ export default function HostPage() {
 
   const active = bookings.filter((b) => b.stayStage === "during-stay" || b.stayStage === "checkout-day").length,
     upcoming = bookings.filter((b) => b.accessStatus === "upcoming").length;
+  const currentStay = bookings
+    .filter((booking) => !booking.revoked && (booking.stayStage === "during-stay" || booking.stayStage === "checkout-day"))
+    .sort((a, b) => a.checkIn.localeCompare(b.checkIn))[0];
+  const selectedProperty = properties.find((property) => property.id === selectedPropertyId);
   const arrivals = bookings
     .filter((b) => b.accessStatus === "upcoming")
     .sort((a, b) => a.checkIn.localeCompare(b.checkIn))
@@ -962,7 +1000,15 @@ export default function HostPage() {
                             : "New booking"}
             </h1>
           </div>
-          <label className="property-selector"><span>Property</span><select value={selectedPropertyId} onChange={async (event) => { const propertyId = event.target.value; setSelectedPropertyId(propertyId); await loadBookings(propertyId); }}>{properties.map((property) => <option key={property.id} value={property.id}>{property.name}</option>)}</select></label>
+          <label className={`property-selector ${propertyLoading ? "is-loading" : ""}`}>
+            <span>Property</span>
+            <div className="property-select-control">
+              <select value={selectedPropertyId} onChange={(event) => void changeProperty(event.target.value)} disabled={propertyLoading || properties.length < 2} aria-label="Select property">
+                {properties.map((property) => <option key={property.id} value={property.id}>{property.name}</option>)}
+              </select>
+              <b aria-hidden="true">{propertyLoading ? "…" : "⌄"}</b>
+            </div>
+          </label>
           <button
             className="quick-add"
             onClick={() => {
@@ -974,6 +1020,25 @@ export default function HostPage() {
           </button>
           {lastArchived ? <button className="undo-archive" onClick={async()=>{await fetch(`/api/host/bookings/${lastArchived.id}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({archivedAt:null})});setLastArchived(null);await loadBookings();}}>Undo archive: {lastArchived.firstName}</button> : null}
         </header>
+        {(view === "overview" || view === "bookings") ? (
+          <section className={`current-stay-strip ${currentStay ? "is-occupied" : "is-vacant"}`} aria-label="Current property occupancy">
+            <div className="current-stay-icon">{currentStay ? "●" : "○"}</div>
+            <div className="current-stay-copy">
+              <span>{selectedProperty?.name || "Selected property"} · Current stay</span>
+              {currentStay ? (
+                <strong>{currentStay.firstName} {currentStay.lastName}</strong>
+              ) : (
+                <strong>No guest is currently staying</strong>
+              )}
+            </div>
+            {currentStay ? (
+              <div className="current-stay-meta">
+                <strong>{nightsBetween(currentStay.checkIn, currentStay.checkOut)} nights</strong>
+                <span>{formatShort(currentStay.checkIn)} → {formatShort(currentStay.checkOut)}</span>
+              </div>
+            ) : <span className="current-stay-vacant-label">Vacant now</span>}
+          </section>
+        ) : null}
         {view === "overview" && (
           <>
             <div className="operations-command-center">
@@ -1466,7 +1531,7 @@ export default function HostPage() {
             </div>
           </div>
         )}
-        {view === "metrics" && <MetricsView bookings={bookings} />}
+        {view === "metrics" && <MetricsView bookings={bookings} propertyId={selectedPropertyId} />}
         {view === "calendar" && <CalendarView bookings={bookings} propertyId={selectedPropertyId} checkInTime={times.checkInTime} checkOutTime={times.checkOutTime} onOpenBooking={setEditingBooking} />}
         {view === "expenses" && <ExpensesView bookings={bookings} propertyId={selectedPropertyId} />}
         {view === "guide" && <GuideEditor propertyId={selectedPropertyId} />}
