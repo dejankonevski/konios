@@ -813,11 +813,13 @@ export default function HostPage() {
                 ? "Active now"
                 : getDaysUntilLabel(b.checkIn, times.checkInTime);
 
+          const isDropdownActive = activeDropdownId === b.id;
           const rowClass = [
             "booking-table-row",
             isNoShow ? "is-noshow-row" : "",
             isCleaningScheduled ? "is-cleaning-scheduled-row" : (isActive ? "is-active-row" : ""),
             isNextArrival && !isCleaningScheduled ? "is-next-hero-row" : "is-subsequent-row",
+            isDropdownActive ? "has-open-dropdown" : "",
           ]
             .filter(Boolean)
             .join(" ");
