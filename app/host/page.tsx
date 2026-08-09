@@ -816,17 +816,6 @@ export default function HostPage() {
                     {isNextArrival && !isNoShow && (
                       <span className="row-tag next-tag">✦ Closest upcoming arrival</span>
                     )}
-                    {b.hasCleaningAgency && (
-                      <span
-                        className={`row-tag interactive-tag ${b.cleaningStatus === "completed" ? "cleaning-cleaned-tag" : "cleaning-scheduled-tag"}`}
-                        onClick={(e) => handleCleaningAction(b, e)}
-                        title="Click to update agency cleaning status"
-                      >
-                        {b.cleaningStatus === "completed"
-                          ? `✓ Agency Cleaned (${b.cleaningFeeMkd || 750} MKD)`
-                          : `🧹 Agency Scheduled (${b.cleaningFeeMkd || 750} MKD)`}
-                      </span>
-                    )}
                     <div className="guest-sub-meta">
                       <small className="guest-count-sub">
                         {b.guests} {b.guests === 1 ? "guest" : "guests"}
