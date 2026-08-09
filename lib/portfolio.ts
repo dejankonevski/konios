@@ -1,7 +1,7 @@
 import { getRedis } from "@/lib/bookings";
 
 export type Role = "owner" | "cohost" | "cleaner";
-export type Property = { id: string; slug: string; name: string; address: string; currency: string; active: boolean; airbnbIcalUrl?: string; bookingIcalUrl?: string };
+export type Property = { id: string; slug: string; name: string; address: string; currency: string; active: boolean; airbnbIcalUrl?: string; bookingIcalUrl?: string; telegramBotToken?: string; telegramChatId?: string; telegramEnabled?: boolean };
 export type Unit = { id: string; propertyId: string; name: string; guideKey: string; active: boolean };
 export type Guest = { id: string; firstName: string; lastName: string; phone?: string };
 export type AccessCredential = { id: string; reservationId: string; type: "private-link" | "pin" | "lockbox"; status: "scheduled" | "active" | "revoked" | "expired"; revealsAt: number; expiresAt: number };

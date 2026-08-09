@@ -25,7 +25,17 @@ export async function PATCH(request: Request) {
   const session = await getHostSession((await cookies()).get("konios_host")?.value);
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
   
-  const input = (await request.json()) as { id?: string; airbnbIcalUrl?: string; bookingIcalUrl?: string; name?: string; address?: string; currency?: string };
+  const input = (await request.json()) as { 
+    id?: string; 
+    airbnbIcalUrl?: string; 
+    bookingIcalUrl?: string; 
+    telegramBotToken?: string;
+    telegramChatId?: string;
+    telegramEnabled?: boolean;
+    name?: string; 
+    address?: string; 
+    currency?: string; 
+  };
   if (!input.id) return Response.json({ error: "Property ID is required." }, { status: 400 });
 
   if (session.role !== "master" && !session.propertyIds.includes(input.id)) {
@@ -35,6 +45,9 @@ export async function PATCH(request: Request) {
   const updated = await updateProperty(input.id, {
     airbnbIcalUrl: input.airbnbIcalUrl,
     bookingIcalUrl: input.bookingIcalUrl,
+    telegramBotToken: input.telegramBotToken,
+    telegramChatId: input.telegramChatId,
+    telegramEnabled: input.telegramEnabled,
     ...(input.name ? { name: input.name } : {}),
     ...(input.address ? { address: input.address } : {}),
     ...(input.currency ? { currency: input.currency } : {})

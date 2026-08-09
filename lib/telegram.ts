@@ -16,19 +16,28 @@ export async function saveTelegramConfig(config: TelegramConfig): Promise<void> 
   await getRedis().set(TELEGRAM_CONFIG_KEY, config);
 }
 
-export async function sendTelegramMessage(text: string): Promise<boolean> {
-  const config = await getTelegramConfig();
-  if (!config || !config.enabled || !config.botToken || !config.chatId) {
+export async function sendTelegramMessage(text: string, customBotToken?: string, customChatId?: string): Promise<boolean> {
+  let botToken = customBotToken;
+  let chatId = customChatId;
+
+  if (!botToken || !chatId) {
+    const config = await getTelegramConfig();
+    if (!config || !config.enabled) return false;
+    botToken = botToken || config.botToken;
+    chatId = chatId || config.chatId;
+  }
+
+  if (!botToken || !chatId) {
     return false;
   }
 
   try {
-    const url = `https://api.telegram.org/bot${config.botToken}/sendMessage`;
+    const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
     const response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        chat_id: config.chatId,
+        chat_id: chatId,
         text,
         parse_mode: "HTML"
       })

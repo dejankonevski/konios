@@ -5,6 +5,7 @@ import type { Property, Unit } from "@/lib/portfolio";
 
 type SafeAdmin = { id: string; username: string; propertyIds: string[]; active: boolean; createdAt: number };
 type StripeStatus = { configured: boolean; last4: string | null; mode: "test" | "live" | null; source: "admin" | "environment" | null; updatedAt: number | null };
+type Section = "properties" | "team" | "settings";
 
 export default function PropertyManager({ role, properties, onPropertiesChanged }: { role: "master" | "property-admin"; properties: Property[]; onPropertiesChanged: () => Promise<void> }) {
   const [admins, setAdmins] = useState<SafeAdmin[]>([]);
@@ -14,10 +15,30 @@ export default function PropertyManager({ role, properties, onPropertiesChanged 
   const [propertyDrafts, setPropertyDrafts] = useState<Record<string, string[]>>({});
   const [stripeStatus, setStripeStatus] = useState<StripeStatus | null>(null);
   const [stripeSaving, setStripeSaving] = useState(false);
-  const [telegramToken, setTelegramToken] = useState("");
-  const [telegramChatId, setTelegramChatId] = useState("");
-  const [telegramEnabled, setTelegramEnabled] = useState(false);
-  const [telegramSaving, setTelegramSaving] = useState(false);
+  const [activeSection, setActiveSection] = useState<Section>("properties");
+  const [expandedSections, setExpandedSections] = useState<Record<string, Set<string>>>({});
+  const [telegramTestingId, setTelegramTestingId] = useState<string | null>(null);
+  const [syncingPropertyId, setSyncingPropertyId] = useState<string | null>(null);
+  const [savingPropertyId, setSavingPropertyId] = useState<string | null>(null);
+
+  // Auto-clear status toast
+  useEffect(() => {
+    if (status) { const t = setTimeout(() => setStatus(""), 5000); return () => clearTimeout(t); }
+  }, [status]);
+
+  function toggleAccordion(propertyId: string, section: string) {
+    setExpandedSections((prev) => {
+      const next = { ...prev };
+      const current = new Set(prev[propertyId] || []);
+      if (current.has(section)) current.delete(section); else current.add(section);
+      next[propertyId] = current;
+      return next;
+    });
+  }
+
+  function isAccordionOpen(propertyId: string, section: string) {
+    return expandedSections[propertyId]?.has(section) || false;
+  }
 
   function applyAdmins(nextAdmins: SafeAdmin[]) {
     setAdmins(nextAdmins);
@@ -62,7 +83,7 @@ export default function PropertyManager({ role, properties, onPropertiesChanged 
     const form = new FormData(event.currentTarget);
     const response = await fetch("/api/host/properties", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(Object.fromEntries(form)) });
     const data = await response.json();
-    setStatus(response.ok ? "Property created. You can now open its guest-guide settings." : data.error || "Could not create property.");
+    setStatus(response.ok ? "✅ Property created successfully." : data.error || "Could not create property.");
     if (response.ok) { event.currentTarget.reset(); await onPropertiesChanged(); }
   }
 
@@ -71,21 +92,21 @@ export default function PropertyManager({ role, properties, onPropertiesChanged 
     const form = new FormData(event.currentTarget);
     const response = await fetch("/api/host/property-admins", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: form.get("username"), password: form.get("password"), propertyIds: form.getAll("propertyIds") }) });
     const data = await response.json();
-    setStatus(response.ok ? "Property manager created." : data.error || "Could not create manager.");
+    setStatus(response.ok ? "✅ Property manager created." : data.error || "Could not create manager.");
     if (response.ok) { event.currentTarget.reset(); await loadAdmins(); }
   }
 
   async function updateAdmin(admin: SafeAdmin, updates: { password?: string; active?: boolean; propertyIds?: string[] }) {
     const response = await fetch("/api/host/property-admins", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: admin.username, propertyIds: updates.propertyIds ?? admin.propertyIds, active: updates.active ?? admin.active, password: updates.password || undefined }) });
     const data = await response.json();
-    setStatus(response.ok ? "Manager updated." : data.error || "Could not update manager.");
+    setStatus(response.ok ? "✅ Manager updated." : data.error || "Could not update manager.");
     if (response.ok) { setResetPasswords((current) => ({ ...current, [admin.username]: "" })); await loadAdmins(); }
   }
 
   async function resetLoginAttempts(admin: SafeAdmin) {
     const response = await fetch("/api/host/property-admins", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: admin.username }) });
     const data = await response.json();
-    setStatus(response.ok ? `Login attempts reset for ${admin.username}. They can sign in immediately.` : data.error || "Could not reset login attempts.");
+    setStatus(response.ok ? `✅ Login attempts reset for ${admin.username}.` : data.error || "Could not reset login attempts.");
   }
 
   async function changeOwnPassword(event: FormEvent<HTMLFormElement>) {
@@ -93,7 +114,7 @@ export default function PropertyManager({ role, properties, onPropertiesChanged 
     const form = new FormData(event.currentTarget);
     const response = await fetch("/api/host/password", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(Object.fromEntries(form)) });
     const data = await response.json();
-    setStatus(response.ok ? "Your password was changed successfully." : data.error || "Could not change password.");
+    setStatus(response.ok ? "✅ Your password was changed successfully." : data.error || "Could not change password.");
     if (response.ok) { event.currentTarget.reset(); window.setTimeout(() => window.location.reload(), 900); }
   }
 
@@ -103,277 +124,342 @@ export default function PropertyManager({ role, properties, onPropertiesChanged 
     const form = new FormData(event.currentTarget);
     const response = await fetch("/api/host/stripe", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ secretKey: form.get("secretKey") }) });
     const data = await response.json();
-    setStatus(response.ok ? "Stripe key verified and saved securely." : data.error || "Could not save Stripe settings.");
-    if (response.ok) {
-      setStripeStatus(data.stripe);
-      event.currentTarget.reset();
-    }
+    setStatus(response.ok ? "✅ Stripe key verified and saved securely." : data.error || "Could not save Stripe settings.");
+    if (response.ok) { setStripeStatus(data.stripe); event.currentTarget.reset(); }
     setStripeSaving(false);
   }
 
-  useEffect(() => {
-    if (role !== "master") return;
-    fetch("/api/host/telegram", { cache: "no-store" })
-      .then((response) => response.ok ? response.json() : null)
-      .then((data) => {
-        if (data) {
-          setTelegramToken(data.botToken || "");
-          setTelegramChatId(data.chatId || "");
-          setTelegramEnabled(data.enabled || false);
-        }
-      })
-      .catch(() => {});
-  }, [role]);
-
-  async function saveTelegramSettings(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setTelegramSaving(true);
-    setStatus("Saving Telegram settings...");
-    const form = new FormData(event.currentTarget);
-    const botToken = form.get("botToken")?.toString() || "";
-    const chatId = form.get("chatId")?.toString() || "";
-    const enabled = form.get("enabled") === "on";
-
-    try {
-      const response = await fetch("/api/host/telegram", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ botToken, chatId, enabled })
-      });
-      const data = await response.json();
-      if (response.ok) {
-        setStatus("Telegram settings saved successfully.");
-        setTelegramToken(botToken);
-        setTelegramChatId(chatId);
-        setTelegramEnabled(enabled);
-      } else {
-        setStatus(data.error || "Could not save Telegram settings.");
-      }
-    } catch (err: any) {
-      setStatus(`Error: ${err.message}`);
-    } finally {
-      setTelegramSaving(false);
-    }
-  }
-
-  async function testTelegramSettings() {
-    setTelegramSaving(true);
-    setStatus("Sending test Telegram message...");
-    try {
-      const response = await fetch("/api/host/telegram", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ botToken: telegramToken, chatId: telegramChatId, enabled: true, test: true })
-      });
-      const data = await response.json();
-      if (response.ok) {
-        setStatus("Test message sent successfully! Check your Telegram.");
-      } else {
-        setStatus(data.error || "Could not send test message. Verify bot token and chat ID.");
-      }
-    } catch (err: any) {
-      setStatus(`Error: ${err.message}`);
-    } finally {
-      setTelegramSaving(false);
-    }
-  }
-
-  const [syncingPropertyId, setSyncingPropertyId] = useState<string | null>(null);
-  const [savingPropertyId, setSavingPropertyId] = useState<string | null>(null);
-
-  async function handleSaveIcal(event: FormEvent<HTMLFormElement>, propertyId: string) {
+  async function handleSavePropertySettings(event: FormEvent<HTMLFormElement>, propertyId: string) {
     event.preventDefault();
     setSavingPropertyId(propertyId);
-    setStatus("Saving iCal URLs...");
-    
+    setStatus("Saving...");
     const form = new FormData(event.currentTarget);
     const airbnbIcalUrl = form.get("airbnbIcalUrl")?.toString().trim() || "";
     const bookingIcalUrl = form.get("bookingIcalUrl")?.toString().trim() || "";
-
+    const telegramBotToken = form.get("telegramBotToken")?.toString().trim() || "";
+    const telegramChatId = form.get("telegramChatId")?.toString().trim() || "";
+    const telegramEnabled = form.get("telegramEnabled") === "on";
     try {
-      const response = await fetch("/api/host/properties", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: propertyId, airbnbIcalUrl, bookingIcalUrl })
-      });
+      const response = await fetch("/api/host/properties", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: propertyId, airbnbIcalUrl, bookingIcalUrl, telegramBotToken, telegramChatId, telegramEnabled }) });
       const data = await response.json();
-      if (response.ok) {
-        setStatus("iCal URLs saved successfully.");
-        await onPropertiesChanged();
-      } else {
-        setStatus(data.error || "Failed to save iCal URLs.");
-      }
-    } catch (err: any) {
-      setStatus(`Error: ${err.message}`);
-    } finally {
-      setSavingPropertyId(null);
-    }
+      setStatus(response.ok ? "✅ Settings saved." : data.error || "Failed to save settings.");
+      if (response.ok) await onPropertiesChanged();
+    } catch (err: any) { setStatus(`Error: ${err.message}`); }
+    finally { setSavingPropertyId(null); }
+  }
+
+  async function handleTestTelegram(property: Property) {
+    setTelegramTestingId(property.id);
+    setStatus(`Sending test message for ${property.name}...`);
+    try {
+      const response = await fetch("/api/host/telegram/test", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ botToken: property.telegramBotToken, chatId: property.telegramChatId, propertyName: property.name }) });
+      const data = await response.json();
+      setStatus(response.ok && data.success ? `✅ Test sent for ${property.name}! Check Telegram.` : data.error || "Could not send test message.");
+    } catch (err: any) { setStatus(`Error: ${err.message}`); }
+    finally { setTelegramTestingId(null); }
   }
 
   async function handleSyncNow(propertyId: string) {
     setSyncingPropertyId(propertyId);
-    setStatus("Syncing with Airbnb and Booking.com...");
-
+    setStatus("Syncing calendars...");
     try {
-      const response = await fetch("/api/host/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ propertyId })
-      });
+      const response = await fetch("/api/host/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ propertyId }) });
       const data = await response.json();
       if (response.ok && data.success) {
         const { added, updated, removed, errors } = data.results;
-        let msg = `Sync complete! Synced: ${added} added, ${updated} updated, ${removed} removed.`;
-        if (errors.length > 0) {
-          msg += ` Errors: ${errors.join(", ")}`;
-        }
+        let msg = `✅ Sync complete: ${added} added, ${updated} updated, ${removed} removed.`;
+        if (errors.length > 0) msg += ` Errors: ${errors.join(", ")}`;
         setStatus(msg);
         await onPropertiesChanged();
-      } else {
-        setStatus(data.error || "Failed to sync iCal calendars.");
-      }
-    } catch (err: any) {
-      setStatus(`Error: ${err.message}`);
-    } finally {
-      setSyncingPropertyId(null);
-    }
+      } else { setStatus(data.error || "Failed to sync iCal calendars."); }
+    } catch (err: any) { setStatus(`Error: ${err.message}`); }
+    finally { setSyncingPropertyId(null); }
   }
 
-  return <div className="property-admin-page">
-    <div className="property-admin-hero"><div><p className="eyebrow">Access & portfolio</p><h2>{role === "master" ? "Properties and managers" : "Your property access"}</h2><p>{role === "master" ? "Create properties, assign managers and control every password from one place." : "You can manage only the properties assigned to your account."}</p></div><strong>{properties.length} {properties.length === 1 ? "property" : "properties"}</strong></div>
-    {status ? <p className="property-admin-status" role="status">{status}</p> : null}
-    <div className="property-admin-grid">
-      {role === "master" ? <>
-        <form className="property-admin-card" onSubmit={createProperty}><h3>Add property</h3><label>Property name<input name="name" required placeholder="City Centre Apartment" /></label><label>URL name<input name="slug" placeholder="city-centre-apartment" /></label><label>Address<input name="address" required placeholder="Full street address" /></label><label>Currency<input name="currency" defaultValue="EUR" maxLength={3} /></label><button>Create property</button></form>
-        <form className="property-admin-card" onSubmit={createAdmin}><h3>Create property manager</h3><label>Username<input name="username" required autoComplete="off" /></label><label>Temporary password<input name="password" required type="password" minLength={12} autoComplete="new-password" /></label><fieldset className="property-checklist"><legend>Property access</legend><p>Choose every property this manager can open.</p>{properties.map((property) => <label key={property.id}><input type="checkbox" name="propertyIds" value={property.id} defaultChecked={properties.length === 1} /><span><b>{property.name}</b><small>/{property.slug}</small></span></label>)}</fieldset><button>Create manager</button></form>
-        <form className="property-admin-card stripe-settings-card" onSubmit={saveStripeKey}><div className="stripe-settings-heading"><h3>Stripe payments</h3><span className={`stripe-mode-badge ${stripeStatus?.mode || "off"}`}>{stripeStatus?.configured ? `${stripeStatus.mode} mode` : "Not configured"}</span></div><p>Guests with an outstanding balance can pay through secure Stripe Checkout. The key remains server-only and is never displayed again.</p>{stripeStatus?.configured ? <div className="stripe-key-status"><span>Connected secret key</span><strong>•••• •••• •••• {stripeStatus.last4}</strong><small>{stripeStatus.source === "admin" ? "Saved from this admin page" : "Configured in the secure deployment environment"}</small></div> : null}<label>Replace secret key<input name="secretKey" required type="password" placeholder="sk_test_…" autoComplete="off" /></label><small>Only the master administrator can replace this credential.</small><button disabled={stripeSaving}>{stripeSaving ? "Verifying with Stripe…" : stripeStatus?.configured ? "Verify & replace key" : "Verify & connect Stripe"}</button></form>
-        <form className="property-admin-card telegram-settings-card" onSubmit={saveTelegramSettings}>
-          <div className="telegram-settings-heading">
-            <h3>Telegram Alerts</h3>
-            <span className={`telegram-mode-badge ${telegramEnabled ? "on" : "off"}`}>
-              {telegramEnabled ? "Active" : "Disabled"}
-            </span>
-          </div>
-          <p>Get a morning summary message directly on your Telegram about today's departures and arrivals so you never lose track.</p>
-          <label>
-            Telegram Bot Token
-            <input name="botToken" type="password" placeholder="123456:ABC-DEF…" defaultValue={telegramToken} />
-          </label>
-          <label>
-            Telegram Chat ID
-            <input name="chatId" placeholder="987654321" defaultValue={telegramChatId} />
-          </label>
-          <div className="telegram-action-buttons">
-            <label className="checkbox-label">
-              <input type="checkbox" name="enabled" defaultChecked={telegramEnabled} />
-              <span>Enable daily summaries</span>
-            </label>
-            <div className="telegram-btn-group">
-              <button type="submit" disabled={telegramSaving}>
-                {telegramSaving ? "Saving..." : "Save Settings"}
-              </button>
-              <button type="button" className="test-btn" onClick={testTelegramSettings} disabled={telegramSaving}>
-                Send Test
-              </button>
-            </div>
-          </div>
-        </form>
-      </> : null}
-      <form className="property-admin-card" onSubmit={changeOwnPassword}><h3>Change my password</h3><label>Current password<input name="currentPassword" required type="password" autoComplete="current-password" /></label><label>New password<input name="newPassword" required type="password" minLength={12} autoComplete="new-password" /></label><small>Use at least 12 characters.</small><button>Update my password</button></form>
-    </div>
-    <section className="property-list-panel">
-      <div>
-        <h3>Properties</h3>
-        <p>Select a property in the dashboard header to edit its guide, timings and bookings.</p>
-      </div>
-      <div className="property-list-grid">
-        {properties.map((property) => (
-          <article key={property.id} className="property-card-item">
-            <span>{property.active ? "Active" : "Inactive"}</span>
-            <h4>{property.name}</h4>
-            <p>{property.address}</p>
-            <small>/{property.slug} · {property.currency}</small>
+  const tabs: { key: Section; label: string; icon: string; masterOnly?: boolean }[] = [
+    { key: "properties", label: "Properties", icon: "🏢" },
+    { key: "team", label: "Team", icon: "👥", masterOnly: true },
+    { key: "settings", label: "Settings", icon: "⚙️", masterOnly: true },
+  ];
 
-            <form className="property-sync-form" onSubmit={(e) => handleSaveIcal(e, property.id)}>
-              <h4>iCal Calendar Sync</h4>
-              <label>
-                Airbnb iCal Feed URL
-                <input
-                  type="url"
-                  name="airbnbIcalUrl"
-                  defaultValue={property.airbnbIcalUrl || ""}
-                  placeholder="https://www.airbnb.com/calendar/ical/..."
-                />
-              </label>
-              <label>
-                Booking.com iCal Feed URL
-                <input
-                  type="url"
-                  name="bookingIcalUrl"
-                  defaultValue={property.bookingIcalUrl || ""}
-                  placeholder="https://ical.booking.com/v1/..."
-                />
-              </label>
-              <div className="sync-buttons">
-                <button type="submit" className="save-btn" disabled={savingPropertyId === property.id}>
-                  {savingPropertyId === property.id ? "Saving..." : "Save URLs"}
-                </button>
-                <button
-                  type="button"
-                  className="sync-btn"
-                  onClick={() => handleSyncNow(property.id)}
-                  disabled={syncingPropertyId === property.id}
-                >
-                  {syncingPropertyId === property.id ? "Syncing..." : "Sync Now"}
-                </button>
+  return (
+    <div className="pm-page">
+      {/* Status Toast */}
+      {status && (
+        <div className={`pm-toast ${status.startsWith("✅") ? "pm-toast--success" : status.startsWith("Error") ? "pm-toast--error" : ""}`}>
+          <span>{status}</span>
+          <button onClick={() => setStatus("")} className="pm-toast-close">✕</button>
+        </div>
+      )}
+
+      {/* Tab Navigation */}
+      <nav className="pm-tabs">
+        {tabs
+          .filter((tab) => !tab.masterOnly || role === "master")
+          .map((tab) => (
+            <button
+              key={tab.key}
+              className={`pm-tab ${activeSection === tab.key ? "pm-tab--active" : ""}`}
+              onClick={() => setActiveSection(tab.key)}
+            >
+              <span className="pm-tab-icon">{tab.icon}</span>
+              {tab.label}
+            </button>
+          ))}
+        <div className="pm-tab-counter">{properties.length} {properties.length === 1 ? "property" : "properties"}</div>
+      </nav>
+
+      {/* ═══ PROPERTIES SECTION ═══ */}
+      {activeSection === "properties" && (
+        <div className="pm-properties">
+          {properties.map((property) => (
+            <article key={property.id} className="pm-property-card">
+              <div className="pm-property-header">
+                <div className="pm-property-info">
+                  <div className="pm-property-title-row">
+                    <h3>{property.name}</h3>
+                    <span className={`pm-badge ${property.active ? "pm-badge--active" : "pm-badge--inactive"}`}>
+                      {property.active ? "Active" : "Inactive"}
+                    </span>
+                  </div>
+                  <p className="pm-property-address">{property.address}</p>
+                  <div className="pm-property-meta">
+                    <span>/{property.slug}</span>
+                    <span className="pm-meta-dot">·</span>
+                    <span>{property.currency}</span>
+                    {property.telegramEnabled && (
+                      <>
+                        <span className="pm-meta-dot">·</span>
+                        <span className="pm-feature-pill">🔔 Telegram</span>
+                      </>
+                    )}
+                    {(property.airbnbIcalUrl || property.bookingIcalUrl) && (
+                      <>
+                        <span className="pm-meta-dot">·</span>
+                        <span className="pm-feature-pill">📅 iCal Synced</span>
+                      </>
+                    )}
+                  </div>
+                </div>
               </div>
+
+              <form className="pm-property-form" onSubmit={(e) => handleSavePropertySettings(e, property.id)}>
+                {/* Calendar Sync Accordion */}
+                <div className="pm-accordion">
+                  <button type="button" className="pm-accordion-trigger" onClick={() => toggleAccordion(property.id, "calendar")}>
+                    <span>📅 Calendar Sync</span>
+                    <span className={`pm-accordion-arrow ${isAccordionOpen(property.id, "calendar") ? "pm-accordion-arrow--open" : ""}`}>›</span>
+                  </button>
+                  {isAccordionOpen(property.id, "calendar") && (
+                    <div className="pm-accordion-content">
+                      <div className="pm-form-group">
+                        <label className="pm-label">Airbnb iCal Feed URL</label>
+                        <input className="pm-input" type="url" name="airbnbIcalUrl" defaultValue={property.airbnbIcalUrl || ""} placeholder="https://www.airbnb.com/calendar/ical/..." />
+                      </div>
+                      <div className="pm-form-group">
+                        <label className="pm-label">Booking.com iCal Feed URL</label>
+                        <input className="pm-input" type="url" name="bookingIcalUrl" defaultValue={property.bookingIcalUrl || ""} placeholder="https://ical.booking.com/v1/..." />
+                      </div>
+                      <button
+                        type="button"
+                        className="pm-btn pm-btn--secondary"
+                        onClick={() => handleSyncNow(property.id)}
+                        disabled={syncingPropertyId === property.id}
+                      >
+                        {syncingPropertyId === property.id ? "⏳ Syncing..." : "🔄 Sync Now"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Telegram Alerts Accordion */}
+                <div className="pm-accordion">
+                  <button type="button" className="pm-accordion-trigger" onClick={() => toggleAccordion(property.id, "telegram")}>
+                    <span>🔔 Telegram Alerts</span>
+                    <span className={`pm-accordion-arrow ${isAccordionOpen(property.id, "telegram") ? "pm-accordion-arrow--open" : ""}`}>›</span>
+                  </button>
+                  {isAccordionOpen(property.id, "telegram") && (
+                    <div className="pm-accordion-content">
+                      <p className="pm-hint">Get daily check-in &amp; checkout summaries on Telegram for this property.</p>
+                      <div className="pm-form-group">
+                        <label className="pm-label">Bot Token</label>
+                        <input className="pm-input" type="password" name="telegramBotToken" defaultValue={property.telegramBotToken || ""} placeholder="123456:ABC-DEF..." />
+                      </div>
+                      <div className="pm-form-group">
+                        <label className="pm-label">Chat ID</label>
+                        <input className="pm-input" type="text" name="telegramChatId" defaultValue={property.telegramChatId || ""} placeholder="987654321" />
+                      </div>
+                      <label className="pm-checkbox">
+                        <input type="checkbox" name="telegramEnabled" defaultChecked={Boolean(property.telegramEnabled)} />
+                        <span>Enable daily summaries</span>
+                      </label>
+                      <button
+                        type="button"
+                        className="pm-btn pm-btn--secondary"
+                        onClick={() => handleTestTelegram(property)}
+                        disabled={telegramTestingId === property.id}
+                      >
+                        {telegramTestingId === property.id ? "⏳ Sending..." : "📨 Send Test Message"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Export Feed Accordion */}
+                <div className="pm-accordion">
+                  <button type="button" className="pm-accordion-trigger" onClick={() => toggleAccordion(property.id, "export")}>
+                    <span>📤 Export Feed</span>
+                    <span className={`pm-accordion-arrow ${isAccordionOpen(property.id, "export") ? "pm-accordion-arrow--open" : ""}`}>›</span>
+                  </button>
+                  {isAccordionOpen(property.id, "export") && (
+                    <div className="pm-accordion-content">
+                      <p className="pm-hint">Add this URL to Airbnb or Booking.com to export your system calendar.</p>
+                      {(() => {
+                        const propertyUnits = units.filter((unit) => unit.propertyId === property.id);
+                        if (propertyUnits.length > 0) return propertyUnits;
+                        const defaultId = property.id === "konios-house" ? "konios-house-32" : `${property.id}-unit`;
+                        return [{ id: defaultId, propertyId: property.id, name: property.name, guideKey: property.id, active: true }];
+                      })().map((unit) => {
+                        const exportUrl = typeof window !== "undefined"
+                          ? `${window.location.protocol}//${window.location.host}/api/ical/${unit.id}`
+                          : `/api/ical/${unit.id}`;
+                        return (
+                          <div key={unit.id} className="pm-export-row">
+                            <input className="pm-input pm-input--mono" type="text" readOnly value={exportUrl} onClick={(e) => (e.target as HTMLInputElement).select()} />
+                            <button
+                              type="button"
+                              className="pm-btn pm-btn--secondary"
+                              onClick={() => { navigator.clipboard.writeText(exportUrl); setStatus(`✅ Copied iCal link for ${unit.name}!`); }}
+                            >
+                              📋 Copy
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Save Button */}
+                <button type="submit" className="pm-btn pm-btn--primary pm-btn--full" disabled={savingPropertyId === property.id}>
+                  {savingPropertyId === property.id ? "Saving..." : "💾 Save All Settings"}
+                </button>
+              </form>
+            </article>
+          ))}
+        </div>
+      )}
+
+      {/* ═══ TEAM SECTION ═══ */}
+      {activeSection === "team" && role === "master" && (
+        <div className="pm-team">
+          <div className="pm-team-forms">
+            <form className="pm-card" onSubmit={createProperty}>
+              <h3>🏢 Add Property</h3>
+              <div className="pm-form-group"><label className="pm-label">Property name</label><input className="pm-input" name="name" required placeholder="City Centre Apartment" /></div>
+              <div className="pm-form-group"><label className="pm-label">URL slug</label><input className="pm-input" name="slug" placeholder="city-centre-apartment" /></div>
+              <div className="pm-form-group"><label className="pm-label">Address</label><input className="pm-input" name="address" required placeholder="Full street address" /></div>
+              <div className="pm-form-group"><label className="pm-label">Currency</label><input className="pm-input" name="currency" defaultValue="EUR" maxLength={3} /></div>
+              <button className="pm-btn pm-btn--primary pm-btn--full">Create Property</button>
             </form>
 
-            <div className="property-export-ical">
-              <h5>Export iCal Feeds (for Airbnb & Booking.com)</h5>
-              <div className="ical-export-list">
-                {(() => {
-                  const propertyUnits = units.filter((unit) => unit.propertyId === property.id);
-                  if (propertyUnits.length > 0) return propertyUnits;
-                  const defaultId = property.id === "konios-house" ? "konios-house-32" : `${property.id}-unit`;
-                  return [{ id: defaultId, propertyId: property.id, name: "Default Unit", guideKey: property.id, active: true }];
-                })().map((unit) => {
-                    const exportUrl = typeof window !== "undefined"
-                      ? `${window.location.protocol}//${window.location.host}/api/ical/${unit.id}`
-                      : `/api/ical/${unit.id}`;
-                    return (
-                      <div key={unit.id} className="ical-export-item">
-                        <span>{unit.name}</span>
-                        <div className="ical-link-copy">
-                          <input type="text" readOnly value={exportUrl} onClick={(e) => (e.target as HTMLInputElement).select()} />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              navigator.clipboard.writeText(exportUrl);
-                              setStatus(`Copied iCal link for ${unit.name}!`);
-                            }}
-                          >
-                            Copy Link
-                          </button>
+            <form className="pm-card" onSubmit={createAdmin}>
+              <h3>👤 Create Manager</h3>
+              <div className="pm-form-group"><label className="pm-label">Username</label><input className="pm-input" name="username" required autoComplete="off" /></div>
+              <div className="pm-form-group"><label className="pm-label">Temporary password</label><input className="pm-input" name="password" required type="password" minLength={12} autoComplete="new-password" /></div>
+              <fieldset className="pm-checklist">
+                <legend>Property Access</legend>
+                <p className="pm-hint">Choose which properties this manager can access.</p>
+                {properties.map((property) => (
+                  <label key={property.id} className="pm-checkbox">
+                    <input type="checkbox" name="propertyIds" value={property.id} defaultChecked={properties.length === 1} />
+                    <span><strong>{property.name}</strong> <small>/{property.slug}</small></span>
+                  </label>
+                ))}
+              </fieldset>
+              <button className="pm-btn pm-btn--primary pm-btn--full">Create Manager</button>
+            </form>
+          </div>
+
+          {/* Existing Managers */}
+          <div className="pm-card">
+            <h3>👥 Property Managers</h3>
+            <p className="pm-hint">Assign properties, reset passwords, or disable access.</p>
+            {admins.length ? (
+              <div className="pm-manager-list">
+                {admins.map((admin) => {
+                  const draft = propertyDrafts[admin.username] || admin.propertyIds;
+                  const changed = [...draft].sort().join(",") !== [...admin.propertyIds].sort().join(",");
+                  return (
+                    <article key={admin.id} className="pm-manager-row">
+                      <div className="pm-manager-identity">
+                        <div className="pm-manager-name-row">
+                          <strong>{admin.username}</strong>
+                          <span className={`pm-badge pm-badge--sm ${admin.active ? "pm-badge--active" : "pm-badge--inactive"}`}>
+                            {admin.active ? "Active" : "Disabled"}
+                          </span>
+                        </div>
+                        <small>{admin.propertyIds.length} {admin.propertyIds.length === 1 ? "property" : "properties"} assigned</small>
+                      </div>
+                      <fieldset className="pm-checklist pm-checklist--inline">
+                        <legend>Can manage</legend>
+                        {properties.map((property) => (
+                          <label key={property.id} className="pm-checkbox">
+                            <input type="checkbox" checked={draft.includes(property.id)} onChange={(event) => setPropertyDrafts((current) => ({ ...current, [admin.username]: event.target.checked ? [...draft, property.id] : draft.filter((id) => id !== property.id) }))} />
+                            <span>{property.name}</span>
+                          </label>
+                        ))}
+                      </fieldset>
+                      <div className="pm-manager-actions">
+                        <button className="pm-btn pm-btn--primary pm-btn--sm" disabled={!changed || draft.length === 0} onClick={() => updateAdmin(admin, { propertyIds: draft })}>{changed ? "Save Access" : "Up to date"}</button>
+                        <div className="pm-manager-security">
+                          <input className="pm-input pm-input--sm" type="password" minLength={12} placeholder="New password" value={resetPasswords[admin.username] || ""} onChange={(event) => setResetPasswords((current) => ({ ...current, [admin.username]: event.target.value }))} />
+                          <button className="pm-btn pm-btn--secondary pm-btn--sm" disabled={(resetPasswords[admin.username] || "").length < 12} onClick={() => updateAdmin(admin, { password: resetPasswords[admin.username] })}>Reset pwd</button>
+                          <button className="pm-btn pm-btn--secondary pm-btn--sm" onClick={() => resetLoginAttempts(admin)}>Reset attempts</button>
+                          <button className={`pm-btn pm-btn--sm ${admin.active ? "pm-btn--danger" : "pm-btn--secondary"}`} onClick={() => updateAdmin(admin, { active: !admin.active })}>{admin.active ? "Disable" : "Enable"}</button>
                         </div>
                       </div>
-                    );
-                  })}
+                    </article>
+                  );
+                })}
               </div>
+            ) : <p className="pm-empty">No property managers yet.</p>}
+          </div>
+        </div>
+      )}
+
+      {/* ═══ SETTINGS SECTION ═══ */}
+      {activeSection === "settings" && role === "master" && (
+        <div className="pm-settings">
+          <form className="pm-card" onSubmit={saveStripeKey}>
+            <div className="pm-card-header">
+              <h3>💳 Stripe Payments</h3>
+              <span className={`pm-badge pm-badge--sm ${stripeStatus?.configured ? (stripeStatus.mode === "live" ? "pm-badge--active" : "pm-badge--test") : "pm-badge--inactive"}`}>
+                {stripeStatus?.configured ? `${stripeStatus.mode} mode` : "Not configured"}
+              </span>
             </div>
-          </article>
-        ))}
-      </div>
-    </section>
-    {role === "master" ? <section className="property-list-panel"><div><h3>Property managers</h3><p>Assign one or many properties, reset passwords, or disable access immediately.</p></div><div className="manager-list">{admins.length ? admins.map((admin) => {
-      const draft = propertyDrafts[admin.username] || admin.propertyIds;
-      const changed = [...draft].sort().join(",") !== [...admin.propertyIds].sort().join(",");
-      return <article key={admin.id}>
-        <div className="manager-identity"><span>{admin.active ? "Active manager" : "Access disabled"}</span><strong>{admin.username}</strong><small>{admin.propertyIds.length} {admin.propertyIds.length === 1 ? "property" : "properties"} assigned</small></div>
-        <fieldset className="property-checklist manager-property-checklist"><legend>Can manage</legend>{properties.map((property) => <label key={property.id}><input type="checkbox" checked={draft.includes(property.id)} onChange={(event) => setPropertyDrafts((current) => ({ ...current, [admin.username]: event.target.checked ? [...draft, property.id] : draft.filter((id) => id !== property.id) }))} /><span><b>{property.name}</b><small>/{property.slug}</small></span></label>)}</fieldset>
-        <button className="manager-save-access" disabled={!changed || draft.length === 0} onClick={() => updateAdmin(admin, { propertyIds: draft })}>{changed ? "Save property access" : "Access up to date"}</button>
-        <div className="manager-security"><input type="password" minLength={12} placeholder="New password" value={resetPasswords[admin.username] || ""} onChange={(event) => setResetPasswords((current) => ({ ...current, [admin.username]: event.target.value }))} /><button disabled={(resetPasswords[admin.username] || "").length < 12} onClick={() => updateAdmin(admin, { password: resetPasswords[admin.username] })}>Reset password</button><button className="reset-attempts-btn" onClick={() => resetLoginAttempts(admin)}>Reset login attempts</button><button className={admin.active ? "danger-soft" : ""} onClick={() => updateAdmin(admin, { active: !admin.active })}>{admin.active ? "Disable" : "Enable"}</button></div>
-      </article>;
-    }) : <p>No property managers yet.</p>}</div></section> : null}
-  </div>;
+            <p className="pm-hint">Guests with an outstanding balance can pay through secure Stripe Checkout.</p>
+            {stripeStatus?.configured && (
+              <div className="pm-stripe-status">
+                <span>Connected key</span>
+                <strong>•••• •••• •••• {stripeStatus.last4}</strong>
+                <small>{stripeStatus.source === "admin" ? "Saved from admin page" : "Configured via environment"}</small>
+              </div>
+            )}
+            <div className="pm-form-group"><label className="pm-label">Secret key</label><input className="pm-input" name="secretKey" required type="password" placeholder="sk_test_…" autoComplete="off" /></div>
+            <small className="pm-hint">The key is stored server-side and never displayed again.</small>
+            <button className="pm-btn pm-btn--primary pm-btn--full" disabled={stripeSaving}>{stripeSaving ? "Verifying..." : stripeStatus?.configured ? "Verify & Replace Key" : "Verify & Connect Stripe"}</button>
+          </form>
+
+          <form className="pm-card" onSubmit={changeOwnPassword}>
+            <h3>🔒 Change My Password</h3>
+            <div className="pm-form-group"><label className="pm-label">Current password</label><input className="pm-input" name="currentPassword" required type="password" autoComplete="current-password" /></div>
+            <div className="pm-form-group"><label className="pm-label">New password</label><input className="pm-input" name="newPassword" required type="password" minLength={12} autoComplete="new-password" /></div>
+            <small className="pm-hint">Use at least 12 characters.</small>
+            <button className="pm-btn pm-btn--primary pm-btn--full">Update My Password</button>
+          </form>
+        </div>
+      )}
+    </div>
+  );
 }
