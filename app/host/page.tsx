@@ -2,7 +2,7 @@
 
 /* eslint-disable @next/next/no-html-link-for-pages */
 
-import { FormEvent, Fragment, useMemo, useRef, useState } from "react";
+import { FormEvent, Fragment, useMemo, useRef, useState, useEffect } from "react";
 import Link from "next/link";
 import GuideEditor from "./GuideEditor";
 import TemplateManager from "./TemplateManager";
@@ -156,6 +156,15 @@ export default function HostPage() {
   const [paymentLinkMessage, setPaymentLinkMessage] = useState("");
   const [copiedLinkUrl, setCopiedLinkUrl] = useState<string | null>(null);
   const [copiedLinkGuest, setCopiedLinkGuest] = useState("");
+  const [activeDropdownId, setActiveDropdownId] = useState<string | null>(null);
+
+  useEffect(() => {
+    function handleWindowClick() {
+      setActiveDropdownId(null);
+    }
+    window.addEventListener("click", handleWindowClick);
+    return () => window.removeEventListener("click", handleWindowClick);
+  }, []);
 
   const dragStartRef = useRef<string | null>(null);
   const isDraggingRef = useRef(false);
@@ -854,6 +863,7 @@ export default function HostPage() {
                  <div className="row-actions" data-label="Actions" onClick={(e) => e.stopPropagation()}>
                   {!b.revoked && !isNoShow && effectiveGross > Number(b.paymentCollected || 0) ? (
                     <button
+                      type="button"
                       className="payment-link-action"
                       onClick={(e) => {
                         e.stopPropagation();
@@ -865,8 +875,22 @@ export default function HostPage() {
                       <svg className="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
                       {paymentLinkBookingId === b.id ? "Creating…" : "Pay link"}
                     </button>
+                  ) : !b.revoked && !isNoShow ? (
+                    <button
+                      type="button"
+                      className="payment-toggle-btn active-paid"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        togglePaidStatus(b);
+                      }}
+                      title="Fully Paid. Click to toggle."
+                    >
+                      <svg className="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                      Paid
+                    </button>
                   ) : null}
                   <button
+                    type="button"
                     className="msg-action-chip"
                     onClick={(e) => {
                       e.stopPropagation();
@@ -877,20 +901,8 @@ export default function HostPage() {
                     <svg className="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
                     Message
                   </button>
-                  {!b.revoked && !isNoShow && (
-                    <button
-                      className={`payment-toggle-btn ${Number(b.paymentCollected || 0) >= effectiveGross ? "active-paid" : ""}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        togglePaidStatus(b);
-                      }}
-                      title={Number(b.paymentCollected || 0) >= effectiveGross ? "Mark as unpaid" : "Mark as paid"}
-                    >
-                      <svg className="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                      {Number(b.paymentCollected || 0) >= effectiveGross ? "Paid" : "Mark Paid"}
-                    </button>
-                  )}
                   <button
+                    type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       setEditingBooking(b);
@@ -900,41 +912,89 @@ export default function HostPage() {
                     <svg className="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                     Edit
                   </button>
-                  <button
-                    className="revoke-btn"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      changeBooking(b, "toggle");
-                    }}
-                  >
-                    {b.revoked ? (
-                      <svg className="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>
-                    ) : (
-                      <svg className="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+
+                  <div className="more-actions-wrapper">
+                    <button
+                      type="button"
+                      className={`more-actions-trigger-btn ${activeDropdownId === b.id ? "active" : ""}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveDropdownId(activeDropdownId === b.id ? null : b.id);
+                      }}
+                      title="More actions"
+                    >
+                      <svg className="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+                    </button>
+
+                    {activeDropdownId === b.id && (
+                      <div className="more-actions-dropdown">
+                        {!b.revoked && !isNoShow && (
+                          <button
+                            type="button"
+                            className="dropdown-item"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              togglePaidStatus(b);
+                              setActiveDropdownId(null);
+                            }}
+                          >
+                            <svg className="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                            {Number(b.paymentCollected || 0) >= effectiveGross ? "Mark Unpaid" : "Mark Paid"}
+                          </button>
+                        )}
+
+                        <button
+                          type="button"
+                          className="dropdown-item"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            changeBooking(b, "toggle");
+                            setActiveDropdownId(null);
+                          }}
+                        >
+                          {b.revoked ? (
+                            <>
+                              <svg className="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>
+                              Restore Access
+                            </>
+                          ) : (
+                            <>
+                              <svg className="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                              Revoke Access
+                            </>
+                          )}
+                        </button>
+
+                        <button
+                          type="button"
+                          className="dropdown-item"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleNoShow(b);
+                            setActiveDropdownId(null);
+                          }}
+                        >
+                          <svg className="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="18" y1="8" x2="23" y2="13"/><line x1="23" y1="8" x2="18" y2="13"/></svg>
+                          {isNoShow ? "Mark Attended" : "Mark No-Show"}
+                        </button>
+
+                        <div className="dropdown-divider" />
+
+                        <button
+                          type="button"
+                          className="dropdown-item danger-item"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            changeBooking(b, "delete");
+                            setActiveDropdownId(null);
+                          }}
+                        >
+                          <svg className="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                          Archive Booking
+                        </button>
+                      </div>
                     )}
-                    {b.revoked ? "Restore" : "Revoke"}
-                  </button>
-                  <button
-                    className={`noshow-btn ${isNoShow ? "active-noshow" : ""}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleNoShow(b);
-                    }}
-                    title={isNoShow ? "Unmark No-Show status" : "Flag as No-Show / Unpaid (excludes from totals)"}
-                  >
-                    <svg className="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="18" y1="8" x2="23" y2="13"/><line x1="23" y1="8" x2="18" y2="13"/></svg>
-                    No-Show
-                  </button>
-                  <button
-                    className="danger"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      changeBooking(b, "delete");
-                    }}
-                  >
-                    <svg className="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-                    Archive
-                  </button>
+                  </div>
                 </div>
               </article>
 
