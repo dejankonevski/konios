@@ -1,4 +1,4 @@
-import { listBookings, createBooking, updateBooking } from "./bookings";
+import { listBookings, createBooking, updateBooking, deleteBooking } from "./bookings";
 import { listProperties } from "./portfolio";
 
 export interface IcalEvent {
@@ -94,13 +94,21 @@ export async function syncPropertyIcal(propertyId: string) {
       const events = parseIcal(icsData);
 
       for (const event of events) {
+        const summary = event.summary.trim();
+        const isClosedOrBlocked = summary.toUpperCase().includes("CLOSED") || 
+                                  summary.toUpperCase().includes("NOT AVAILABLE") || 
+                                  summary.toUpperCase().includes("BLOCKED") ||
+                                  summary.toUpperCase().includes("OWNER");
+        if (isClosedOrBlocked) {
+          continue; // Skip closed or blocked dates from being imported as guest bookings
+        }
+
         activeSyncedUids.add(event.uid);
 
         let firstName: string = feed.source;
         let lastName: string = "Guest";
-        const summary = event.summary.trim();
 
-        if (summary && summary !== "Reserved" && summary !== "Blocked") {
+        if (summary && summary !== "Reserved") {
           const cleanName = summary.replace(/\([^)]*\)/g, "").trim();
           const parts = cleanName.split(/\s+/);
           if (parts.length > 0 && parts[0] && parts[0].toLowerCase() !== "airbnb" && parts[0].toLowerCase() !== "booking.com") {
@@ -140,15 +148,23 @@ export async function syncPropertyIcal(propertyId: string) {
     }
   }
 
+  // Clean up any previously imported closed/blocked bookings
+  for (const booking of existingBookings) {
+    const notes = (booking.notes || "").toUpperCase();
+    const fName = (booking.firstName || "").toUpperCase();
+    if (fName.includes("CLOSED") || fName.includes("NOT AVAILABLE") || fName.includes("BLOCKED") ||
+        notes.includes("CLOSED") || notes.includes("NOT AVAILABLE") || notes.includes("BLOCKED")) {
+      await deleteBooking(booking.id);
+      results.removed++;
+    }
+  }
+
   // Cancel bookings that are in the future but no longer in the iCal feeds
   for (const [uid, booking] of existingIcalMap.entries()) {
     if (!activeSyncedUids.has(uid)) {
       const todayStr = new Date().toISOString().slice(0, 10);
       if (booking.checkIn >= todayStr) {
-        await updateBooking(booking.id, {
-          revoked: true,
-          notes: `${booking.notes} | Cancelled via iCal Sync.`
-        });
+        await deleteBooking(booking.id);
         results.removed++;
       }
     }
