@@ -150,6 +150,8 @@ export default function HostPage() {
   const [messagingBooking, setMessagingBooking] = useState<Booking | null>(null);
   const [editError, setEditError] = useState("");
   const [editSaving, setEditSaving] = useState(false);
+  const [paymentLinkBookingId, setPaymentLinkBookingId] = useState<string | null>(null);
+  const [paymentLinkMessage, setPaymentLinkMessage] = useState("");
 
   const dragStartRef = useRef<string | null>(null);
   const isDraggingRef = useRef(false);
@@ -257,13 +259,6 @@ export default function HostPage() {
     const mm = String(now.getMonth() + 1).padStart(2, "0");
     const currentMonthKey = `${yyyy}-${mm}`;
 
-    const currentActiveBooking = bookings.find(
-      (b) => !b.revoked && (b.stayStage === "during-stay" || b.stayStage === "checkout-day")
-    );
-    const nextArrivalBooking = bookings
-      .filter((b) => !b.revoked && b.accessStatus === "upcoming")
-      .sort((a, b) => a.checkIn.localeCompare(b.checkIn))[0];
-
     let currentMonthGross = 0;
     let currentMonthNet = 0;
     let currentMonthNights = 0;
@@ -302,8 +297,6 @@ export default function HostPage() {
       currentMonthGross,
       currentMonthNet,
       currentMonthNights,
-      currentActiveBooking,
-      nextArrivalBooking,
     };
   }, [bookings]);
 
@@ -501,6 +494,22 @@ export default function HostPage() {
     await loadBookings();
   }
 
+  async function copyPaymentLink(booking: Booking) {
+    setPaymentLinkBookingId(booking.id);
+    setPaymentLinkMessage("");
+    try {
+      const response = await fetch(`/api/host/bookings/${booking.id}/payment-link`, { method: "POST" });
+      const data = await response.json();
+      if (!response.ok || !data.url) throw new Error(data.error || "Could not create payment link.");
+      await navigator.clipboard.writeText(data.url);
+      setPaymentLinkMessage(`Payment link copied for ${booking.firstName} ${booking.lastName}.`);
+    } catch (linkError) {
+      setPaymentLinkMessage(linkError instanceof Error ? linkError.message : "Could not create payment link.");
+    } finally {
+      setPaymentLinkBookingId(null);
+    }
+  }
+
   async function changeBooking(booking: Booking, action: "toggle" | "delete") {
     const promptMsg = action === "delete"
       ? `Archive ${booking.firstName} ${booking.lastName}'s reservation? You can undo this action.`
@@ -564,21 +573,14 @@ export default function HostPage() {
       </main>
     );
 
-  const active = bookings.filter((b) => b.stayStage === "during-stay" || b.stayStage === "checkout-day").length,
-    upcoming = bookings.filter((b) => b.accessStatus === "upcoming").length;
   const currentStay = bookings
     .filter((booking) => !booking.revoked && (booking.stayStage === "during-stay" || booking.stayStage === "checkout-day"))
     .sort((a, b) => a.checkIn.localeCompare(b.checkIn))[0];
   const selectedProperty = properties.find((property) => property.id === selectedPropertyId);
-  const arrivals = bookings
-    .filter((b) => b.accessStatus === "upcoming")
-    .sort((a, b) => a.checkIn.localeCompare(b.checkIn))
-    .slice(0, 4);
   const todayKey = dateKey(new Date());
   const arrivingToday = bookings.filter((b) => !b.revoked && b.checkIn === todayKey);
   const departingToday = bookings.filter((b) => !b.revoked && b.checkOut === todayKey);
   const paymentDue = bookings.filter((b) => !b.revoked && (Number(b.grossAmount) || 0) > (Number(b.paymentCollected) || 0));
-  const registrationMissing = bookings.filter((b) => !b.revoked && !b.idRegistrationComplete && b.accessStatus !== "expired");
   const nextUnoccupiedGap = (() => {
     const stays = bookings
       .filter((booking) => !booking.revoked && booking.checkOut > todayKey)
@@ -807,6 +809,19 @@ export default function HostPage() {
                 </div>
 
                 <div className="row-actions" data-label="Actions" onClick={(e) => e.stopPropagation()}>
+                  {!b.revoked && !isNoShow && effectiveGross > Number(b.paymentCollected || 0) ? (
+                    <button
+                      className="payment-link-action"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        copyPaymentLink(b);
+                      }}
+                      disabled={paymentLinkBookingId === b.id}
+                      title={`Create and copy a Stripe payment link for ${new Intl.NumberFormat("de-DE", { style: "currency", currency: b.currency || "EUR" }).format(effectiveGross - Number(b.paymentCollected || 0))}`}
+                    >
+                      {paymentLinkBookingId === b.id ? "Creating…" : "💳 Payment link"}
+                    </button>
+                  ) : null}
                   <button
                     className="msg-action-chip"
                     onClick={(e) => {
@@ -1039,140 +1054,53 @@ export default function HostPage() {
             ) : <span className="current-stay-vacant-label">Vacant now</span>}
           </section>
         ) : null}
+        {paymentLinkMessage && (view === "overview" || view === "bookings") ? (
+          <div className="dashboard-toast" role="status">
+            <span>{paymentLinkMessage}</span>
+            <button type="button" onClick={() => setPaymentLinkMessage("")} aria-label="Dismiss">×</button>
+          </div>
+        ) : null}
         {view === "overview" && (
           <>
-            <div className="operations-command-center">
-              <div className="operations-heading"><div><p className="eyebrow">Today’s work</p><h2>Operations command centre</h2></div><span>{todayKey}</span></div>
-              <div className="operations-task-grid">
-                {[
-                  ["Arriving today", arrivingToday, "Prepare access, parking and welcome message"],
-                  ["Departing today", departingToday, "Confirm checkout and cleaning handover"],
-                  ["Payment still due", paymentDue, "Collect and record outstanding balances"],
-                  ["ID / registration missing", registrationMissing, "Complete required guest registration"],
-                ].map(([title, list, hint]) => {
-                  const taskBookings = list as Booking[];
-                  return <article className={title === "Departing today" ? "departing-task-card" : ""} key={title as string}><div><span>{title as string}</span><strong>{taskBookings.length}</strong></div><p>{hint as string}</p>{taskBookings.slice(0,3).map((booking)=><button key={booking.id} onClick={()=>setEditingBooking(booking)}>{booking.firstName} {booking.lastName}<b>Open →</b></button>)}</article>;
-                })}
-                <article className="gap-task-card">
-                  <div><span>Next unoccupied gap</span><strong>{nextUnoccupiedGap.nights ? `${nextUnoccupiedGap.nights} nights` : "Open"}</strong></div>
-                  <p>{nextUnoccupiedGap.end ? `${formatShort(nextUnoccupiedGap.start)} → ${formatShort(nextUnoccupiedGap.end)}` : `From ${formatShort(nextUnoccupiedGap.start)} onward`}</p>
-                  <button onClick={() => { setView("new"); setStart(nextUnoccupiedGap.start); setEnd(nextUnoccupiedGap.end); setResult(null); }}>Create booking in this gap<b>Open calendar →</b></button>
-                </article>
-              </div>
-            </div>
-            <div className="metric-grid">
-              <article>
-                <span>Currently staying</span>
-                <strong>{active}</strong>
+            <div className="overview-quick-grid" aria-label="Property overview">
+              <article className="overview-quick-card departure-card">
+                <span>🛫 Departing today</span>
+                <strong>{departingToday.length ? `${departingToday.length} checkout${departingToday.length === 1 ? "" : "s"}` : "No checkout today"}</strong>
                 <small>
-                  {active
-                    ? "Guest access is live"
-                    : "Apartment is between stays"}
+                  {departingToday.length
+                    ? `${departingToday[0].firstName} ${departingToday[0].lastName} · ${times.checkOutTime}`
+                    : "No departure handover needed"}
                 </small>
               </article>
-              <article>
-                <span>Upcoming stays</span>
-                <strong>{upcoming}</strong>
-                <small>Codes scheduled automatically</small>
-              </article>
-              <article>
-                <span>Total reservations</span>
-                <strong>{bookings.length}</strong>
-                <small>Stored securely</small>
-              </article>
-              <article className="metric-accent">
-                <span>Next arrival</span>
-                <strong>
-                  {arrivals[0]
-                    ? new Date(`${arrivals[0].checkIn}T12:00:00`).getDate()
-                    : "—"}
-                </strong>
+              <article className="overview-quick-card arrival-card">
+                <span>🛬 Arriving today</span>
+                <strong>{arrivingToday.length ? `${arrivingToday.length} check-in${arrivingToday.length === 1 ? "" : "s"}` : "No check-in today"}</strong>
                 <small>
-                  {arrivals[0]
-                    ? `${arrivals[0].firstName} · ${formatShort(arrivals[0].checkIn)}`
-                    : "No arrival scheduled"}
+                  {arrivingToday.length
+                    ? `${arrivingToday[0].firstName} ${arrivingToday[0].lastName} · ${times.checkInTime}`
+                    : "No arrival scheduled today"}
+                </small>
+              </article>
+              <article className="overview-quick-card gap-card">
+                <span>🌙 Next gap</span>
+                <strong>{nextUnoccupiedGap.nights ? `${nextUnoccupiedGap.nights} night${nextUnoccupiedGap.nights === 1 ? "" : "s"}` : "Open-ended"}</strong>
+                <small>{nextUnoccupiedGap.end ? `${formatShort(nextUnoccupiedGap.start)} → ${formatShort(nextUnoccupiedGap.end)}` : `From ${formatShort(nextUnoccupiedGap.start)} onward`}</small>
+                <button type="button" onClick={() => { setView("new"); setStart(nextUnoccupiedGap.start); setEnd(nextUnoccupiedGap.end); setResult(null); }}>Book this gap →</button>
+              </article>
+              <article className="overview-quick-card revenue-card">
+                <span>📅 {overviewFinancials.monthName}</span>
+                <strong>{new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(overviewFinancials.currentMonthGross)}</strong>
+                <small>
+                  Net payout {new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(overviewFinancials.currentMonthNet)} · {overviewFinancials.currentMonthNights} nights
                 </small>
               </article>
             </div>
-
-            {/* Financial Overview Cards Panel */}
-            <div className="overview-financial-grid">
-              <div className="overview-fin-card">
-                <div className="fin-head">
-                  <span className="fin-title">{overviewFinancials.monthName} Revenue</span>
-                  <span className="fin-chip month-chip">Current Month</span>
-                </div>
-                <strong className="fin-amount">
-                  {new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(overviewFinancials.currentMonthGross)}
-                </strong>
-                <div className="fin-sub">
-                  <span>Net Profit: <b>{new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(overviewFinancials.currentMonthNet)}</b></span>
-                  <span><b>{overviewFinancials.currentMonthNights}</b> nights booked</span>
-                </div>
-              </div>
-
-              <div className="overview-fin-card">
-                <div className="fin-head">
-                  <span className="fin-title">Current Staying Guest</span>
-                  <span className={`fin-chip ${overviewFinancials.currentActiveBooking ? "active-chip" : "empty-chip"}`}>
-                    {overviewFinancials.currentActiveBooking ? "In Apartment" : "Empty"}
-                  </span>
-                </div>
-                {overviewFinancials.currentActiveBooking ? (
-                  <>
-                    <strong className="fin-amount">
-                      {new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(overviewFinancials.currentActiveBooking.grossAmount || 0)}
-                    </strong>
-                    <div className="fin-sub">
-                      {(() => {
-                        const g = Number(overviewFinancials.currentActiveBooking.grossAmount) || 0;
-                        let n = Number(overviewFinancials.currentActiveBooking.netAmount) || 0;
-                        if (g > 0 && n > 0 && n < g * 0.5 && (g - n) > n) n = Math.max(0, g - n);
-                        return (
-                          <span>{overviewFinancials.currentActiveBooking.firstName} {overviewFinancials.currentActiveBooking.lastName} · Net <b>{new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(n)}</b></span>
-                        );
-                      })()}
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <strong className="fin-amount empty-amount">—</strong>
-                    <div className="fin-sub"><span>Apartment is currently between stays</span></div>
-                  </>
-                )}
-              </div>
-
-              <div className="overview-fin-card">
-                <div className="fin-head">
-                  <span className="fin-title">Next Arrival Payout</span>
-                  <span className="fin-chip upcoming-chip">
-                    {overviewFinancials.nextArrivalBooking ? formatShort(overviewFinancials.nextArrivalBooking.checkIn) : "None"}
-                  </span>
-                </div>
-                {overviewFinancials.nextArrivalBooking ? (
-                  <>
-                    <strong className="fin-amount">
-                      {new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(overviewFinancials.nextArrivalBooking.grossAmount || 0)}
-                    </strong>
-                    <div className="fin-sub">
-                      {(() => {
-                        const g = Number(overviewFinancials.nextArrivalBooking.grossAmount) || 0;
-                        let n = Number(overviewFinancials.nextArrivalBooking.netAmount) || 0;
-                        if (g > 0 && n > 0 && n < g * 0.5 && (g - n) > n) n = Math.max(0, g - n);
-                        return (
-                          <span>{overviewFinancials.nextArrivalBooking.firstName} {overviewFinancials.nextArrivalBooking.lastName} · Net <b>{new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(n)}</b></span>
-                        );
-                      })()}
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <strong className="fin-amount empty-amount">—</strong>
-                    <div className="fin-sub"><span>No upcoming arrival scheduled</span></div>
-                  </>
-                )}
-              </div>
-            </div>
+            {paymentDue.length > 0 ? (
+              <button className="payment-due-banner" type="button" onClick={() => setView("bookings")}>
+                <span><b>💳 {paymentDue.length} payment{paymentDue.length === 1 ? "" : "s"} still due</b> · Open a reservation and use “Payment link” to copy a secure Stripe checkout link.</span>
+                <strong>View bookings →</strong>
+              </button>
+            ) : null}
             {(() => {
               const todayStr = new Date().toISOString().slice(0, 10);
               const cleaningToday = bookings.filter(
@@ -1215,15 +1143,6 @@ export default function HostPage() {
               <button onClick={() => setView("bookings")}>View all →</button>
             </div>
             {rows(overviewList)}
-            <div className="pro-tip">
-              <span>✦</span>
-              <div>
-                <strong>Timing handled automatically</strong>
-                <p>
-                  The general guide opens {times.portalLeadHours} hours before check-in. Building and lockbox details reveal {times.sensitiveRevealMinutes} minutes before {times.checkInTime}, and access expires {times.accessExpiryMinutes} minutes after the {times.checkOutTime} checkout in Skopje time.
-                </p>
-              </div>
-            </div>
           </>
         )}
         {view === "bookings" && (
