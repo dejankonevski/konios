@@ -798,6 +798,39 @@ export default function HostPage() {
                 onClick={() => setEditingBooking(b)}
                 title="Click to view and edit reservation details"
               >
+                {(() => {
+                  if (isNoShow) {
+                    return (
+                      <div className="row-left-bar noshow">
+                        <span>No-Show</span>
+                      </div>
+                    );
+                  }
+                  if (isCleaningScheduled) {
+                    const dateParts = formatShort(b.checkOut).split(" ");
+                    const shortDate = dateParts[0] + " " + (dateParts[1] || "").slice(0, 3);
+                    return (
+                      <div className="row-left-bar cleaning-scheduled">
+                        <span>Cleaning {shortDate}</span>
+                      </div>
+                    );
+                  }
+                  if (isActive) {
+                    return (
+                      <div className="row-left-bar active">
+                        <span>Active</span>
+                      </div>
+                    );
+                  }
+                  if (isNextArrival) {
+                    return (
+                      <div className="row-left-bar next-arrival">
+                        <span>Next</span>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
                 <div className="guest-cell" data-label="Guest">
                   <span className={`guest-avatar ${isNextArrival ? "hero-avatar-mid" : ""} ${isNoShow ? "noshow-avatar" : ""}`}>
                     {b.firstName[0]}
