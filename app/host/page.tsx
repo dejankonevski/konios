@@ -1196,17 +1196,24 @@ export default function HostPage() {
 
                   <div className="ops-card ops-gap">
                     <div className="ops-card-title">🌙 Next Gap</div>
-                    {gapNights >= 0 ? (
+                    {nextUnoccupiedGap && typeof nextUnoccupiedGap.nights === "number" && nextUnoccupiedGap.nights > 0 ? (
                       <>
-                        <div className={`ops-main ${gapNights === 0 ? "gap-warning" : ""}`}>
-                          {gapNights === 0 ? "0 nights" : `${gapNights} nights`}
+                        <div className="ops-main">
+                          {nextUnoccupiedGap.nights} {nextUnoccupiedGap.nights === 1 ? "night" : "nights"}
                         </div>
                         <div className="ops-sub">
-                          {gapNights === 0 ? "Same-day turnaround" : "Unoccupied between stays"}
+                          {formatShort(nextUnoccupiedGap.start)} → {formatShort(nextUnoccupiedGap.end || "")}
+                        </div>
+                      </>
+                    ) : nextUnoccupiedGap && nextUnoccupiedGap.start ? (
+                      <>
+                        <div className="ops-main text-muted">Open-ended</div>
+                        <div className="ops-sub">
+                          From {formatShort(nextUnoccupiedGap.start)}
                         </div>
                       </>
                     ) : (
-                      <div className="ops-main text-muted">No upcoming stays</div>
+                      <div className="ops-main text-muted">No gap nights</div>
                     )}
                   </div>
 
