@@ -851,7 +851,7 @@ export default function HostPage() {
                   </button>
                 </div>
 
-                <div className="row-actions" data-label="Actions" onClick={(e) => e.stopPropagation()}>
+                 <div className="row-actions" data-label="Actions" onClick={(e) => e.stopPropagation()}>
                   {!b.revoked && !isNoShow && effectiveGross > Number(b.paymentCollected || 0) ? (
                     <button
                       className="payment-link-action"
@@ -862,7 +862,8 @@ export default function HostPage() {
                       disabled={paymentLinkBookingId === b.id}
                       title={`Create and copy a Stripe payment link for ${new Intl.NumberFormat("de-DE", { style: "currency", currency: b.currency || "EUR" }).format(effectiveGross - Number(b.paymentCollected || 0))}`}
                     >
-                      {paymentLinkBookingId === b.id ? "Creating…" : "💳 Payment link"}
+                      <svg className="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+                      {paymentLinkBookingId === b.id ? "Creating…" : "Pay link"}
                     </button>
                   ) : null}
                   <button
@@ -873,7 +874,8 @@ export default function HostPage() {
                     }}
                     title="View & copy populated messages for this guest"
                   >
-                    ✉ Message
+                    <svg className="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                    Message
                   </button>
                   {!b.revoked && !isNoShow && (
                     <button
@@ -884,7 +886,8 @@ export default function HostPage() {
                       }}
                       title={Number(b.paymentCollected || 0) >= effectiveGross ? "Mark as unpaid" : "Mark as paid"}
                     >
-                      {Number(b.paymentCollected || 0) >= effectiveGross ? "✓ Paid" : "💳 Mark Paid"}
+                      <svg className="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                      {Number(b.paymentCollected || 0) >= effectiveGross ? "Paid" : "Mark Paid"}
                     </button>
                   )}
                   <button
@@ -894,14 +897,21 @@ export default function HostPage() {
                     }}
                     title="Edit guest details & stay"
                   >
-                    ✏️ Edit
+                    <svg className="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    Edit
                   </button>
                   <button
+                    className="revoke-btn"
                     onClick={(e) => {
                       e.stopPropagation();
                       changeBooking(b, "toggle");
                     }}
                   >
+                    {b.revoked ? (
+                      <svg className="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>
+                    ) : (
+                      <svg className="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    )}
                     {b.revoked ? "Restore" : "Revoke"}
                   </button>
                   <button
@@ -912,7 +922,8 @@ export default function HostPage() {
                     }}
                     title={isNoShow ? "Unmark No-Show status" : "Flag as No-Show / Unpaid (excludes from totals)"}
                   >
-                    {isNoShow ? "Unmark No-Show" : "🛑 No-Show"}
+                    <svg className="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="18" y1="8" x2="23" y2="13"/><line x1="23" y1="8" x2="18" y2="13"/></svg>
+                    No-Show
                   </button>
                   <button
                     className="danger"
@@ -921,6 +932,7 @@ export default function HostPage() {
                       changeBooking(b, "delete");
                     }}
                   >
+                    <svg className="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
                     Archive
                   </button>
                 </div>
