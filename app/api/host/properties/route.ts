@@ -32,6 +32,7 @@ export async function PATCH(request: Request) {
     telegramBotToken?: string;
     telegramChatId?: string;
     telegramEnabled?: boolean;
+    telegramSummaryConfig?: any;
     name?: string; 
     address?: string; 
     currency?: string; 
@@ -48,6 +49,7 @@ export async function PATCH(request: Request) {
     telegramBotToken: input.telegramBotToken,
     telegramChatId: input.telegramChatId,
     telegramEnabled: input.telegramEnabled,
+    telegramSummaryConfig: input.telegramSummaryConfig,
     ...(input.name ? { name: input.name } : {}),
     ...(input.address ? { address: input.address } : {}),
     ...(input.currency ? { currency: input.currency } : {})

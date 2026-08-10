@@ -2488,6 +2488,50 @@ body { top: 0!important; position: static!important; }
 .pm-stripe-status strong { font-size: 0.82rem; color: #0f172a; }
 .pm-stripe-status small { font-size: 0.6rem; color: #94a3b8; }
 
+.pm-section-label {
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #94a3b8;
+  padding: 8px 0 2px;
+  border-top: 1px solid #f1f5f9;
+  margin-top: 4px;
+}
+
+.pm-toggle-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px 16px;
+}
+
+.pm-btn-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pm-time-slots {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pm-time-slot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pm-time-slot .pm-input {
+  max-width: 140px;
+}
+
+.pm-input select, select.pm-input {
+  appearance: auto;
+  cursor: pointer;
+}
+
 @media (max-width: 600px) {
   .pm-properties { grid-template-columns: 1fr; }
   .pm-team-forms { grid-template-columns: 1fr; }
@@ -2497,4 +2541,5 @@ body { top: 0!important; position: static!important; }
   .pm-tab-counter { display: none; }
   .pm-manager-security { flex-direction: column; align-items: stretch; }
   .pm-manager-security .pm-input { max-width: none; }
+  .pm-toggle-grid { grid-template-columns: 1fr; }
 }

@@ -1,7 +1,8 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import type { Property, Unit } from "@/lib/portfolio";
+import type { Property, Unit, TelegramSummaryConfig } from "@/lib/portfolio";
+import { defaultSummaryConfig } from "@/lib/portfolio";
 
 type SafeAdmin = { id: string; username: string; propertyIds: string[]; active: boolean; createdAt: number };
 type StripeStatus = { configured: boolean; last4: string | null; mode: "test" | "live" | null; source: "admin" | "environment" | null; updatedAt: number | null };
@@ -20,6 +21,17 @@ export default function PropertyManager({ role, properties, onPropertiesChanged 
   const [telegramTestingId, setTelegramTestingId] = useState<string | null>(null);
   const [syncingPropertyId, setSyncingPropertyId] = useState<string | null>(null);
   const [savingPropertyId, setSavingPropertyId] = useState<string | null>(null);
+  const [sendingReportId, setSendingReportId] = useState<string | null>(null);
+  const [summaryConfigs, setSummaryConfigs] = useState<Record<string, TelegramSummaryConfig>>({});
+
+  // Initialize summary configs from properties
+  useEffect(() => {
+    const configs: Record<string, TelegramSummaryConfig> = {};
+    for (const p of properties) {
+      configs[p.id] = { ...defaultSummaryConfig, ...p.telegramSummaryConfig };
+    }
+    setSummaryConfigs(configs);
+  }, [properties]);
 
   // Auto-clear status toast
   useEffect(() => {
@@ -139,8 +151,9 @@ export default function PropertyManager({ role, properties, onPropertiesChanged 
     const telegramBotToken = form.get("telegramBotToken")?.toString().trim() || "";
     const telegramChatId = form.get("telegramChatId")?.toString().trim() || "";
     const telegramEnabled = form.get("telegramEnabled") === "on";
+    const telegramSummaryConfig = summaryConfigs[propertyId] || defaultSummaryConfig;
     try {
-      const response = await fetch("/api/host/properties", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: propertyId, airbnbIcalUrl, bookingIcalUrl, telegramBotToken, telegramChatId, telegramEnabled }) });
+      const response = await fetch("/api/host/properties", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: propertyId, airbnbIcalUrl, bookingIcalUrl, telegramBotToken, telegramChatId, telegramEnabled, telegramSummaryConfig }) });
       const data = await response.json();
       setStatus(response.ok ? "✅ Settings saved." : data.error || "Failed to save settings.");
       if (response.ok) await onPropertiesChanged();
@@ -174,6 +187,30 @@ export default function PropertyManager({ role, properties, onPropertiesChanged 
       } else { setStatus(data.error || "Failed to sync iCal calendars."); }
     } catch (err: any) { setStatus(`Error: ${err.message}`); }
     finally { setSyncingPropertyId(null); }
+  }
+
+  async function handleSendReport(propertyId: string) {
+    setSendingReportId(propertyId);
+    setStatus("📨 Sending today's report...");
+    try {
+      const response = await fetch(`/api/host/morning-summary?propertyId=${propertyId}`, { cache: "no-store" });
+      const data = await response.json();
+      if (response.ok && data.results?.length > 0) {
+        setStatus(`✅ Report sent for ${data.results.map((r: any) => r.propertyName).join(", ")}!`);
+      } else if (response.ok && data.results?.length === 0) {
+        setStatus("No report sent — Telegram is not configured/enabled, or there are no arrivals or departures today.");
+      } else {
+        setStatus(data.error || "Failed to send report.");
+      }
+    } catch (err: any) { setStatus(`Error: ${err.message}`); }
+    finally { setSendingReportId(null); }
+  }
+
+  function updateSummaryConfig(propertyId: string, key: keyof TelegramSummaryConfig, value: any) {
+    setSummaryConfigs((prev) => ({
+      ...prev,
+      [propertyId]: { ...(prev[propertyId] || defaultSummaryConfig), [key]: value }
+    }));
   }
 
   const tabs: { key: Section; label: string; icon: string; masterOnly?: boolean }[] = [
@@ -281,6 +318,9 @@ export default function PropertyManager({ role, properties, onPropertiesChanged 
                   {isAccordionOpen(property.id, "telegram") && (
                     <div className="pm-accordion-content">
                       <p className="pm-hint">Get daily check-in &amp; checkout summaries on Telegram for this property.</p>
+
+                      {/* Connection */}
+                      <div className="pm-section-label">Connection</div>
                       <div className="pm-form-group">
                         <label className="pm-label">Bot Token</label>
                         <input className="pm-input" type="password" name="telegramBotToken" defaultValue={property.telegramBotToken || ""} placeholder="123456:ABC-DEF..." />
@@ -293,14 +333,125 @@ export default function PropertyManager({ role, properties, onPropertiesChanged 
                         <input type="checkbox" name="telegramEnabled" defaultChecked={Boolean(property.telegramEnabled)} />
                         <span>Enable daily summaries</span>
                       </label>
-                      <button
-                        type="button"
-                        className="pm-btn pm-btn--secondary"
-                        onClick={() => handleTestTelegram(property)}
-                        disabled={telegramTestingId === property.id}
-                      >
-                        {telegramTestingId === property.id ? "⏳ Sending..." : "📨 Send Test Message"}
-                      </button>
+
+                      {/* Greeting */}
+                      <div className="pm-section-label">Greeting</div>
+                      <div className="pm-form-group">
+                        <label className="pm-label">Custom greeting</label>
+                        <input
+                          className="pm-input"
+                          type="text"
+                          value={summaryConfigs[property.id]?.greeting ?? "Hey Dejan"}
+                          onChange={(e) => updateSummaryConfig(property.id, "greeting", e.target.value)}
+                          placeholder="Hey Dejan"
+                        />
+                      </div>
+
+                      {/* Summary Content */}
+                      <div className="pm-section-label">Summary Content</div>
+                      <div className="pm-toggle-grid">
+                        {([
+                          ["showArrivals", "Show arrivals"],
+                          ["showDepartures", "Show departures"],
+                          ["showGuestName", "Guest name"],
+                          ["showPhone", "Phone number"],
+                          ["showSource", "Booking source"],
+                          ["showPrice", "Total price"],
+                          ["showNights", "Number of nights"],
+                          ["showArrivalTime", "Arrival time"],
+                          ["showCheckoutTime", "Checkout time"],
+                          ["showGapNights", "Summary stats"],
+                          ["showQuietDayNote", "Quiet day note"],
+                        ] as [keyof TelegramSummaryConfig, string][]).map(([key, label]) => (
+                          <label key={key} className="pm-checkbox">
+                            <input
+                              type="checkbox"
+                              checked={summaryConfigs[property.id]?.[key] !== false}
+                              onChange={(e) => updateSummaryConfig(property.id, key, e.target.checked)}
+                            />
+                            <span>{label}</span>
+                          </label>
+                        ))}
+                      </div>
+
+                      {/* Schedule */}
+                      <div className="pm-section-label">Schedule</div>
+                      <div className="pm-form-group">
+                        <label className="pm-label">Timezone</label>
+                        <select
+                          className="pm-input"
+                          value={summaryConfigs[property.id]?.timezone || "Europe/Skopje"}
+                          onChange={(e) => updateSummaryConfig(property.id, "timezone", e.target.value)}
+                        >
+                          {[
+                            "Europe/Skopje", "Europe/Berlin", "Europe/London", "Europe/Paris",
+                            "Europe/Rome", "Europe/Madrid", "Europe/Athens", "Europe/Istanbul",
+                            "Europe/Amsterdam", "Europe/Vienna", "Europe/Zurich", "Europe/Belgrade",
+                            "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles",
+                            "Asia/Tokyo", "Asia/Dubai", "Australia/Sydney", "UTC"
+                          ].map((tz) => <option key={tz} value={tz}>{tz.replace(/_/g, " ")}</option>)}
+                        </select>
+                      </div>
+                      <div className="pm-form-group">
+                        <label className="pm-label">Send times (up to 3)</label>
+                        <div className="pm-time-slots">
+                          {(summaryConfigs[property.id]?.scheduleTimes || ["08:00"]).map((time, idx) => (
+                            <div key={idx} className="pm-time-slot">
+                              <input
+                                className="pm-input pm-input--sm"
+                                type="time"
+                                value={time}
+                                onChange={(e) => {
+                                  const times = [...(summaryConfigs[property.id]?.scheduleTimes || ["08:00"])];
+                                  times[idx] = e.target.value;
+                                  updateSummaryConfig(property.id, "scheduleTimes", times);
+                                }}
+                              />
+                              {(summaryConfigs[property.id]?.scheduleTimes || ["08:00"]).length > 1 && (
+                                <button
+                                  type="button"
+                                  className="pm-btn pm-btn--danger pm-btn--sm"
+                                  onClick={() => {
+                                    const times = [...(summaryConfigs[property.id]?.scheduleTimes || ["08:00"])];
+                                    times.splice(idx, 1);
+                                    updateSummaryConfig(property.id, "scheduleTimes", times);
+                                  }}
+                                >✕</button>
+                              )}
+                            </div>
+                          ))}
+                          {(summaryConfigs[property.id]?.scheduleTimes || ["08:00"]).length < 3 && (
+                            <button
+                              type="button"
+                              className="pm-btn pm-btn--secondary pm-btn--sm"
+                              onClick={() => {
+                                const times = [...(summaryConfigs[property.id]?.scheduleTimes || ["08:00"]), "14:00"];
+                                updateSummaryConfig(property.id, "scheduleTimes", times);
+                              }}
+                            >+ Add Time</button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="pm-btn-row">
+                        <button
+                          type="button"
+                          className="pm-btn pm-btn--secondary"
+                          onClick={() => handleTestTelegram(property)}
+                          disabled={telegramTestingId === property.id}
+                        >
+                          {telegramTestingId === property.id ? "⏳ Sending..." : "🔔 Send Test"}
+                        </button>
+                        <button
+                          type="button"
+                          className="pm-btn pm-btn--secondary"
+                          onClick={() => handleSendReport(property.id)}
+                          disabled={sendingReportId === property.id}
+                        >
+                          {sendingReportId === property.id ? "⏳ Sending..." : "📨 Send Report Now"}
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
