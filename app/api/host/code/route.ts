@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { getHostSession } from "@/lib/access-code";
 import { bookingState, createBooking, findOverlappingBooking, listBookings } from "@/lib/bookings";
 import { getGuestGuide } from "@/lib/guest-guide";
+import { notifyNewBookingAlert } from "@/lib/telegram";
 
 async function authorized() {
   return getHostSession((await cookies()).get("konios_host")?.value);
@@ -61,5 +62,19 @@ export async function POST(request: Request) {
     cleaningNotes: data.cleaningNotes?.trim() ?? "",
     isNoShow: Boolean(data.isNoShow),
   });
+
+  notifyNewBookingAlert(propertyId, {
+    firstName,
+    lastName,
+    checkIn,
+    checkOut,
+    source: booking.source,
+    guests: booking.guests,
+    phone: booking.phone,
+    grossAmount: booking.grossAmount,
+    currency: booking.currency,
+    notes: booking.notes,
+  }).catch(() => {});
+
   return Response.json({ ...booking, guest: `${firstName} ${lastName}` });
 }

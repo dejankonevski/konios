@@ -1,5 +1,6 @@
 import { listBookings, createBooking, updateBooking, deleteBooking } from "./bookings";
 import { listProperties } from "./portfolio";
+import { notifyNewBookingAlert } from "./telegram";
 
 export interface IcalEvent {
   uid: string;
@@ -176,8 +177,7 @@ export async function syncPropertyIcal(propertyId: string) {
             });
             results.updated++;
           }
-        } else {
-          await createBooking({
+          const newBooking = await createBooking({
             propertyId,
             firstName,
             lastName,
@@ -189,6 +189,14 @@ export async function syncPropertyIcal(propertyId: string) {
             icalUid: event.uid
           });
           results.added++;
+          notifyNewBookingAlert(propertyId, {
+            firstName,
+            lastName,
+            checkIn: event.checkIn,
+            checkOut: event.checkOut,
+            source: feed.source,
+            notes: event.summary,
+          }).catch(() => {});
         }
       }
     } catch (err: any) {

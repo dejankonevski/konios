@@ -16,6 +16,7 @@ export type TelegramSummaryConfig = {
   showQuietDayNote?: boolean;
   timezone?: string;
   scheduleTimes?: string[];
+  notifyNewReservations?: boolean;
 };
 export const defaultSummaryConfig: TelegramSummaryConfig = {
   greeting: "Hey Dejan",
@@ -32,6 +33,7 @@ export const defaultSummaryConfig: TelegramSummaryConfig = {
   showQuietDayNote: true,
   timezone: "Europe/Skopje",
   scheduleTimes: ["08:00"],
+  notifyNewReservations: true,
 };
 export type Property = { id: string; slug: string; name: string; address: string; currency: string; active: boolean; airbnbIcalUrl?: string; bookingIcalUrl?: string; telegramBotToken?: string; telegramChatId?: string; telegramEnabled?: boolean; telegramSummaryConfig?: TelegramSummaryConfig };
 export type Unit = { id: string; propertyId: string; name: string; guideKey: string; active: boolean };

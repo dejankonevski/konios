@@ -18,6 +18,20 @@ export default function PropertyManager({ role, properties, onPropertiesChanged 
   const [stripeSaving, setStripeSaving] = useState(false);
   const [activeSection, setActiveSection] = useState<Section>("properties");
   const [expandedSections, setExpandedSections] = useState<Record<string, Set<string>>>({});
+
+  // Default open accordion sections for all properties
+  useEffect(() => {
+    if (!properties.length) return;
+    setExpandedSections((prev) => {
+      const next = { ...prev };
+      for (const p of properties) {
+        if (!next[p.id]) {
+          next[p.id] = new Set(["calendar", "telegram", "export"]);
+        }
+      }
+      return next;
+    });
+  }, [properties]);
   const [telegramTestingId, setTelegramTestingId] = useState<string | null>(null);
   const [syncingPropertyId, setSyncingPropertyId] = useState<string | null>(null);
   const [savingPropertyId, setSavingPropertyId] = useState<string | null>(null);
@@ -362,6 +376,7 @@ export default function PropertyManager({ role, properties, onPropertiesChanged 
                           ["showCheckoutTime", "Checkout time"],
                           ["showGapNights", "Summary stats"],
                           ["showQuietDayNote", "Quiet day note"],
+                          ["notifyNewReservations", "New booking alerts"],
                         ] as [keyof TelegramSummaryConfig, string][]).map(([key, label]) => (
                           <label key={key} className="pm-checkbox">
                             <input
