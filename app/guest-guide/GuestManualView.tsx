@@ -261,7 +261,7 @@ export default function GuestManualView({
         </div>
       </section>
 
-      <section className="manual-hero">
+      <section className="manual-hero" style={guide.heroBackgroundUrl ? { backgroundImage: `linear-gradient(90deg,rgba(244,241,233,.97) 0%,rgba(244,241,233,.82) 48%,rgba(22,29,24,.12)),url('${guide.heroBackgroundUrl}')` } : undefined}>
         <div>
           <p className="eyebrow">Your private guest guide</p>
           <h1>

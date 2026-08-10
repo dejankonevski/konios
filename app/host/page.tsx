@@ -363,11 +363,12 @@ export default function HostPage() {
   }, [start, end, bookings]);
 
   const overviewList = useMemo(() => {
+    const todayStr = new Date().toISOString().slice(0, 10);
     const activeStays = bookings
-      .filter((b) => b.accessStatus === "active")
+      .filter((b) => b.accessStatus === "active" && !b.revoked && b.checkOut >= todayStr)
       .sort((a, b) => a.checkIn.localeCompare(b.checkIn));
     const upcomingStays = bookings
-      .filter((b) => b.accessStatus === "upcoming")
+      .filter((b) => b.accessStatus === "upcoming" && !b.revoked && b.checkOut >= todayStr)
       .sort((a, b) => a.checkIn.localeCompare(b.checkIn));
     return [...activeStays, ...upcomingStays];
   }, [bookings]);
@@ -386,16 +387,17 @@ export default function HostPage() {
   }, [bookings]);
 
   const sortedBookings = useMemo(() => {
+    const todayStr = new Date().toISOString().slice(0, 10);
     const activeStays = bookings
-      .filter((b) => b.accessStatus === "active")
+      .filter((b) => b.accessStatus === "active" && b.checkOut >= todayStr && !b.revoked)
       .sort((a, b) => a.checkIn.localeCompare(b.checkIn));
     const upcomingStays = bookings
-      .filter((b) => b.accessStatus === "upcoming")
+      .filter((b) => b.accessStatus === "upcoming" && b.checkOut >= todayStr && !b.revoked)
       .sort((a, b) => a.checkIn.localeCompare(b.checkIn));
-    const otherStays = bookings
-      .filter((b) => b.accessStatus !== "active" && b.accessStatus !== "upcoming")
-      .sort((a, b) => b.checkIn.localeCompare(a.checkIn));
-    return [...activeStays, ...upcomingStays, ...otherStays];
+    const expiredOrPastStays = bookings
+      .filter((b) => b.accessStatus === "expired" || b.checkOut < todayStr || b.revoked)
+      .sort((a, b) => b.checkOut.localeCompare(a.checkOut));
+    return [...activeStays, ...upcomingStays, ...expiredOrPastStays];
   }, [bookings]);
 
   const arrivals = useMemo(() => {

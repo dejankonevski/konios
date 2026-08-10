@@ -14,13 +14,14 @@ export default async function PropertyGuestPage({ params }: { params: Promise<{ 
   const accessToken = (await cookies()).get("konios_access")?.value;
   const booking = accessToken ? await getBookingByToken(accessToken) : null;
   if (!booking || (booking.propertyId || "konios-house") !== property.id) {
-    return <AccessView propertySlug={property.slug} propertyName={property.name} />;
+    const guide = await getGuestGuide(property.id);
+    return <AccessView propertySlug={property.slug} propertyName={property.name} heroBackgroundUrl={guide.heroBackgroundUrl} />;
   }
 
   const guide = await getGuestGuide(property.id);
   const state = bookingState(booking, new Date(), guide);
   if (state.status === "expired" || state.status === "revoked" || state.status === "upcoming") {
-    return <AccessView propertySlug={property.slug} propertyName={property.name} />;
+    return <AccessView propertySlug={property.slug} propertyName={property.name} heroBackgroundUrl={guide.heroBackgroundUrl} />;
   }
 
   return <GuestManualView booking={booking} guide={guide} accessState={{ revealAccess: state.revealAccess, stayStage: state.stayStage, accessDetailsAt: state.accessDetailsAt.toISOString() }} />;

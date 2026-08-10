@@ -137,6 +137,14 @@ export default function GuideEditor({ propertyId = "konios-house" }: { propertyI
       <div className="security-warning"><strong>Physical access security</strong><p>Rotate the physical lockbox code regularly and after any concern. Website revocation cannot make a remembered physical code invalid. For multiple properties, use programmable locks with reservation-specific codes.</p></div>
 
       <section>
+        <div><h2>Main Cover & Access Gate Background</h2><p>This image is displayed as the background on both the initial PIN access gate page and the welcome hero header of the digital guest guide.</p></div>
+        <div className="step-photo-card host-photo-admin-card">
+          <div className="step-photo-preview"><Image src={guide.heroBackgroundUrl || "/apartment-main.png"} alt="Hero background" fill unoptimized style={{objectFit:"cover",borderRadius:"10px"}} /></div>
+          <label className="step-upload-btn">{uploadingKey === "heroBackgroundUrl" ? "Uploading photo…" : "📷 Change background photo"}<input type="file" accept="image/*" disabled={uploadingKey === "heroBackgroundUrl"} onChange={(e)=>handleStepUpload("heroBackgroundUrl",e)} /></label>
+        </div>
+      </section>
+
+      <section>
         <div><h2>Host contact card</h2><p>The selected host name, phone, welcome message and photo appear at the top of every guest guide.</p></div>
         <div className="step-photo-card host-photo-admin-card">
           <div className="step-photo-preview"><Image src={guide.hostPhotoUrl || "/host-profile-new-optimized.jpg"} alt="Current host" fill unoptimized style={{objectFit:"cover",borderRadius:"10px"}} /></div>

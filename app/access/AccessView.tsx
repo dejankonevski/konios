@@ -2,7 +2,7 @@
 
 import { FormEvent, useState } from "react";
 
-export default function AccessView({ propertySlug, propertyName = "Konios House" }: { propertySlug?: string; propertyName?: string }) {
+export default function AccessView({ propertySlug, propertyName = "Konios House", heroBackgroundUrl }: { propertySlug?: string; propertyName?: string; heroBackgroundUrl?: string }) {
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -31,9 +31,10 @@ export default function AccessView({ propertySlug, propertyName = "Konios House"
   }
 
   const accessUrl = propertySlug ? `/${propertySlug}` : "/access";
+  const bgUrl = heroBackgroundUrl || "/apartment-main.png";
   return (
     <main className="gate-page">
-      <div className="gate-image" />
+      <div className="gate-image" style={{ backgroundImage: `linear-gradient(0deg,rgba(22,28,23,.15),rgba(22,28,23,.15)),url('${bgUrl}')` }} />
       <section className="gate-panel">
         <a className="brand gate-brand" href={accessUrl}><span className="brand-mark">K</span><span>{propertyName.toUpperCase()}</span></a>
         <div className="gate-content">

@@ -153,6 +153,7 @@ export type GuestGuide = {
   quietHours: string; houseRules: string; checkoutInstructions: string; emergencyPhone: string;
   defaultCleaningFeeMkd?: number;
   step1PhotoUrl?: string; step2PhotoUrl?: string; step3PhotoUrl?: string; step4PhotoUrl?: string; step5PhotoUrl?: string; step6PhotoUrl?: string;
+  heroBackgroundUrl?: string;
   messageTemplates: MessageTemplate[];
   faqs: FaqItem[];
   gallery: GalleryItem[];
@@ -174,6 +175,7 @@ export const defaultGuestGuide: GuestGuide = {
   step4PhotoUrl: "/arrival-elevator-optimized.jpg",
   step5PhotoUrl: "/self-checkin-guide.png",
   step6PhotoUrl: "/apartment-main.png",
+  heroBackgroundUrl: "/apartment-main.png",
   messageTemplates: defaultMessageTemplates,
   faqs: defaultFaqs,
   gallery: defaultGallery,
