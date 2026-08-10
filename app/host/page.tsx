@@ -282,6 +282,14 @@ export default function HostPage() {
       }
     }
     checkSession();
+
+    // Auto-refresh host dashboard data every 60 seconds
+    const interval = setInterval(() => {
+      if (activePropertyIdRef.current) {
+        loadBookings(activePropertyIdRef.current);
+      }
+    }, 60000);
+    return () => clearInterval(interval);
   }, []);
 
   async function handleLogout() {
