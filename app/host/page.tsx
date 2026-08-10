@@ -1411,22 +1411,37 @@ export default function HostPage() {
                 gapNights = Math.max(0, Math.round((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24)));
               }
 
+              const now = new Date();
+              const currentHourMinute = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Skopje", hour: "2-digit", minute: "2-digit", hour12: false }).format(now);
+              const checkoutPassed = currentHourMinute >= (times.checkOutTime || "10:00");
+
               return (
                 <div className="ops-snapshot">
                   <div className="ops-card ops-departing">
                     <div className="ops-card-title">🛫 Departing Today</div>
                     {departingToday ? (
-                      <>
-                        <div className="ops-main">
-                          {departingToday.firstName} {departingToday.lastName}
-                        </div>
-                        <div className="ops-sub">
-                          Checkout {times.checkOutTime} ·{" "}
-                          {new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(
-                            departingToday.grossAmount || 0
-                          )}
-                        </div>
-                      </>
+                      checkoutPassed ? (
+                        <>
+                          <div className="ops-main text-muted" style={{ color: "#64748b" }}>
+                            {departingToday.firstName} {departingToday.lastName} (Departed)
+                          </div>
+                          <div className="ops-sub">
+                            Checked out at {times.checkOutTime} · Stay Completed ✓
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="ops-main">
+                            {departingToday.firstName} {departingToday.lastName}
+                          </div>
+                          <div className="ops-sub">
+                            Checkout {times.checkOutTime} ·{" "}
+                            {new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(
+                              departingToday.grossAmount || 0
+                            )}
+                          </div>
+                        </>
+                      )
                     ) : (
                       <div className="ops-main text-muted">No checkout today</div>
                     )}
