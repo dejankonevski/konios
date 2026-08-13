@@ -14,6 +14,7 @@ import GuestMessageModal from "./GuestMessageModal";
 import PropertyManager from "./PropertyManager";
 import AdvisorView from "./AdvisorView";
 import CalendarView from "./CalendarView";
+import NewBookingView from "./NewBookingView";
 import type { GuestGuide } from "@/lib/guest-guide";
 import type { Property } from "@/lib/portfolio";
 
@@ -1624,317 +1625,29 @@ export default function HostPage() {
           />
         )}
         {view === "new" && (
-          <div className="nb-redesign-container">
-            {/* Left Column: Hospitality Intro & Real-time Booking Live Summary Card */}
-            <div className="nb-sidebar-panel">
-              <div className="nb-intro-card">
-                <span className="nb-badge">✨ Manual Reservation</span>
-                <h2>Prepare Guest Stay</h2>
-                <p>
-                  Create a five-digit guest PIN code for this property. Sensitive access details remain hidden until the configured arrival release window.
-                </p>
-              </div>
-
-              <div className="nb-summary-card">
-                <div className="nb-summary-head">
-                  <span className="nb-summary-icon">🔑</span>
-                  <div>
-                    <strong>Guest Access Code</strong>
-                    <small>Generated upon saving</small>
-                  </div>
-                </div>
-
-                <div className="nb-summary-dates">
-                  <div className="nb-date-box">
-                    <span>Check-in ({times.checkInTime})</span>
-                    <strong>{formatShort(start) || "Select on calendar"}</strong>
-                  </div>
-                  <div className="nb-date-arrow">➔</div>
-                  <div className="nb-date-box">
-                    <span>Check-out ({times.checkOutTime})</span>
-                    <strong>{formatShort(end) || "Select on calendar"}</strong>
-                  </div>
-                </div>
-
-                {(start || end) && (
-                  <button
-                    type="button"
-                    className="nb-reset-btn"
-                    onClick={() => {
-                      setStart(undefined);
-                      setEnd(undefined);
-                    }}
-                  >
-                    Clear dates ✕
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Right Column: Modern Form */}
-            <div className="nb-form-panel">
-              {!result ? (
-                <form onSubmit={generate} className="nb-form">
-                  {/* Step 1: Guest Information */}
-                  <div className="nb-section">
-                    <div className="nb-section-title">
-                      <span className="nb-step-num">1</span>
-                      <div>
-                        <h3>Guest Details</h3>
-                        <p>Basic information for the reservation holder</p>
-                      </div>
-                    </div>
-                    <div className="nb-grid-2">
-                      <label>
-                        First Name *
-                        <input name="firstName" required placeholder="e.g. Dejan" />
-                      </label>
-                      <label>
-                        Surname *
-                        <input name="lastName" required placeholder="e.g. Konevski" />
-                      </label>
-                    </div>
-                    <div className="nb-grid-3">
-                      <label>
-                        Guests
-                        <input name="guests" required type="number" min="1" max="12" defaultValue="2" />
-                      </label>
-                      <label>
-                        Booking Source
-                        <select name="source" defaultValue="Airbnb">
-                          <option>Airbnb</option>
-                          <option>Booking.com</option>
-                          <option>Direct</option>
-                          <option>Other</option>
-                        </select>
-                      </label>
-                      <label>
-                        Phone Number (Optional)
-                        <input name="phone" placeholder="e.g. +389 70 123 456" type="tel" />
-                      </label>
-                    </div>
-                  </div>
-
-                  {/* Step 2: Date Selection Calendar */}
-                  <div className="nb-section">
-                    <div className="nb-section-title">
-                      <span className="nb-step-num">2</span>
-                      <div>
-                        <h3>Stay Dates Calendar</h3>
-                        <p>Select arrival and departure dates by tapping or dragging across dates</p>
-                      </div>
-                    </div>
-
-                    {conflictBooking && (
-                      <div className="overlap-warning-banner" style={{ margin: "0 0 16px" }}>
-                        ⚠️ <strong>Date Overlap Warning:</strong> Apartment is already reserved by{" "}
-                        <strong>
-                          {conflictBooking.firstName} {conflictBooking.lastName}
-                        </strong>{" "}
-                        ({formatShort(conflictBooking.checkIn)} to {formatShort(conflictBooking.checkOut)} via {conflictBooking.source}).
-                      </div>
-                    )}
-
-                    <div className="calendar-shell" onPointerLeave={() => setHoverDate(undefined)}>
-                      <button
-                        type="button"
-                        className="month-arrow prev-month"
-                        onClick={() => setMonthOffset(monthOffset - 1)}
-                      >
-                        ←
-                      </button>
-                      <button
-                        type="button"
-                        className="month-arrow next-month"
-                        onClick={() => setMonthOffset(monthOffset + 1)}
-                      >
-                        →
-                      </button>
-                      {months.map((month) => (
-                        <div className="calendar-month" key={dateKey(month)}>
-                          <h3>
-                            {monthNames[month.getMonth()]} {month.getFullYear()}
-                          </h3>
-                          <div className="weekdays">
-                            {weekDays.map((day) => (
-                              <span key={day}>{day}</span>
-                            ))}
-                          </div>
-                          <div className="calendar-grid">
-                            {monthDays(month).map((date, index) => {
-                              if (!date) return <span key={`blank-${index}`} />;
-                              const value = dateKey(date);
-                              const isStart = start === value;
-                              const isEnd = end === value;
-                              const isSelected = isStart || isEnd;
-                              const inRange = !!start && !!end && value > start && value < end;
-                              const inHoverRange =
-                                !end &&
-                                !!start &&
-                                !!hoverDate &&
-                                ((hoverDate > start && value > start && value <= hoverDate) ||
-                                  (hoverDate < start && value < start && value >= hoverDate));
-                              const existingBooking = bookings.find(
-                                (b) => !b.revoked && value >= b.checkIn && value < b.checkOut
-                              );
-                              const cls = [
-                                "day-btn",
-                                isStart ? "is-start" : "",
-                                isEnd ? "is-end" : "",
-                                isSelected ? "selected" : "",
-                                inRange ? "in-range" : "",
-                                inHoverRange ? "in-hover-range" : "",
-                                existingBooking ? "is-booked-date" : "",
-                              ]
-                                .filter(Boolean)
-                                .join(" ");
-
-                              return (
-                                <button
-                                  type="button"
-                                  data-date={value}
-                                  key={value}
-                                  className={cls}
-                                  title={
-                                    existingBooking
-                                      ? `Booked: ${existingBooking.firstName} ${existingBooking.lastName} (${existingBooking.checkIn} to ${existingBooking.checkOut})`
-                                      : undefined
-                                  }
-                                  onPointerDown={(e) => handlePointerDown(value, e)}
-                                  onPointerEnter={(e) => handlePointerMove(value, e)}
-                                  onPointerUp={() => handlePointerUp(value)}
-                                >
-                                  {date.getDate()}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    <p className="calendar-help" style={{ margin: "10px 0 0", textAlign: "center" }}>
-                      💡 Tip: Click arrival date then click departure date (or drag)
-                    </p>
-                  </div>
-
-                  {/* Step 3: Rates, Financials & Notes */}
-                  <div className="nb-section">
-                    <div className="nb-section-title">
-                      <span className="nb-step-num">3</span>
-                      <div>
-                        <h3>Rates &amp; Accounting</h3>
-                        <p>Financial details for host bookkeeping</p>
-                      </div>
-                    </div>
-                    <div className="nb-grid-2">
-                      <label>
-                        Gross Amount (€)
-                        <input type="number" step="0.01" min="0" name="grossAmount" placeholder="e.g. 150.00" />
-                      </label>
-                      <label>
-                        Net Payout (€)
-                        <input type="number" step="0.01" min="0" name="netAmount" placeholder="e.g. 125.00" />
-                      </label>
-                    </div>
-                    <div className="nb-grid-2">
-                      <label>
-                        Payment Collected (€)
-                        <input type="number" step="0.01" min="0" name="paymentCollected" placeholder="0.00" />
-                      </label>
-                      <label>
-                        Currency
-                        <select name="currency" defaultValue="EUR">
-                          <option>EUR</option>
-                          <option>MKD</option>
-                          <option>USD</option>
-                        </select>
-                      </label>
-                    </div>
-                    <label>
-                      Private Host Notes
-                      <textarea name="notes" rows={2} placeholder="Arrival details, guest preferences, flight times..." />
-                    </label>
-
-                    {/* Cleaning Toggle */}
-                    <div className="cleaning-card-toggle" style={{ marginTop: "14px" }}>
-                      <div className="cleaning-card-header">
-                        <div className="cleaning-card-info">
-                          <span className="cleaning-card-icon">🧹</span>
-                          <div>
-                            <strong>Schedule Cleaning Agency</strong>
-                            <p>Assign cleaning agency for checkout day</p>
-                          </div>
-                        </div>
-                        <label className="switch-toggle" htmlFor="new-cleaning-toggle">
-                          <input
-                            id="new-cleaning-toggle"
-                            type="checkbox"
-                            name="hasCleaningAgency"
-                            defaultChecked={false}
-                            onChange={(e) => {
-                              const wrap = document.getElementById("new-cleaning-fee-input-wrap");
-                              if (wrap) wrap.style.display = e.target.checked ? "grid" : "none";
-                            }}
-                          />
-                          <span className="switch-slider" />
-                        </label>
-                      </div>
-                      <div id="new-cleaning-fee-input-wrap" className="cleaning-card-body" style={{ display: "none" }}>
-                        <div className="form-group">
-                          <label htmlFor="new-cleaning-fee">Agency Fee (MKD)</label>
-                          <input
-                            id="new-cleaning-fee"
-                            type="number"
-                            step="50"
-                            min="0"
-                            name="cleaningFeeMkd"
-                            defaultValue={750}
-                            placeholder="750"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {error && <p className="form-error">{error}</p>}
-
-                  <div className="nb-actions">
-                    <button type="submit" className="nb-submit-btn">
-                      ✨ Save Booking &amp; Generate PIN Code ↗
-                    </button>
-                  </div>
-                </form>
-              ) : (
-                <div className="generated-code">
-                  <span className="success-tick">✓</span>
-                  <p className="eyebrow">Reservation saved</p>
-                  <h2>{result.guest}</h2>
-                  <p>
-                    {formatShort(result.checkIn)} —{" "}
-                    {formatShort(result.checkOut)}
-                  </p>
-                  <div className="big-code">{result.code}</div>
-                  <p className="code-window">
-                    Portal opens {times.portalLeadHours}h before arrival · sensitive details reveal {times.sensitiveRevealMinutes}m before check-in · expires {times.accessExpiryMinutes}m after checkout
-                  </p>
-                  <button className="submit-button" onClick={copyCode}>
-                    {copied ? "Property URL + PIN copied" : "Copy property URL + PIN"}
-                    <span>{copied ? "✓" : "⧉"}</span>
-                  </button>
-                  <button
-                    className="text-reset"
-                    onClick={() => {
-                      setResult(null);
-                      setStart(undefined);
-                      setEnd(undefined);
-                    }}
-                  >
-                    Create another booking
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
+          <NewBookingView
+            bookings={bookings}
+            times={times}
+            start={start}
+            end={end}
+            setStart={setStart}
+            setEnd={setEnd}
+            monthOffset={monthOffset}
+            setMonthOffset={setMonthOffset}
+            months={months}
+            hoverDate={hoverDate}
+            setHoverDate={setHoverDate}
+            result={result}
+            setResult={setResult}
+            conflictBooking={conflictBooking}
+            error={error}
+            copied={copied}
+            generate={generate}
+            copyCode={copyCode}
+            handlePointerDown={handlePointerDown}
+            handlePointerMove={handlePointerMove}
+            handlePointerUp={handlePointerUp}
+          />
         )}
         {view === "metrics" && <MetricsView bookings={bookings} propertyId={selectedPropertyId} />}
         {view === "calendar" && <CalendarView bookings={bookings} propertyId={selectedPropertyId} checkInTime={times.checkInTime} checkOutTime={times.checkOutTime} onOpenBooking={setEditingBooking} />}
