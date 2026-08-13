@@ -24,7 +24,7 @@ type CalendarBooking = Booking & {
 };
 
 export default function CalendarView({ bookings, propertyId, checkInTime, checkOutTime, onOpenBooking }: Props) {
-  const [monthOffset, setMonthOffset] = useState(0);
+  const [visibleMonthCount, setVisibleMonthCount] = useState(6);
   const [blocks, setBlocks] = useState<CalendarBlock[]>([]);
   const [status, setStatus] = useState("");
 
@@ -66,19 +66,14 @@ export default function CalendarView({ bookings, propertyId, checkInTime, checkO
     return () => window.removeEventListener("mouseup", handleMouseUp);
   }, [isSelecting, selectStart]);
 
-  const month = useMemo(() => {
+  // Generate an array of N consecutive months starting from current month
+  const monthList = useMemo(() => {
     const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth() + monthOffset, 1);
-  }, [monthOffset]);
-
-  const cells = useMemo(() => {
-    const leading = (month.getDay() + 6) % 7;
-    const days = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
-    const total = Math.ceil((leading + days) / 7) * 7;
-    return Array.from({ length: total }, (_, index) => new Date(month.getFullYear(), month.getMonth(), index - leading + 1));
-  }, [month]);
+    return Array.from({ length: visibleMonthCount }, (_, i) => new Date(now.getFullYear(), now.getMonth() + i, 1));
+  }, [visibleMonthCount]);
 
   const validBookings = useMemo(() => bookings.filter((booking) => !booking.revoked).sort((a, b) => a.checkIn.localeCompare(b.checkIn)), [bookings]);
+
   const gapNights = useMemo(() => {
     const periods = [
       ...validBookings.map((booking) => ({ start: booking.checkIn, end: booking.checkOut })),
@@ -100,19 +95,30 @@ export default function CalendarView({ bookings, propertyId, checkInTime, checkO
     return gaps;
   }, [validBookings, blocks]);
 
-  const monthStart = dateKey(month);
-  const monthEnd = dateKey(new Date(month.getFullYear(), month.getMonth() + 1, 1));
+  const currentMonth = monthList[0];
+  const currentMonthStart = dateKey(currentMonth);
+  const currentMonthEnd = dateKey(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
+
   const monthRevenue = validBookings.reduce((sum, booking) => {
-    const overlapStart = booking.checkIn > monthStart ? booking.checkIn : monthStart;
-    const overlapEnd = booking.checkOut < monthEnd ? booking.checkOut : monthEnd;
+    const overlapStart = booking.checkIn > currentMonthStart ? booking.checkIn : currentMonthStart;
+    const overlapEnd = booking.checkOut < currentMonthEnd ? booking.checkOut : currentMonthEnd;
     const occupied = nightsBetween(overlapStart, overlapEnd);
     const total = nightsBetween(booking.checkIn, booking.checkOut) || 1;
     return sum + occupied * ((Number(booking.grossAmount) || 0) / total);
   }, 0);
-  const monthOccupied = cells.filter((date) => {
+
+  const currentMonthCells = useMemo(() => {
+    const leading = (currentMonth.getDay() + 6) % 7;
+    const days = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0).getDate();
+    const total = Math.ceil((leading + days) / 7) * 7;
+    return Array.from({ length: total }, (_, index) => new Date(currentMonth.getFullYear(), currentMonth.getMonth(), index - leading + 1));
+  }, [currentMonth]);
+
+  const monthOccupied = currentMonthCells.filter((date) => {
     const key = dateKey(date);
-    return date.getMonth() === month.getMonth() && validBookings.some((booking) => key >= booking.checkIn && key < booking.checkOut);
+    return date.getMonth() === currentMonth.getMonth() && validBookings.some((booking) => key >= booking.checkIn && key < booking.checkOut);
   }).length;
+
   const oneNightGaps = [...gapNights.values()].filter((nights) => nights === 1).length;
 
   // Range normalization for selection
@@ -136,7 +142,6 @@ export default function CalendarView({ bookings, propertyId, checkInTime, checkO
   }, [selectedRange, validBookings]);
 
   function handleCellMouseDown(key: string, e: React.MouseEvent) {
-    // Ignore if clicking on an interactive button inside the cell (like booking or checkout button)
     if ((e.target as HTMLElement).closest("button")) return;
     setSelectStart(key);
     setSelectEnd(key);
@@ -155,7 +160,6 @@ export default function CalendarView({ bookings, propertyId, checkInTime, checkO
     setIsSubmittingBlock(true);
     setStatus("");
     const startStr = selectedRange.start;
-    // Block until the day AFTER selected end day (standard checkout behavior)
     const endStr = addDays(selectedRange.end, 1);
 
     try {
@@ -217,24 +221,27 @@ export default function CalendarView({ bookings, propertyId, checkInTime, checkO
 
   return <div className="operations-calendar-page">
     <div className="calendar-summary-row">
-      <article><span>Occupied nights</span><strong>{monthOccupied}</strong><small>{monthTitle(month)}</small></article>
+      <article><span>Occupied nights</span><strong>{monthOccupied}</strong><small>{monthTitle(currentMonth)}</small></article>
       <article><span>Booked revenue</span><strong>{new Intl.NumberFormat("en", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(monthRevenue)}</strong><small>Allocated by occupied night</small></article>
       <article className={oneNightGaps ? "calendar-warning-stat" : ""}><span>One-night gaps</span><strong>{oneNightGaps}</strong><small>{oneNightGaps ? "Difficult to sell — review pricing" : "No difficult gaps this month"}</small></article>
-      <article><span>Personal blocks</span><strong>{blocks.filter((block) => block.start < monthEnd && block.end > monthStart).length}</strong><small>Owner-use / Closed periods</small></article>
+      <article><span>Personal blocks</span><strong>{blocks.filter((block) => block.start < currentMonthEnd && block.end > currentMonthStart).length}</strong><small>Owner-use / Closed periods</small></article>
     </div>
 
     <section className="calendar-panel">
       <div className="calendar-toolbar">
         <div>
-          <p className="eyebrow">Monthly operations</p>
-          <h2>{monthTitle(month)}</h2>
+          <p className="eyebrow">Continuous Scroll Operations Calendar</p>
+          <h2>{monthTitle(currentMonth)} &amp; Beyond</h2>
         </div>
-        <div>
-          <button onClick={() => setMonthOffset((offset) => offset - 1)} aria-label="Previous month">←</button>
-          <button onClick={() => setMonthOffset(0)}>Today</button>
-          <button onClick={() => setMonthOffset((offset) => offset + 1)} aria-label="Next month">→</button>
+        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          <button onClick={() => {
+            const el = document.getElementById("month-block-0");
+            if (el) el.scrollIntoView({ behavior: "smooth" });
+          }}>Today</button>
+          <button onClick={() => setVisibleMonthCount((prev) => prev + 6)}>+ Load More Months</button>
         </div>
       </div>
+
       <div className="calendar-legend">
         <span className="legend-today">Today</span>
         <span className="legend-occupied">Occupied</span>
@@ -247,49 +254,72 @@ export default function CalendarView({ bookings, propertyId, checkInTime, checkO
 
       {status ? <div className="calendar-status-bar">{status}</div> : null}
 
-      <div className="operations-calendar-scroll">
-        <div className="operations-calendar-grid">
-          {weekDays.map((day) => <div className="calendar-weekday" key={day}>{day}</div>)}
-          {cells.map((date) => {
-            const key = dateKey(date);
-            const isToday = key === todayStr;
-            const outside = date.getMonth() !== month.getMonth();
-            const staying = validBookings.find((booking) => key >= booking.checkIn && key < booking.checkOut);
-            const arrival = validBookings.find((booking) => booking.checkIn === key);
-            const departure = validBookings.find((booking) => booking.checkOut === key);
-            const personalBlock = blocks.find((block) => key >= block.start && key < block.end);
-            const gapLength = gapNights.get(key);
-            const nextArrival = departure ? validBookings.find((booking) => booking.checkIn === key) : undefined;
-            const isSelected = selectedRange && key >= selectedRange.start && key <= selectedRange.end;
-            
-            const classes = [
-              "operations-calendar-day",
-              isToday ? "is-today" : "",
-              outside ? "outside" : "",
-              staying ? "occupied" : "",
-              personalBlock ? "blocked" : "",
-              gapLength === 1 ? "one-night-gap" : gapLength ? "gap-night" : "",
-              isSelected ? "is-selected-range" : ""
-            ].filter(Boolean).join(" ");
+      <div className="operations-calendar-scroll vertical-scroll-container">
+        <div className="calendar-vertical-months">
+          {monthList.map((monthObj, mIdx) => {
+            const leading = (monthObj.getDay() + 6) % 7;
+            const days = new Date(monthObj.getFullYear(), monthObj.getMonth() + 1, 0).getDate();
+            const total = Math.ceil((leading + days) / 7) * 7;
+            const monthCells = Array.from({ length: total }, (_, index) => new Date(monthObj.getFullYear(), monthObj.getMonth(), index - leading + 1));
 
-            return <div
-              className={classes}
-              key={key}
-              onMouseDown={(e) => handleCellMouseDown(key, e)}
-              onMouseEnter={() => handleCellMouseEnter(key)}
-            >
-              <div className="calendar-day-number">
-                <span className={isToday ? "today-badge" : ""}>{date.getDate()}</span>
-                {isToday ? <span className="today-pill">TODAY</span> : null}
-                {!outside && !staying && !personalBlock && !gapLength && !isToday ? <small>Empty</small> : null}
+            return (
+              <div key={dateKey(monthObj)} id={`month-block-${mIdx}`} className="calendar-month-block">
+                <div className="calendar-month-sticky-header">
+                  <h3>{monthTitle(monthObj)}</h3>
+                </div>
+
+                <div className="operations-calendar-grid">
+                  {weekDays.map((day) => <div className="calendar-weekday" key={day}>{day}</div>)}
+                  {monthCells.map((date) => {
+                    const key = dateKey(date);
+                    const isToday = key === todayStr;
+                    const outside = date.getMonth() !== monthObj.getMonth();
+                    const staying = validBookings.find((booking) => key >= booking.checkIn && key < booking.checkOut);
+                    const arrival = validBookings.find((booking) => booking.checkIn === key);
+                    const departure = validBookings.find((booking) => booking.checkOut === key);
+                    const personalBlock = blocks.find((block) => key >= block.start && key < block.end);
+                    const gapLength = gapNights.get(key);
+                    const nextArrival = departure ? validBookings.find((booking) => booking.checkIn === key) : undefined;
+                    const isSelected = selectedRange && key >= selectedRange.start && key <= selectedRange.end;
+
+                    const classes = [
+                      "operations-calendar-day",
+                      isToday ? "is-today" : "",
+                      outside ? "outside" : "",
+                      staying ? "occupied" : "",
+                      personalBlock ? "blocked" : "",
+                      gapLength === 1 ? "one-night-gap" : gapLength ? "gap-night" : "",
+                      isSelected ? "is-selected-range" : ""
+                    ].filter(Boolean).join(" ");
+
+                    return <div
+                      className={classes}
+                      key={key}
+                      onMouseDown={(e) => handleCellMouseDown(key, e)}
+                      onMouseEnter={() => handleCellMouseEnter(key)}
+                    >
+                      <div className="calendar-day-number">
+                        <span className={isToday ? "today-badge" : ""}>{date.getDate()}</span>
+                        {isToday ? <span className="today-pill">TODAY</span> : null}
+                        {!outside && !staying && !personalBlock && !gapLength && !isToday ? <small>Empty</small> : null}
+                      </div>
+                      {personalBlock ? <div className="calendar-block-event"><b>Closed / Blocked</b><span>{personalBlock.note}</span></div> : null}
+                      {gapLength ? <div className={gapLength === 1 ? "calendar-gap-event critical" : "calendar-gap-event"}><b>{gapLength === 1 ? "⚠ 1-night gap" : `${gapLength}-night gap`}</b><span>{gapLength === 1 ? "Hard to sell" : "Available"}</span></div> : null}
+                      {staying ? <button className={`calendar-booking-event source-${staying.source.toLowerCase().replace(/[^a-z]/g, "")}`} onClick={() => onOpenBooking(staying)}><span>{arrival ? `Check-in · ${checkInTime}` : "Occupied night"}</span><b>{staying.firstName} {staying.lastName}</b><small>{staying.source}{arrival ? ` · stay total ${new Intl.NumberFormat("en", { style: "currency", currency: staying.currency || "EUR", maximumFractionDigits: 0 }).format(Number(staying.grossAmount) || 0)}` : ""}</small></button> : null}
+                      {departure ? <button className="calendar-departure-event" onClick={() => onOpenBooking(departure)}><b>Checkout · {checkOutTime}</b><span>{departure.firstName}</span></button> : null}
+                      {departure ? <div className={nextArrival ? "calendar-cleaning-event turnaround" : "calendar-cleaning-event"}><b>{nextArrival ? "Fast turnaround" : "Cleaning window"}</b><span>{checkOutTime} → {nextArrival ? checkInTime : "ready"}</span></div> : null}
+                    </div>;
+                  })}
+                </div>
               </div>
-              {personalBlock ? <div className="calendar-block-event"><b>Closed / Blocked</b><span>{personalBlock.note}</span></div> : null}
-              {gapLength ? <div className={gapLength === 1 ? "calendar-gap-event critical" : "calendar-gap-event"}><b>{gapLength === 1 ? "⚠ 1-night gap" : `${gapLength}-night gap`}</b><span>{gapLength === 1 ? "Hard to sell" : "Available"}</span></div> : null}
-              {staying ? <button className={`calendar-booking-event source-${staying.source.toLowerCase().replace(/[^a-z]/g, "")}`} onClick={() => onOpenBooking(staying)}><span>{arrival ? `Check-in · ${checkInTime}` : "Occupied night"}</span><b>{staying.firstName} {staying.lastName}</b><small>{staying.source}{arrival ? ` · stay total ${new Intl.NumberFormat("en", { style: "currency", currency: staying.currency || "EUR", maximumFractionDigits: 0 }).format(Number(staying.grossAmount) || 0)}` : ""}</small></button> : null}
-              {departure ? <button className="calendar-departure-event" onClick={() => onOpenBooking(departure)}><b>Checkout · {checkOutTime}</b><span>{departure.firstName}</span></button> : null}
-              {departure ? <div className={nextArrival ? "calendar-cleaning-event turnaround" : "calendar-cleaning-event"}><b>{nextArrival ? "Fast turnaround" : "Cleaning window"}</b><span>{checkOutTime} → {nextArrival ? checkInTime : "ready"}</span></div> : null}
-            </div>;
+            );
           })}
+        </div>
+
+        <div className="calendar-load-more-foot">
+          <button type="button" className="btn-load-more-months" onClick={() => setVisibleMonthCount((prev) => prev + 6)}>
+            ⬇ Load Future Months (Currently showing {visibleMonthCount} months)
+          </button>
         </div>
       </div>
     </section>
