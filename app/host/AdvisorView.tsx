@@ -52,6 +52,7 @@ const isGenericName = (firstName: string, lastName: string) => {
 
 export default function AdvisorView({ bookings, propertyId, checkInTime, checkOutTime, onEditBooking }: Props) {
   const [blocks, setBlocks] = useState<CalendarBlock[]>([]);
+  const [filter, setFilter] = useState<"all" | "action" | "pricing" | "operations">("all");
 
   useEffect(() => {
     let live = true;
@@ -78,7 +79,7 @@ export default function AdvisorView({ bookings, propertyId, checkInTime, checkOu
       list.push({
         id: `missing-price-${b.id}`,
         type: "critical",
-        badge: "Missing Price",
+        badge: "Action Required",
         title: `Reservation Missing Nightly Rate / Price`,
         description: `${b.firstName} ${b.lastName}'s reservation (${b.checkIn} → ${b.checkOut}) has no gross rate entered. Add the rate to fix revenue metrics.`,
         impact: "Required for accurate monthly revenue metrics",
@@ -93,7 +94,7 @@ export default function AdvisorView({ bookings, propertyId, checkInTime, checkOu
       list.push({
         id: `missing-tax-${b.id}`,
         type: "pricing",
-        badge: "Missing Tax",
+        badge: "Action Required",
         title: `Tourist Tax Not Recorded`,
         description: `${b.firstName} ${b.lastName}'s stay (${b.checkIn} → ${b.checkOut}) has no tourist tax entered. Click to set tourist tax amount.`,
         impact: "Ensures compliance & local tax bookkeeping",
@@ -108,7 +109,7 @@ export default function AdvisorView({ bookings, propertyId, checkInTime, checkOu
       list.push({
         id: `generic-name-${b.id}`,
         type: "operations",
-        badge: "Generic Name",
+        badge: "Action Required",
         title: `Placeholder Guest Name (${b.firstName} ${b.lastName})`,
         description: `This booking is named "${b.firstName} ${b.lastName}". Click here to enter the guest's real full name for arrival verification.`,
         impact: "Improves guest communication & security verification",
@@ -245,14 +246,21 @@ export default function AdvisorView({ bookings, propertyId, checkInTime, checkOu
     return list;
   }, [bookings, blocks, todayStr, checkInTime, checkOutTime]);
 
+  const filteredInsights = useMemo(() => {
+    if (filter === "action") return insights.filter((i) => Boolean(i.targetBooking));
+    if (filter === "pricing") return insights.filter((i) => i.type === "pricing" || i.type === "critical" || i.type === "opportunity");
+    if (filter === "operations") return insights.filter((i) => i.type === "operations" || i.type === "positive");
+    return insights;
+  }, [insights, filter]);
+
   const kpis = useMemo(() => {
     const active = bookings.filter((b) => !b.revoked);
-    const totalRevenue = active.reduce((sum, b) => sum + (Number(b.grossAmount) || 0), 0);
     const avgNights = active.length > 0 ? (active.reduce((sum, b) => sum + nightsBetween(b.checkIn, b.checkOut), 0) / active.length).toFixed(1) : "0";
     const directPercentage = active.length > 0 ? Math.round((active.filter((b) => b.source === "Direct").length / active.length) * 100) : 0;
+    const actionRequiredCount = insights.filter((i) => Boolean(i.targetBooking)).length;
 
-    return { totalRevenue, avgNights, directPercentage };
-  }, [bookings]);
+    return { avgNights, directPercentage, actionRequiredCount };
+  }, [bookings, insights]);
 
   return (
     <div className="advisor-page">
@@ -262,46 +270,92 @@ export default function AdvisorView({ bookings, propertyId, checkInTime, checkOu
           <span className="advisor-pill">💡 AI PROPERTY ADVISOR</span>
           <h2>Smart Performance &amp; Revenue Insights</h2>
           <p>
-            Real-time automated recommendations to maximize occupancy, eliminate revenue leaks, and streamline operations for{" "}
-            <strong>Konios House</strong>.
+            Real-time automated recommendations to maximize occupancy, eliminate revenue leaks, and streamline operations.
           </p>
         </div>
         <div className="advisor-stats-cards">
           <div className="advisor-stat-card">
-            <span>Avg Length of Stay</span>
+            <span>Action Required</span>
+            <strong style={{ color: kpis.actionRequiredCount > 0 ? "#f87171" : "#34d399" }}>
+              {kpis.actionRequiredCount} item{kpis.actionRequiredCount === 1 ? "" : "s"}
+            </strong>
+          </div>
+          <div className="advisor-stat-card">
+            <span>Avg Stay</span>
             <strong>{kpis.avgNights} nights</strong>
           </div>
           <div className="advisor-stat-card">
-            <span>Direct Bookings</span>
+            <span>Direct Sales</span>
             <strong>{kpis.directPercentage}%</strong>
           </div>
         </div>
       </div>
 
+      {/* Filter Tabs Bar */}
+      <div className="advisor-filter-bar">
+        <button
+          type="button"
+          className={`advisor-tab-btn ${filter === "all" ? "active" : ""}`}
+          onClick={() => setFilter("all")}
+        >
+          All Insights ({insights.length})
+        </button>
+        <button
+          type="button"
+          className={`advisor-tab-btn ${filter === "action" ? "active" : ""}`}
+          onClick={() => setFilter("action")}
+        >
+          ⚡ Action Required ({kpis.actionRequiredCount})
+        </button>
+        <button
+          type="button"
+          className={`advisor-tab-btn ${filter === "pricing" ? "active" : ""}`}
+          onClick={() => setFilter("pricing")}
+        >
+          💰 Revenue &amp; Pricing
+        </button>
+        <button
+          type="button"
+          className={`advisor-tab-btn ${filter === "operations" ? "active" : ""}`}
+          onClick={() => setFilter("operations")}
+        >
+          🧹 Operations &amp; Guest Experience
+        </button>
+      </div>
+
       {/* Insights Grid */}
       <div className="advisor-grid">
-        {insights.map((item) => (
-          <article
-            key={item.id}
-            className={`advisor-card type-${item.type} ${item.targetBooking ? "is-clickable" : ""}`}
-            onClick={() => item.targetBooking && onEditBooking?.(item.targetBooking)}
-          >
-            <div className="advisor-card-top">
-              <span className={`advisor-badge badge-${item.type}`}>{item.badge}</span>
-            </div>
-            <h3>{item.title}</h3>
-            <p className="advisor-desc">{item.description}</p>
-            <div className="advisor-impact">
-              <span>Expected Impact:</span>
-              <strong>{item.impact}</strong>
-            </div>
-            {item.actionText ? (
-              <div className="advisor-card-foot">
-                <span className="advisor-action-hint">💡 Action: {item.actionText}</span>
+        {filteredInsights.length === 0 ? (
+          <div className="advisor-empty-state">
+            <span>✨</span>
+            <h3>No pending items in this category.</h3>
+            <p>Your property configurations and reservations look great!</p>
+          </div>
+        ) : (
+          filteredInsights.map((item) => (
+            <article
+              key={item.id}
+              className={`advisor-card type-${item.type} ${item.targetBooking ? "is-clickable" : ""}`}
+              onClick={() => item.targetBooking && onEditBooking?.(item.targetBooking)}
+            >
+              <div className="advisor-card-top">
+                <span className={`advisor-badge badge-${item.type}`}>{item.badge}</span>
+                {item.targetBooking ? <span className="click-to-edit-pill">Click to Edit ➔</span> : null}
               </div>
-            ) : null}
-          </article>
-        ))}
+              <h3>{item.title}</h3>
+              <p className="advisor-desc">{item.description}</p>
+              <div className="advisor-impact">
+                <span>Expected Impact:</span>
+                <strong>{item.impact}</strong>
+              </div>
+              {item.actionText ? (
+                <div className="advisor-card-foot">
+                  <span className="advisor-action-hint">💡 Action: {item.actionText}</span>
+                </div>
+              ) : null}
+            </article>
+          ))
+        )}
       </div>
     </div>
   );
