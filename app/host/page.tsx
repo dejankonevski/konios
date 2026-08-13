@@ -12,6 +12,7 @@ import MetricsView from "./MetricsView";
 import ExpensesView from "./ExpensesView";
 import GuestMessageModal from "./GuestMessageModal";
 import PropertyManager from "./PropertyManager";
+import AdvisorView from "./AdvisorView";
 import CalendarView from "./CalendarView";
 import type { GuestGuide } from "@/lib/guest-guide";
 import type { Property } from "@/lib/portfolio";
@@ -229,7 +230,7 @@ export default function HostPage() {
     [error, setError] = useState(""),
     [copied, setCopied] = useState(false);
   const [view, setView] = useState<
-    "overview" | "calendar" | "bookings" | "new" | "guide" | "templates" | "faqs" | "gallery" | "metrics" | "expenses" | "properties"
+    "overview" | "calendar" | "bookings" | "advisor" | "new" | "guide" | "templates" | "faqs" | "gallery" | "metrics" | "expenses" | "properties"
   >("overview"),
     [bookings, setBookings] = useState<Booking[]>([]),
     [search, setSearch] = useState("");
@@ -1254,7 +1255,13 @@ export default function HostPage() {
             className={view === "bookings" ? "active" : ""}
             onClick={() => setView("bookings")}
           >
-            <span>▤</span>Bookings
+            <span>≡</span>Bookings
+          </button>
+          <button
+            className={view === "advisor" ? "active" : ""}
+            onClick={() => setView("advisor")}
+          >
+            <span>💡</span>Advisor
           </button>
           <button className={view === "calendar" ? "active" : ""} onClick={() => setView("calendar")}><span>▦</span>Calendar</button>
           <button
@@ -1330,6 +1337,8 @@ export default function HostPage() {
                   ? "All bookings"
                   : view === "calendar"
                     ? "Monthly calendar"
+                    : view === "advisor"
+                      ? "Smart Advisor Desk"
                   : view === "metrics"
                     ? "Revenue & Performance Insights"
                     : view === "expenses"
@@ -1603,6 +1612,14 @@ export default function HostPage() {
             </div>
             {rows(visible)}
           </>
+        )}
+        {view === "advisor" && (
+          <AdvisorView
+            bookings={bookings}
+            propertyId={selectedPropertyId}
+            checkInTime={times.checkInTime}
+            checkOutTime={times.checkOutTime}
+          />
         )}
         {view === "new" && (
           <div className="new-booking-layout">

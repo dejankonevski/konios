@@ -2674,3 +2674,86 @@ body { top: 0!important; position: static!important; }
   .tm-form-row { grid-template-columns: 1fr; }
 }
 
+/* ═══════════════════════════════════════════════════
+   Smart Advisor Section Styles (advisor-*)
+   ═══════════════════════════════════════════════════ */
+
+.advisor-page { display: flex; flex-direction: column; gap: 22px; }
+
+.advisor-hero {
+  display: flex; justify-content: space-between; align-items: center; gap: 24px;
+  padding: 28px 32px; background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  border-radius: 20px; color: #fff; box-shadow: 0 12px 35px rgba(15,23,42,.12);
+}
+
+.advisor-hero-text { max-width: 580px; }
+.advisor-pill {
+  display: inline-block; padding: 4px 12px; border-radius: 99px;
+  background: rgba(59,130,246,.2); color: #60a5fa; border: 1px solid rgba(96,165,250,.3);
+  font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 8px;
+}
+.advisor-hero-text h2 { margin: 4px 0 8px; font-size: 1.85rem; font-weight: 750; color: #fff; }
+.advisor-hero-text p { margin: 0; color: #94a3b8; font-size: 0.88rem; line-height: 1.55; }
+.advisor-hero-text strong { color: #f8fafc; }
+
+.advisor-stats-cards { display: flex; gap: 14px; }
+.advisor-stat-card {
+  padding: 16px 20px; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.1);
+  border-radius: 14px; backdrop-filter: blur(10px); display: flex; flex-direction: column; gap: 4px; min-width: 140px;
+}
+.advisor-stat-card span { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.06em; color: #94a3b8; font-weight: 700; }
+.advisor-stat-card strong { font-size: 1.4rem; font-weight: 800; color: #38bdf8; }
+
+/* Grid Cards */
+.advisor-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 20px; }
+
+.advisor-card {
+  background: #fff; border: 1px solid var(--admin-line); border-radius: 18px;
+  padding: 24px; box-shadow: 0 6px 22px rgba(30,55,90,.04); display: flex; flex-direction: column; gap: 12px;
+  position: relative; overflow: hidden; transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.advisor-card:hover { transform: translateY(-3px); box-shadow: 0 12px 30px rgba(30,55,90,.08); }
+
+.advisor-card-top { display: flex; justify-content: space-between; align-items: center; }
+
+.advisor-badge {
+  padding: 4px 12px; border-radius: 99px; font-size: 0.62rem; font-weight: 800;
+  text-transform: uppercase; letter-spacing: 0.06em;
+}
+
+/* Card Types */
+.advisor-card.type-critical { border-left: 5px solid #ef4444; }
+.badge-critical { background: #fef2f2; color: #dc2626; border: 1px solid #fecdd3; }
+
+.advisor-card.type-opportunity { border-left: 5px solid #3b82f6; }
+.badge-opportunity { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+
+.advisor-card.type-pricing { border-left: 5px solid #f59e0b; }
+.badge-pricing { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
+
+.advisor-card.type-operations { border-left: 5px solid #8b5cf6; }
+.badge-operations { background: #f5f3ff; color: #6d28d9; border: 1px solid #ddd6fe; }
+
+.advisor-card.type-positive { border-left: 5px solid #10b981; }
+.badge-positive { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+
+.advisor-card h3 { margin: 0; font-size: 1.15rem; font-weight: 750; color: #0f172a; line-height: 1.35; }
+.advisor-desc { font-size: 0.85rem; color: #475569; line-height: 1.6; margin: 0; }
+
+.advisor-impact {
+  padding: 10px 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px;
+  display: flex; flex-direction: column; gap: 2px; font-size: 0.78rem; margin-top: auto;
+}
+.advisor-impact span { color: #64748b; font-size: 0.62rem; font-weight: 700; text-transform: uppercase; }
+.advisor-impact strong { color: #0f172a; font-weight: 700; }
+
+.advisor-card-foot { padding-top: 6px; border-top: 1px solid #f1f5f9; }
+.advisor-action-hint { font-size: 0.76rem; font-weight: 700; color: #2563eb; }
+
+@media (max-width: 800px) {
+  .advisor-hero { flex-direction: column; align-items: flex-start; }
+  .advisor-stats-cards { width: 100%; justify-content: space-between; }
+  .advisor-grid { grid-template-columns: 1fr; }
+}
+
+
