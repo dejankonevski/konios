@@ -30,6 +30,7 @@ export type Booking = {
   isNoShow?: boolean;
   expectedArrivalTime?: string;
   expectedDepartureTime?: string;
+  touristTaxAmount?: number;
   icalUid?: string;
 };
 

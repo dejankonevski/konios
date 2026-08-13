@@ -1,14 +1,20 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { Booking } from "@/lib/bookings";
+import type { Booking as BaseBooking } from "@/lib/bookings";
 import type { CalendarBlock } from "@/lib/calendar-blocks";
+
+type Booking = BaseBooking & {
+  accessStatus: "upcoming" | "active" | "expired" | "revoked";
+  stayStage?: "before-arrival" | "arrival-ready" | "during-stay" | "checkout-day" | "after-departure";
+};
 
 type Props = {
   bookings: Booking[];
   propertyId: string;
   checkInTime: string;
   checkOutTime: string;
+  onEditBooking?: (booking: Booking) => void;
 };
 
 type InsightType = "critical" | "opportunity" | "pricing" | "occupancy" | "operations" | "positive";
@@ -21,7 +27,7 @@ interface Insight {
   description: string;
   impact: string;
   actionText?: string;
-  actionType?: string;
+  targetBooking?: Booking;
 }
 
 const nightsBetween = (start: string, end: string) =>
@@ -33,7 +39,18 @@ const addDays = (value: string, count: number) => {
   return date.toISOString().slice(0, 10);
 };
 
-export default function AdvisorView({ bookings, propertyId, checkInTime, checkOutTime }: Props) {
+const isGenericName = (firstName: string, lastName: string) => {
+  const name = `${firstName} ${lastName}`.trim().toLowerCase();
+  return (
+    name.includes("booking.com") ||
+    name.includes("airbnb guest") ||
+    name.includes("guest") ||
+    name === "booking" ||
+    name === "airbnb"
+  );
+};
+
+export default function AdvisorView({ bookings, propertyId, checkInTime, checkOutTime, onEditBooking }: Props) {
   const [blocks, setBlocks] = useState<CalendarBlock[]>([]);
 
   useEffect(() => {
@@ -54,6 +71,51 @@ export default function AdvisorView({ bookings, propertyId, checkInTime, checkOu
   const insights = useMemo(() => {
     const list: Insight[] = [];
     const activeBookings = bookings.filter((b) => !b.revoked).sort((a, b) => a.checkIn.localeCompare(b.checkIn));
+
+    // A. Missing Price Insight Notification
+    const missingPriceBookings = activeBookings.filter((b) => b.checkOut >= todayStr && (!b.grossAmount || b.grossAmount === 0));
+    missingPriceBookings.forEach((b) => {
+      list.push({
+        id: `missing-price-${b.id}`,
+        type: "critical",
+        badge: "Missing Price",
+        title: `Reservation Missing Nightly Rate / Price`,
+        description: `${b.firstName} ${b.lastName}'s reservation (${b.checkIn} → ${b.checkOut}) has no gross rate entered. Add the rate to fix revenue metrics.`,
+        impact: "Required for accurate monthly revenue metrics",
+        actionText: "Click to enter rate ✏️",
+        targetBooking: b,
+      });
+    });
+
+    // B. Missing Tourist Tax Insight Notification
+    const missingTaxBookings = activeBookings.filter((b) => b.checkOut >= todayStr && (!b.touristTaxAmount || b.touristTaxAmount === 0));
+    missingTaxBookings.forEach((b) => {
+      list.push({
+        id: `missing-tax-${b.id}`,
+        type: "pricing",
+        badge: "Missing Tax",
+        title: `Tourist Tax Not Recorded`,
+        description: `${b.firstName} ${b.lastName}'s stay (${b.checkIn} → ${b.checkOut}) has no tourist tax entered. Click to set tourist tax amount.`,
+        impact: "Ensures compliance & local tax bookkeeping",
+        actionText: "Click to enter tourist tax ✏️",
+        targetBooking: b,
+      });
+    });
+
+    // C. Generic Placeholder Name Notification
+    const genericNameBookings = activeBookings.filter((b) => b.checkOut >= todayStr && isGenericName(b.firstName, b.lastName));
+    genericNameBookings.forEach((b) => {
+      list.push({
+        id: `generic-name-${b.id}`,
+        type: "operations",
+        badge: "Generic Name",
+        title: `Placeholder Guest Name (${b.firstName} ${b.lastName})`,
+        description: `This booking is named "${b.firstName} ${b.lastName}". Click here to enter the guest's real full name for arrival verification.`,
+        impact: "Improves guest communication & security verification",
+        actionText: "Click to edit guest name ✏️",
+        targetBooking: b,
+      });
+    });
 
     // 1. One-Night Gap Detector (High urgency)
     const periods = [
@@ -219,7 +281,11 @@ export default function AdvisorView({ bookings, propertyId, checkInTime, checkOu
       {/* Insights Grid */}
       <div className="advisor-grid">
         {insights.map((item) => (
-          <article key={item.id} className={`advisor-card type-${item.type}`}>
+          <article
+            key={item.id}
+            className={`advisor-card type-${item.type} ${item.targetBooking ? "is-clickable" : ""}`}
+            onClick={() => item.targetBooking && onEditBooking?.(item.targetBooking)}
+          >
             <div className="advisor-card-top">
               <span className={`advisor-badge badge-${item.type}`}>{item.badge}</span>
             </div>

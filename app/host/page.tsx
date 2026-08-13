@@ -47,6 +47,7 @@ type Booking = {
   isNoShow?: boolean;
   expectedDepartureTime?: string;
   expectedArrivalTime?: string;
+  touristTaxAmount?: number;
 };
 type Generated = Booking & { guest: string };
 const weekDays = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
@@ -1619,6 +1620,7 @@ export default function HostPage() {
             propertyId={selectedPropertyId}
             checkInTime={times.checkInTime}
             checkOutTime={times.checkOutTime}
+            onEditBooking={(booking) => setEditingBooking(booking)}
           />
         )}
         {view === "new" && (
@@ -2078,7 +2080,7 @@ export default function HostPage() {
                   />
                 </div>
                 <div className="form-group">
-                  <label htmlFor="edit-net">Net payout after platform fees (€)</label>
+                  <label htmlFor="edit-net">Net payout (€)</label>
                   <input
                     id="edit-net"
                     type="number"
@@ -2096,6 +2098,29 @@ export default function HostPage() {
                       setEditingBooking({
                         ...editingBooking,
                         netAmount: isNaN(val as number) ? undefined : val,
+                      });
+                    }}
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="edit-tax">Tourist Tax (€ / MKD)</label>
+                  <input
+                    id="edit-tax"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="e.g. 10.00"
+                    value={
+                      editingBooking.touristTaxAmount === undefined || editingBooking.touristTaxAmount === 0
+                        ? (editingBooking.touristTaxAmount === 0 ? "0" : "")
+                        : editingBooking.touristTaxAmount
+                    }
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      const val = raw === "" ? undefined : parseFloat(raw);
+                      setEditingBooking({
+                        ...editingBooking,
+                        touristTaxAmount: isNaN(val as number) ? undefined : val,
                       });
                     }}
                   />
