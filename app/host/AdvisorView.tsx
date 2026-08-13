@@ -80,10 +80,10 @@ export default function AdvisorView({ bookings, propertyId, checkInTime, checkOu
         id: `missing-price-${b.id}`,
         type: "critical",
         badge: "Action Required",
-        title: `Reservation Missing Nightly Rate / Price`,
-        description: `${b.firstName} ${b.lastName}'s reservation (${b.checkIn} → ${b.checkOut}) has no gross rate entered. Add the rate to fix revenue metrics.`,
-        impact: "Required for accurate monthly revenue metrics",
-        actionText: "Click to enter rate ✏️",
+        title: `Missing Nightly Price / Rate`,
+        description: `Reservation for ${b.firstName} ${b.lastName} (${b.checkIn} → ${b.checkOut}) has no price recorded. Add nightly rate to complete financial reporting.`,
+        impact: "Required for monthly revenue & tax compliance",
+        actionText: "Fix Rate & Financials ✏️",
         targetBooking: b,
       });
     });
@@ -95,10 +95,10 @@ export default function AdvisorView({ bookings, propertyId, checkInTime, checkOu
         id: `missing-tax-${b.id}`,
         type: "pricing",
         badge: "Action Required",
-        title: `Tourist Tax Not Recorded`,
-        description: `${b.firstName} ${b.lastName}'s stay (${b.checkIn} → ${b.checkOut}) has no tourist tax entered. Click to set tourist tax amount.`,
-        impact: "Ensures compliance & local tax bookkeeping",
-        actionText: "Click to enter tourist tax ✏️",
+        title: `Tourist Tax Unrecorded`,
+        description: `Stay for ${b.firstName} ${b.lastName} (${b.checkIn} → ${b.checkOut}) lacks local tourist tax entry. Click to enter tax amount.`,
+        impact: "Local municipal tax compliance",
+        actionText: "Enter Tourist Tax Amount ✏️",
         targetBooking: b,
       });
     });
@@ -111,9 +111,9 @@ export default function AdvisorView({ bookings, propertyId, checkInTime, checkOu
         type: "operations",
         badge: "Action Required",
         title: `Placeholder Guest Name (${b.firstName} ${b.lastName})`,
-        description: `This booking is named "${b.firstName} ${b.lastName}". Click here to enter the guest's real full name for arrival verification.`,
-        impact: "Improves guest communication & security verification",
-        actionText: "Click to edit guest name ✏️",
+        description: `This booking is registered as "${b.firstName} ${b.lastName}". Click here to enter the guest's real full name for check-in verification.`,
+        impact: "Security verification & guest communication",
+        actionText: "Update Guest Name ✏️",
         targetBooking: b,
       });
     });
@@ -146,9 +146,9 @@ export default function AdvisorView({ bookings, propertyId, checkInTime, checkOu
         type: "critical",
         badge: "Revenue Leak",
         title: `${oneNightGaps.length} Unsold 1-Night Gap${oneNightGaps.length > 1 ? "s" : ""} Detected`,
-        description: `You have isolated 1-night gaps (e.g. ${oneNightGaps.slice(0, 3).join(", ")}) between existing bookings. Standard minimum stay settings prevent travelers from booking these dates.`,
-        impact: `Potential revenue loss of ~€${oneNightGaps.length * 45} - €${oneNightGaps.length * 70}`,
-        actionText: "Enable 1-night minimum stay for gap dates",
+        description: `Isolated 1-night gaps (e.g. ${oneNightGaps.slice(0, 3).join(", ")}) exist between bookings. Adjust minimum stay settings to allow 1-night bookings.`,
+        impact: `Estimated revenue recovery ~€${oneNightGaps.length * 50} - €${oneNightGaps.length * 75}`,
+        actionText: "Allow 1-Night Minimum Stay",
       });
     }
 
@@ -165,9 +165,9 @@ export default function AdvisorView({ bookings, propertyId, checkInTime, checkOu
         type: "pricing",
         badge: "Occupancy Alert",
         title: `Low Next 30-Day Occupancy (${occupancyRate}%)`,
-        description: `Only ${booked30Count} out of the next 30 days are booked. High-demand platforms prioritize listings with momentum. Consider running a 10-15% early bird or weekly discount.`,
-        impact: "Improves search algorithm ranking & fills empty calendar slots",
-        actionText: "Review pricing & promotions",
+        description: `Only ${booked30Count} of the next 30 days are reserved. Running a 10% last-minute promotion can boost booking velocity.`,
+        impact: "Boosts search algorithm ranking & fills open calendar slots",
+        actionText: "Review Pricing & Promotions",
       });
     } else if (occupancyRate >= 80) {
       list.push({
@@ -175,8 +175,8 @@ export default function AdvisorView({ bookings, propertyId, checkInTime, checkOu
         type: "positive",
         badge: "Strong Demand",
         title: `High Occupancy Rate (${occupancyRate}%)`,
-        description: `Your calendar is ${occupancyRate}% booked for the next 30 days. High demand indicates you can raise nightly rates for remaining open dates without losing booking velocity.`,
-        impact: "Maximize ADR (Average Daily Rate) profit margin",
+        description: `Calendar is ${occupancyRate}% booked over the next 30 days. High demand allows increasing nightly rates on remaining dates.`,
+        impact: "Maximize Average Daily Rate (ADR) profit margin",
       });
     }
 
@@ -189,11 +189,11 @@ export default function AdvisorView({ bookings, propertyId, checkInTime, checkOu
       list.push({
         id: "same-day-turnaround",
         type: "operations",
-        badge: "Operations Heavy",
-        title: `${turnarounds.length} Same-Day Turnaround${turnarounds.length > 1 ? "s" : ""} Upcoming`,
-        description: `Guests check out at ${checkOutTime} and new guests arrive at ${checkInTime} on the same day (${turnarounds.map((t) => t.checkOut).slice(0, 2).join(", ")}). Ensure cleaning staff is notified in advance.`,
-        impact: "Prevents delayed check-in complaints & maintains 5-star cleanliness ratings",
-        actionText: "Verify cleaning team schedule",
+        badge: "Operations Alert",
+        title: `${turnarounds.length} Same-Day Turnaround${turnarounds.length > 1 ? "s" : ""}`,
+        description: `Checkout (${checkOutTime}) and check-in (${checkInTime}) occur on the same day (${turnarounds.map((t) => t.checkOut).slice(0, 2).join(", ")}).`,
+        impact: "Prevents check-in delays & maintains 5-star cleanliness",
+        actionText: "Verify Cleaning Schedule",
       });
     }
 
@@ -206,40 +206,23 @@ export default function AdvisorView({ bookings, propertyId, checkInTime, checkOu
       list.push({
         id: "unpaid-bookings",
         type: "opportunity",
-        badge: "Cashflow",
+        badge: "Pending Cashflow",
         title: `${unpaidBookings.length} Upcoming Reservation${unpaidBookings.length > 1 ? "s" : ""} Unpaid`,
-        description: `You have ${unpaidBookings.length} upcoming reservation(s) with €${unpaidTotal} pending balance. Send direct Stripe payment links to guests before arrival.`,
+        description: `${unpaidBookings.length} upcoming stay(s) have €${unpaidTotal} total pending balance due before arrival.`,
         impact: `Collect €${unpaidTotal} in pending revenue`,
-        actionText: "Copy Stripe payment links in Bookings tab",
+        actionText: "Send Stripe Payment Links",
       });
     }
 
-    // 5. Booking Lead Time Insight
-    const upcomingWithLeadTime = activeBookings.filter((b) => b.checkIn > todayStr);
-    if (upcomingWithLeadTime.length > 3) {
-      const avgLeadDays = Math.round(
-        upcomingWithLeadTime.reduce((sum, b) => sum + nightsBetween(todayStr, b.checkIn), 0) / upcomingWithLeadTime.length
-      );
-
-      list.push({
-        id: "lead-time-insight",
-        type: "opportunity",
-        badge: "Booking Trend",
-        title: `Average Booking Lead Time is ${avgLeadDays} Days`,
-        description: `Guests are booking your property an average of ${avgLeadDays} days before arrival. Adjust your calendar availability window and promotional rates to capture this advance demand window.`,
-        impact: "Optimizes long-term occupancy strategy",
-      });
-    }
-
-    // 6. Default Positive Hospitality Tip if list is small
+    // 5. Default Positive Hospitality Tip
     if (list.length < 3) {
       list.push({
         id: "guest-experience-tip",
         type: "positive",
-        badge: "Guest Experience",
+        badge: "Best Practice",
         title: "Digital Guest Guide Utilization",
-        description: "Guests who view their self-check-in PIN and guide 24 hours prior to arrival report 95% smoother check-ins with fewer host calls.",
-        impact: "Saves host time & increases 5-star review likelihood",
+        description: "Guests who review their self-check-in PIN and guide 24 hours prior to arrival report 95% smoother check-ins.",
+        impact: "Saves host time & boosts 5-star reviews",
       });
     }
 
@@ -258,99 +241,125 @@ export default function AdvisorView({ bookings, propertyId, checkInTime, checkOu
     const avgNights = active.length > 0 ? (active.reduce((sum, b) => sum + nightsBetween(b.checkIn, b.checkOut), 0) / active.length).toFixed(1) : "0";
     const directPercentage = active.length > 0 ? Math.round((active.filter((b) => b.source === "Direct").length / active.length) * 100) : 0;
     const actionRequiredCount = insights.filter((i) => Boolean(i.targetBooking)).length;
+    const totalRevenue = active.reduce((sum, b) => sum + (Number(b.grossAmount) || 0), 0);
 
-    return { avgNights, directPercentage, actionRequiredCount };
+    return { avgNights, directPercentage, actionRequiredCount, totalRevenue };
   }, [bookings, insights]);
 
+  const getIconForType = (type: InsightType) => {
+    switch (type) {
+      case "critical": return "🚨";
+      case "pricing": return "💶";
+      case "opportunity": return "⚡";
+      case "operations": return "🧹";
+      case "positive": return "✨";
+      default: return "💡";
+    }
+  };
+
   return (
-    <div className="advisor-page">
-      {/* Header Banner */}
-      <div className="advisor-hero">
-        <div className="advisor-hero-text">
-          <span className="advisor-pill">💡 AI PROPERTY ADVISOR</span>
-          <h2>Smart Performance &amp; Revenue Insights</h2>
-          <p>
-            Real-time automated recommendations to maximize occupancy, eliminate revenue leaks, and streamline operations.
-          </p>
+    <div className="adv-redesign-wrapper">
+      {/* Top Banner KPI Header */}
+      <div className="adv-executive-banner">
+        <div className="adv-banner-content">
+          <div className="adv-pill-tag">
+            <span>✨ INTELLIGENT PROPERTY ADVISOR</span>
+          </div>
+          <h2>Revenue Optimization &amp; Operations Desk</h2>
+          <p>Automated real-time recommendations to fix missing data, boost occupancy, and eliminate revenue leaks.</p>
         </div>
-        <div className="advisor-stats-cards">
-          <div className="advisor-stat-card">
+
+        <div className="adv-metrics-strip">
+          <div className="adv-metric-box urgent">
             <span>Action Required</span>
-            <strong style={{ color: kpis.actionRequiredCount > 0 ? "#f87171" : "#34d399" }}>
-              {kpis.actionRequiredCount} item{kpis.actionRequiredCount === 1 ? "" : "s"}
-            </strong>
+            <strong>{kpis.actionRequiredCount}</strong>
+            <small>{kpis.actionRequiredCount > 0 ? "Requires host update" : "All clean!"}</small>
           </div>
-          <div className="advisor-stat-card">
-            <span>Avg Stay</span>
+          <div className="adv-metric-box">
+            <span>Booked Revenue</span>
+            <strong>€{kpis.totalRevenue}</strong>
+            <small>Active bookings</small>
+          </div>
+          <div className="adv-metric-box">
+            <span>Avg Length of Stay</span>
             <strong>{kpis.avgNights} nights</strong>
+            <small>Per reservation</small>
           </div>
-          <div className="advisor-stat-card">
-            <span>Direct Sales</span>
+          <div className="adv-metric-box">
+            <span>Direct Bookings</span>
             <strong>{kpis.directPercentage}%</strong>
+            <small>Commission saved</small>
           </div>
         </div>
       </div>
 
-      {/* Filter Tabs Bar */}
-      <div className="advisor-filter-bar">
+      {/* Filter Tabs Navigation */}
+      <div className="adv-filter-tabs">
         <button
           type="button"
-          className={`advisor-tab-btn ${filter === "all" ? "active" : ""}`}
+          className={`adv-tab-chip ${filter === "all" ? "active" : ""}`}
           onClick={() => setFilter("all")}
         >
-          All Insights ({insights.length})
+          All Recommendations ({insights.length})
         </button>
         <button
           type="button"
-          className={`advisor-tab-btn ${filter === "action" ? "active" : ""}`}
+          className={`adv-tab-chip ${filter === "action" ? "active" : ""}`}
           onClick={() => setFilter("action")}
         >
-          ⚡ Action Required ({kpis.actionRequiredCount})
+          🚨 Action Required ({kpis.actionRequiredCount})
         </button>
         <button
           type="button"
-          className={`advisor-tab-btn ${filter === "pricing" ? "active" : ""}`}
+          className={`adv-tab-chip ${filter === "pricing" ? "active" : ""}`}
           onClick={() => setFilter("pricing")}
         >
-          💰 Revenue &amp; Pricing
+          💶 Revenue &amp; Pricing
         </button>
         <button
           type="button"
-          className={`advisor-tab-btn ${filter === "operations" ? "active" : ""}`}
+          className={`adv-tab-chip ${filter === "operations" ? "active" : ""}`}
           onClick={() => setFilter("operations")}
         >
-          🧹 Operations &amp; Guest Experience
+          🧹 Operations &amp; Cleanliness
         </button>
       </div>
 
-      {/* Insights Grid */}
-      <div className="advisor-grid">
+      {/* Structured Card Grid */}
+      <div className="adv-insights-grid">
         {filteredInsights.length === 0 ? (
-          <div className="advisor-empty-state">
-            <span>✨</span>
-            <h3>No pending items in this category.</h3>
-            <p>Your property configurations and reservations look great!</p>
+          <div className="adv-empty-card">
+            <span className="empty-icon">🎉</span>
+            <h3>No pending items in this category</h3>
+            <p>Your property rates, reservations, and operations are currently up-to-date.</p>
           </div>
         ) : (
           filteredInsights.map((item) => (
             <article
               key={item.id}
-              className={`advisor-card type-${item.type} ${item.targetBooking ? "is-clickable" : ""}`}
+              className={`adv-card type-${item.type} ${item.targetBooking ? "is-clickable" : ""}`}
               onClick={() => item.targetBooking && onEditBooking?.(item.targetBooking)}
             >
-              <div className="advisor-card-top">
-                <span className={`advisor-badge badge-${item.type}`}>{item.badge}</span>
-                {item.targetBooking ? <span className="click-to-edit-pill">Click to Edit ➔</span> : null}
+              <div className="adv-card-header">
+                <span className="adv-type-icon">{getIconForType(item.type)}</span>
+                <span className={`adv-badge-tag badge-${item.type}`}>{item.badge}</span>
               </div>
-              <h3>{item.title}</h3>
-              <p className="advisor-desc">{item.description}</p>
-              <div className="advisor-impact">
-                <span>Expected Impact:</span>
-                <strong>{item.impact}</strong>
+
+              <div className="adv-card-body">
+                <h3>{item.title}</h3>
+                <p>{item.description}</p>
               </div>
+
+              <div className="adv-card-impact-box">
+                <span className="impact-label">Expected Business Impact:</span>
+                <strong className="impact-value">{item.impact}</strong>
+              </div>
+
               {item.actionText ? (
-                <div className="advisor-card-foot">
-                  <span className="advisor-action-hint">💡 Action: {item.actionText}</span>
+                <div className="adv-card-footer">
+                  <button type="button" className="adv-cta-btn">
+                    {item.actionText} ➔
+                  </button>
                 </div>
               ) : null}
             </article>
