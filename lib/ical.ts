@@ -1,6 +1,6 @@
 import { listBookings, createBooking, updateBooking, deleteBooking } from "./bookings";
 import { listProperties } from "./portfolio";
-import { notifyNewBookingAlert } from "./telegram";
+import { notifyNewBookingAlert, notifyCancellationAlert } from "./telegram";
 
 export interface IcalEvent {
   uid: string;
@@ -177,6 +177,7 @@ export async function syncPropertyIcal(propertyId: string) {
             });
             results.updated++;
           }
+        } else {
           const newBooking = await createBooking({
             propertyId,
             firstName,
@@ -215,13 +216,24 @@ export async function syncPropertyIcal(propertyId: string) {
     }
   }
 
-  // Cancel bookings that are in the future but no longer in the iCal feeds
+  // Cancel & remove bookings that were imported via iCal but no longer exist in the active feeds (Cancellation Handling)
   for (const [uid, booking] of existingIcalMap.entries()) {
     if (!activeSyncedUids.has(uid)) {
       const todayStr = new Date().toISOString().slice(0, 10);
-      if (booking.checkIn >= todayStr) {
+      if (booking.checkOut >= todayStr) {
+        // Automatically delete the cancelled booking from list & database
         await deleteBooking(booking.id);
         results.removed++;
+
+        // Trigger Telegram alert informing host of guest cancellation
+        notifyCancellationAlert(propertyId, {
+          firstName: booking.firstName,
+          lastName: booking.lastName,
+          checkIn: booking.checkIn,
+          checkOut: booking.checkOut,
+          source: booking.source,
+          notes: booking.notes,
+        }).catch(() => {});
       }
     }
   }

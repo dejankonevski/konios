@@ -108,3 +108,38 @@ export async function notifyNewBookingAlert(propertyId: string, booking: {
     return false;
   }
 }
+
+export async function notifyCancellationAlert(propertyId: string, booking: {
+  firstName: string;
+  lastName: string;
+  checkIn: string;
+  checkOut: string;
+  source: string;
+  notes?: string;
+}) {
+  try {
+    const { listProperties, defaultSummaryConfig } = await import("./portfolio");
+    const properties = await listProperties();
+    const property = properties.find((p) => p.id === propertyId);
+
+    if (!property || !property.active || !property.telegramEnabled || !property.telegramBotToken || !property.telegramChatId) {
+      return false;
+    }
+
+    const d1 = new Date(`${booking.checkIn}T00:00:00`);
+    const d2 = new Date(`${booking.checkOut}T00:00:00`);
+    const nights = Math.max(1, Math.round((d2.getTime() - d1.getTime()) / 86400000));
+
+    let msg = `🚨 <b>Cancellation Alert!</b>\n`;
+    msg += `🏢 <b>Property:</b> ${property.name}\n`;
+    msg += `❌ <b>Cancelled Guest:</b> ${booking.firstName} ${booking.lastName}\n`;
+    msg += `📅 <b>Freed Dates:</b> ${booking.checkIn} ➔ ${booking.checkOut} (${nights} night${nights > 1 ? "s" : ""})\n`;
+    msg += `🌐 <b>Channel:</b> ${booking.source}\n`;
+    msg += `💡 <b>Action:</b> Dates are now unblocked & available on your calendar.\n`;
+
+    return await sendTelegramMessage(msg, property.telegramBotToken, property.telegramChatId);
+  } catch (err) {
+    console.error("Failed to send cancellation alert:", err);
+    return false;
+  }
+}
