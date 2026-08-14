@@ -37,6 +37,7 @@ type Booking = {
   stayStage?: "before-arrival" | "arrival-ready" | "during-stay" | "checkout-day" | "after-departure";
   grossAmount?: number;
   netAmount?: number;
+  channelFeeAmount?: number;
   currency?: string;
   paymentCollected?: number;
   idRegistrationComplete?: boolean;
@@ -1806,7 +1807,7 @@ export default function HostPage() {
                 </div>
               </div>
 
-              <div className="modal-field-row">
+              <div className="modal-field-row four-col">
                 <div className="form-group">
                   <label htmlFor="edit-gross">Gross Amount (€)</label>
                   <input
@@ -1814,7 +1815,7 @@ export default function HostPage() {
                     type="number"
                     step="0.01"
                     min="0"
-                    placeholder="e.g. 1149.28 (Total Paid)"
+                    placeholder="e.g. 71.68 (Total Paid)"
                     value={
                       editingBooking.grossAmount === undefined || editingBooking.grossAmount === 0
                         ? (editingBooking.grossAmount === 0 ? "0" : "")
@@ -1822,22 +1823,86 @@ export default function HostPage() {
                     }
                     onChange={(e) => {
                       const raw = e.target.value;
-                      const val = raw === "" ? undefined : parseFloat(raw);
+                      const grossVal = raw === "" ? undefined : parseFloat(raw);
+                      const g = isNaN(grossVal as number) ? 0 : (grossVal || 0);
+                      const fee = Number(editingBooking.channelFeeAmount) || 0;
+                      const tax = Number(editingBooking.touristTaxAmount) || 0;
+                      const computedNet = Math.max(0, g - fee - tax);
+
                       setEditingBooking({
                         ...editingBooking,
-                        grossAmount: isNaN(val as number) ? undefined : val,
+                        grossAmount: grossVal,
+                        netAmount: grossVal !== undefined ? Number(computedNet.toFixed(2)) : undefined,
                       });
                     }}
                   />
                 </div>
                 <div className="form-group">
-                  <label htmlFor="edit-net">Net payout (€)</label>
+                  <label htmlFor="edit-fee">Channel Fee / Commission (€)</label>
+                  <input
+                    id="edit-fee"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="e.g. 9.94 (Airbnb/Booking Fee)"
+                    value={
+                      editingBooking.channelFeeAmount === undefined || editingBooking.channelFeeAmount === 0
+                        ? (editingBooking.channelFeeAmount === 0 ? "0" : "")
+                        : editingBooking.channelFeeAmount
+                    }
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      const feeVal = raw === "" ? undefined : parseFloat(raw);
+                      const fee = isNaN(feeVal as number) ? 0 : (feeVal || 0);
+                      const g = Number(editingBooking.grossAmount) || 0;
+                      const tax = Number(editingBooking.touristTaxAmount) || 0;
+                      const computedNet = Math.max(0, g - fee - tax);
+
+                      setEditingBooking({
+                        ...editingBooking,
+                        channelFeeAmount: feeVal,
+                        netAmount: g > 0 ? Number(computedNet.toFixed(2)) : editingBooking.netAmount,
+                      });
+                    }}
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="edit-tax">Tourist Tax (€ / MKD)</label>
+                  <input
+                    id="edit-tax"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="e.g. 2.00"
+                    value={
+                      editingBooking.touristTaxAmount === undefined || editingBooking.touristTaxAmount === 0
+                        ? (editingBooking.touristTaxAmount === 0 ? "0" : "")
+                        : editingBooking.touristTaxAmount
+                    }
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      const taxVal = raw === "" ? undefined : parseFloat(raw);
+                      const tax = isNaN(taxVal as number) ? 0 : (taxVal || 0);
+                      const g = Number(editingBooking.grossAmount) || 0;
+                      const fee = Number(editingBooking.channelFeeAmount) || 0;
+                      const computedNet = Math.max(0, g - fee - tax);
+
+                      setEditingBooking({
+                        ...editingBooking,
+                        touristTaxAmount: taxVal,
+                        netAmount: g > 0 ? Number(computedNet.toFixed(2)) : editingBooking.netAmount,
+                      });
+                    }}
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="edit-net">Auto Net Payout (€)</label>
                   <input
                     id="edit-net"
                     type="number"
                     step="0.01"
                     min="0"
-                    placeholder="e.g. 1011.24 (Bank Payout)"
+                    placeholder="Auto-calculated (Gross - Fees - Tax)"
                     value={
                       editingBooking.netAmount === undefined || editingBooking.netAmount === 0
                         ? (editingBooking.netAmount === 0 ? "0" : "")
@@ -1853,47 +1918,25 @@ export default function HostPage() {
                     }}
                   />
                 </div>
-                <div className="form-group">
-                  <label htmlFor="edit-tax">Tourist Tax (€ / MKD)</label>
-                  <input
-                    id="edit-tax"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="e.g. 10.00"
-                    value={
-                      editingBooking.touristTaxAmount === undefined || editingBooking.touristTaxAmount === 0
-                        ? (editingBooking.touristTaxAmount === 0 ? "0" : "")
-                        : editingBooking.touristTaxAmount
-                    }
-                    onChange={(e) => {
-                      const raw = e.target.value;
-                      const val = raw === "" ? undefined : parseFloat(raw);
-                      setEditingBooking({
-                        ...editingBooking,
-                        touristTaxAmount: isNaN(val as number) ? undefined : val,
-                      });
-                    }}
-                  />
-                </div>
               </div>
 
-              {((editingBooking.grossAmount || 0) > 0 || (editingBooking.netAmount || 0) > 0) ? (
+              {((editingBooking.grossAmount || 0) > 0) ? (
                 (() => {
                   const g = Number(editingBooking.grossAmount) || 0;
-                  let n = Number(editingBooking.netAmount) || 0;
-                  if (g > 0 && n > 0 && n < g * 0.5 && (g - n) > n) {
-                    n = Math.max(0, g - n);
-                  }
-                  const comm = Math.max(0, g - n);
+                  const fee = Number(editingBooking.channelFeeAmount) || 0;
+                  const tax = Number(editingBooking.touristTaxAmount) || 0;
+                  const n = Number(editingBooking.netAmount) !== undefined && Number(editingBooking.netAmount) > 0
+                    ? Number(editingBooking.netAmount)
+                    : Math.max(0, g - fee - tax);
                   const netPct = g > 0 ? Math.round((n / g) * 100) : 0;
-                  const commPct = g > 0 ? Math.round((comm / g) * 100) : 0;
+                  const feePct = g > 0 ? Math.round((fee / g) * 100) : 0;
 
                   return (
                     <div className="price-calc-strip">
-                      <span>Gross: €{g.toFixed(2)}</span>
-                      <span className="calc-comm">Commission: €{comm.toFixed(2)} ({commPct}%)</span>
-                      <span className="calc-net">Net Profit: €{n.toFixed(2)} ({netPct}%)</span>
+                      <span>Gross Total: €{g.toFixed(2)}</span>
+                      <span className="calc-comm">Channel Fee: €{fee.toFixed(2)} ({feePct}%)</span>
+                      <span>Tourist Tax: €{tax.toFixed(2)}</span>
+                      <span className="calc-net">Net Host Payout: €{n.toFixed(2)} ({netPct}%)</span>
                     </div>
                   );
                 })()

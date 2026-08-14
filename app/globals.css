@@ -872,6 +872,14 @@ footer>div { display:flex; justify-content:flex-end; gap:30px; }
 .close-modal-btn:hover { background: #e2e8f0; color: #0f172a; }
 
 .edit-modal-form { display: flex; flex-direction: column; gap: 18px; }
+.modal-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+.modal-field-row.four-col { grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 850px) {
+  .modal-field-row.four-col { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 500px) {
+  .modal-field-row.four-col { grid-template-columns: 1fr; }
+}
 .modal-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; width: 100%; }
 .form-group { display: flex; flex-direction: column; gap: 6px; width: 100%; }
 .form-group.full-width { grid-column: 1 / -1; }

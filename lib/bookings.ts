@@ -19,6 +19,7 @@ export type Booking = {
   createdAt: number;
   grossAmount?: number;
   netAmount?: number;
+  channelFeeAmount?: number;
   currency?: string;
   paymentCollected?: number;
   idRegistrationComplete?: boolean;
