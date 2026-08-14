@@ -3,6 +3,7 @@ import { getHostSession } from "@/lib/access-code";
 import { bookingState, createBooking, findOverlappingBooking, listBookings } from "@/lib/bookings";
 import { getGuestGuide } from "@/lib/guest-guide";
 import { notifyNewBookingAlert } from "@/lib/telegram";
+import { listUnits } from "@/lib/portfolio";
 
 async function authorized() {
   return getHostSession((await cookies()).get("konios_host")?.value);
@@ -48,9 +49,11 @@ export async function POST(request: Request) {
     );
   }
 
+  const propertyUnitId = (await listUnits()).find((unit) => unit.propertyId === propertyId && unit.active)?.id || `${propertyId}-unit`;
+
   const booking = await createBooking({
     propertyId,
-    unitId: `${propertyId}-unit`,
+    unitId: propertyUnitId,
     firstName, lastName, checkIn, checkOut,
     guests: Math.max(1, Math.min(12, Number(data.guests) || 1)),
     source: (["Airbnb", "Booking.com", "Direct", "Other"].includes(data.source) ? data.source : "Other") as "Airbnb" | "Booking.com" | "Direct" | "Other",

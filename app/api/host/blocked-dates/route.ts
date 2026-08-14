@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { getHostSession } from "@/lib/access-code";
 import { createCalendarBlock, deleteCalendarBlock, listCalendarBlocks } from "@/lib/calendar-blocks";
 import { listBookings } from "@/lib/bookings";
-import { listProviderCalendarEvents } from "@/lib/provider-calendar";
+import { isActionableProviderEvent, listProviderCalendarEvents } from "@/lib/provider-calendar";
 
 async function sessionFor(propertyId: string) {
   const session = await getHostSession((await cookies()).get("konios_host")?.value);
@@ -16,7 +16,7 @@ export async function GET(request: Request) {
     listCalendarBlocks(propertyId),
     listProviderCalendarEvents(propertyId),
   ]);
-  return Response.json({ blocks, providerEvents });
+  return Response.json({ blocks, providerEvents: providerEvents.filter(isActionableProviderEvent) });
 }
 
 export async function POST(request: Request) {

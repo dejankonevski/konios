@@ -1,6 +1,8 @@
 import { listBookings } from "@/lib/bookings";
 import { listUnits, listProperties } from "@/lib/portfolio";
 import { listCalendarBlocks } from "@/lib/calendar-blocks";
+import { isActionableProviderEvent, listProviderCalendarEvents } from "@/lib/provider-calendar";
+import { subtractDateRanges } from "@/lib/date-ranges";
 
 function escapeIcalText(value: string) {
   return value
@@ -37,9 +39,10 @@ export async function GET(
   }
 
   // Get active bookings and personal calendar blocks for this property
-  const [bookings, blocks] = await Promise.all([
+  const [bookings, blocks, providerEvents] = await Promise.all([
     listBookings(propertyId),
     listCalendarBlocks(propertyId || ""),
+    listProviderCalendarEvents(propertyId || ""),
   ]);
 
   const propertyUnits = units.filter((candidate) => candidate.propertyId === propertyId && candidate.active);
@@ -110,6 +113,43 @@ export async function GET(
       `DESCRIPTION:${escapeIcalText(`Blocked by host: ${block.note || "Closed"}`)}`,
       "END:VEVENT"
     );
+  }
+
+  // Destination-specific feeds also carry unmatched availability observed on
+  // the opposite provider. Subtract saved reservations and host blocks first,
+  // so a merged Booking.com CLOSED period exports only genuinely uncovered
+  // nights and never becomes a fake reservation.
+  if (excludedSource === "Airbnb" || excludedSource === "Booking.com") {
+    const coveredRanges = [
+      ...unitBookings.map((booking) => ({ start: booking.checkIn, end: booking.checkOut })),
+      ...blocks.map((block) => ({ start: block.start, end: block.end })),
+    ];
+    const crossProviderEvents = providerEvents.filter((event) => {
+      if (!isActionableProviderEvent(event)) return false;
+      if (event.source === excludedSource) return false;
+      return true;
+    });
+
+    crossProviderEvents.forEach((event, eventIndex) => {
+      const uncovered = subtractDateRanges({ start: event.start, end: event.end }, coveredRanges);
+      uncovered.forEach((range, rangeIndex) => {
+        const startVal = range.start.replace(/-/g, "");
+        const endVal = range.end.replace(/-/g, "");
+        const uid = `provider-closed-${event.source.toLowerCase().replace(/[^a-z]/g, "")}-${eventIndex}-${rangeIndex}-${startVal}@konios.vercel.app`;
+        icsLines.push(
+          "BEGIN:VEVENT",
+          `UID:${uid}`,
+          `DTSTAMP:${utcStamp(event.seenAt || Date.now())}`,
+          `LAST-MODIFIED:${utcStamp(event.seenAt || Date.now())}`,
+          "SEQUENCE:0",
+          `DTSTART;VALUE=DATE:${startVal}`,
+          `DTEND;VALUE=DATE:${endVal}`,
+          `SUMMARY:${escapeIcalText(`Closed (${event.source} availability)`)}`,
+          `DESCRIPTION:${escapeIcalText(`Unmatched closed inventory observed from ${event.source}; synchronized by Konios`)}`,
+          "END:VEVENT",
+        );
+      });
+    });
   }
 
   icsLines.push("END:VCALENDAR");

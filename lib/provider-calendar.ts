@@ -10,6 +10,17 @@ export type ProviderCalendarEvent = {
   seenAt: number;
 };
 
+function nightsBetween(start: string, end: string) {
+  return Math.round((new Date(`${end}T00:00:00Z`).getTime() - new Date(`${start}T00:00:00Z`).getTime()) / 86_400_000);
+}
+
+export function isActionableProviderEvent(event: ProviderCalendarEvent) {
+  const nights = nightsBetween(event.start, event.end);
+  if (!Number.isFinite(nights) || nights < 1 || nights > 30) return false;
+  if (event.source === "Airbnb") return event.summary.trim().toLowerCase() === "reserved";
+  return true;
+}
+
 const key = (propertyId: string) => `provider-calendar:${propertyId}`;
 
 export async function listProviderCalendarEvents(propertyId: string) {

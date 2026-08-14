@@ -1,5 +1,5 @@
 import { listBookings, createBooking, updateBooking, deleteBooking } from "./bookings";
-import { defaultSummaryConfig, listProperties } from "./portfolio";
+import { defaultSummaryConfig, listProperties, listUnits } from "./portfolio";
 import { notifyCancellationAlert, notifyNewBookingAlert } from "./telegram";
 import { replaceProviderCalendarEvents } from "./provider-calendar";
 
@@ -98,6 +98,7 @@ export async function syncPropertyIcal(propertyId: string) {
   const properties = await listProperties();
   const property = properties.find((p) => p.id === propertyId);
   if (!property) throw new Error("Property not found");
+  const propertyUnitId = (await listUnits()).find((unit) => unit.propertyId === propertyId && unit.active)?.id || `${propertyId}-unit`;
 
   const results = {
     added: 0,
@@ -248,6 +249,7 @@ export async function syncPropertyIcal(propertyId: string) {
         } else {
           const newBooking = await createBooking({
             propertyId,
+            unitId: propertyUnitId,
             firstName,
             lastName,
             checkIn: event.checkIn,
