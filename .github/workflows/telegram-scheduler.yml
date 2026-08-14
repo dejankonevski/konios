@@ -1,0 +1,36 @@
+name: Telegram notification scheduler
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: telegram-notification-scheduler
+  cancel-in-progress: false
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Sync calendars and dispatch due property notifications
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl --fail-with-body --silent --show-error \
+            --retry 2 \
+            --max-time 60 \
+            --header "Authorization: Bearer ${CRON_SECRET}" \
+            https://konios.vercel.app/api/host/morning-summary
+          curl --fail-with-body --silent --show-error \
+            --retry 2 \
+            --max-time 60 \
+            --header "Authorization: Bearer ${CRON_SECRET}" \
+            https://konios.vercel.app/api/host/check-in-alerts
+          curl --fail-with-body --silent --show-error \
+            --retry 2 \
+            --max-time 60 \
+            --header "Authorization: Bearer ${CRON_SECRET}" \
+            https://konios.vercel.app/api/host/cleaning-alerts
+

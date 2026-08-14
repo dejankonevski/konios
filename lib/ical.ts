@@ -1,6 +1,6 @@
 import { listBookings, createBooking, updateBooking, deleteBooking } from "./bookings";
-import { listProperties } from "./portfolio";
-import { notifyNewBookingAlert, notifyCancellationAlert } from "./telegram";
+import { defaultSummaryConfig, listProperties } from "./portfolio";
+import { notifyCancellationAlert, notifyNewBookingAlert } from "./telegram";
 
 export interface IcalEvent {
   uid: string;
@@ -9,7 +9,6 @@ export interface IcalEvent {
   checkOut: string; // YYYY-MM-DD
   description?: string;
 }
-
 export function parseIcal(icsString: string): IcalEvent[] {
   const events: IcalEvent[] = [];
   const rawLines = icsString.split(/\r?\n/);
@@ -100,6 +99,8 @@ export async function syncPropertyIcal(propertyId: string) {
     added: 0,
     updated: 0,
     removed: 0,
+    notificationsSent: 0,
+    notificationFailures: 0,
     errors: [] as string[]
   };
 
@@ -114,6 +115,7 @@ export async function syncPropertyIcal(propertyId: string) {
   );
 
   const activeSyncedUids = new Set<string>();
+  const successfullyFetchedSources = new Set<"Airbnb" | "Booking.com">();
 
   for (const feed of syncFeeds) {
     if (!feed.url?.trim()) continue;
@@ -125,14 +127,24 @@ export async function syncPropertyIcal(propertyId: string) {
       }
       const icsData = await response.text();
       const events = parseIcal(icsData);
+      successfullyFetchedSources.add(feed.source);
 
       for (const event of events) {
         const summary = event.summary.trim();
+        const checkInAt = new Date(`${event.checkIn}T00:00:00Z`).getTime();
+        const checkOutAt = new Date(`${event.checkOut}T00:00:00Z`).getTime();
+        const eventNights = Math.round((checkOutAt - checkInAt) / 86_400_000);
         const isClosedOrBlocked = summary.toUpperCase().includes("CLOSED") || 
                                   summary.toUpperCase().includes("NOT AVAILABLE") || 
                                   summary.toUpperCase().includes("BLOCKED") ||
                                   summary.toUpperCase().includes("OWNER");
-        if (isClosedOrBlocked) {
+        // Booking.com's export intentionally hides guest details and labels real
+        // reservations as "CLOSED - Not available". Import short entries as
+        // anonymous reservations, but continue excluding long availability blocks.
+        const isAnonymousBookingReservation = feed.source === "Booking.com" &&
+          summary.toUpperCase().includes("CLOSED") &&
+          eventNights > 0 && eventNights <= 30;
+        if (isClosedOrBlocked && !isAnonymousBookingReservation) {
           continue; // Skip closed or blocked dates from being imported as guest bookings
         }
 
@@ -145,7 +157,7 @@ export async function syncPropertyIcal(propertyId: string) {
         if (descName) {
           firstName = descName.firstName;
           lastName = descName.lastName;
-        } else if (summary && summary !== "Reserved") {
+        } else if (!isAnonymousBookingReservation && summary && summary !== "Reserved") {
           const cleanName = summary.replace(/\([^)]*\)/g, "").trim();
           const parts = cleanName.split(/\s+/);
           if (parts.length > 0 && parts[0] && parts[0].toLowerCase() !== "airbnb" && parts[0].toLowerCase() !== "booking.com") {
@@ -157,14 +169,26 @@ export async function syncPropertyIcal(propertyId: string) {
         let existing = existingIcalMap.get(event.uid);
 
         if (!existing) {
-          const manualMatch = existingBookings.find(
-            (b) => !b.icalUid && !b.revoked && b.source === feed.source && b.checkIn === event.checkIn
+          const exactDateMatch = existingBookings.find(
+            (b) => !b.revoked && b.checkIn === event.checkIn && b.checkOut === event.checkOut
           );
-          if (manualMatch) {
-            await updateBooking(manualMatch.id, { icalUid: event.uid });
-            manualMatch.icalUid = event.uid;
-            existingIcalMap.set(event.uid, manualMatch);
-            existing = manualMatch;
+          if (exactDateMatch) {
+            // A manually entered reservation already represents this unavailable
+            // period. Link it when possible; otherwise simply avoid a duplicate.
+            if (exactDateMatch.source === feed.source && exactDateMatch.icalUid !== event.uid) {
+              if (exactDateMatch.icalUid) existingIcalMap.delete(exactDateMatch.icalUid);
+              await updateBooking(exactDateMatch.id, { icalUid: event.uid });
+              exactDateMatch.icalUid = event.uid;
+              existingIcalMap.set(event.uid, exactDateMatch);
+              results.updated++;
+            }
+            existing = exactDateMatch;
+          } else if (existingBookings.some(
+            (b) => !b.revoked && b.checkIn < event.checkOut && b.checkOut > event.checkIn
+          )) {
+            // Booking.com also exports short cross-channel/owner blocks as CLOSED.
+            // Never turn an overlapping block into a second reservation.
+            continue;
           }
         }
 
@@ -189,19 +213,26 @@ export async function syncPropertyIcal(propertyId: string) {
             notes: `Imported via iCal Sync. Summary: ${event.summary}`,
             icalUid: event.uid
           });
+          existingBookings.push(newBooking);
+          existingIcalMap.set(event.uid, newBooking);
           results.added++;
-          notifyNewBookingAlert(propertyId, {
+          const notificationSent = await notifyNewBookingAlert(propertyId, {
             firstName,
             lastName,
             checkIn: event.checkIn,
             checkOut: event.checkOut,
             source: feed.source,
             notes: event.summary,
-          }).catch(() => {});
+          });
+          if (notificationSent) {
+            results.notificationsSent++;
+          } else if (({ ...defaultSummaryConfig, ...property.telegramSummaryConfig }).notifyNewReservations !== false) {
+            results.notificationFailures++;
+          }
         }
       }
-    } catch (err: any) {
-      results.errors.push(`${feed.source}: ${err.message}`);
+    } catch (err: unknown) {
+      results.errors.push(`${feed.source}: ${err instanceof Error ? err.message : "Unknown sync error"}`);
     }
   }
 
@@ -209,31 +240,34 @@ export async function syncPropertyIcal(propertyId: string) {
   for (const booking of existingBookings) {
     const notes = (booking.notes || "").toUpperCase();
     const fName = (booking.firstName || "").toUpperCase();
-    if (fName.includes("CLOSED") || fName.includes("NOT AVAILABLE") || fName.includes("BLOCKED") ||
-        notes.includes("CLOSED") || notes.includes("NOT AVAILABLE") || notes.includes("BLOCKED")) {
+    // A calendar UID, not the editable guest name or imported summary, is the
+    // permanent reservation identity. Renaming Booking.com Guest must never
+    // make a subsequent sync archive the record.
+    const isCalendarReservation = booking.source === "Booking.com" && Boolean(booking.icalUid);
+    if (!isCalendarReservation &&
+        (fName.includes("CLOSED") || fName.includes("NOT AVAILABLE") || fName.includes("BLOCKED") ||
+         notes.includes("CLOSED") || notes.includes("NOT AVAILABLE") || notes.includes("BLOCKED"))) {
       await deleteBooking(booking.id);
       results.removed++;
     }
   }
 
-  // Cancel & remove bookings that were imported via iCal but no longer exist in the active feeds (Cancellation Handling)
+  // Cancel imported reservations only when their source feed was fetched
+  // successfully. A failed provider request must never erase reservations.
   for (const [uid, booking] of existingIcalMap.entries()) {
-    if (!activeSyncedUids.has(uid)) {
+    if (successfullyFetchedSources.has(booking.source as "Airbnb" | "Booking.com") && !activeSyncedUids.has(uid)) {
       const todayStr = new Date().toISOString().slice(0, 10);
       if (booking.checkOut >= todayStr) {
-        // Automatically delete the cancelled booking from list & database
         await deleteBooking(booking.id);
         results.removed++;
-
-        // Trigger Telegram alert informing host of guest cancellation
-        notifyCancellationAlert(propertyId, {
+        await notifyCancellationAlert(propertyId, {
           firstName: booking.firstName,
           lastName: booking.lastName,
           checkIn: booking.checkIn,
           checkOut: booking.checkOut,
           source: booking.source,
           notes: booking.notes,
-        }).catch(() => {});
+        });
       }
     }
   }

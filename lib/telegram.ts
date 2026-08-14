@@ -5,7 +5,6 @@ export interface TelegramConfig {
   chatId: string;
   enabled: boolean;
 }
-
 const TELEGRAM_CONFIG_KEY = "settings:telegram";
 
 export async function getTelegramConfig(): Promise<TelegramConfig | null> {
@@ -66,9 +65,13 @@ export async function notifyNewBookingAlert(propertyId: string, booking: {
     const properties = await listProperties();
     const property = properties.find((p) => p.id === propertyId);
 
-    if (!property || !property.active || !property.telegramEnabled || !property.telegramBotToken || !property.telegramChatId) {
+    if (!property || !property.active) {
       return false;
     }
+
+    const hasPropertyTelegram = Boolean(property.telegramEnabled && property.telegramBotToken && property.telegramChatId);
+    const globalTelegram = hasPropertyTelegram ? null : await getTelegramConfig();
+    if (!hasPropertyTelegram && (!globalTelegram || !globalTelegram.enabled || !globalTelegram.botToken || !globalTelegram.chatId)) return false;
 
     const cfg = { ...defaultSummaryConfig, ...property.telegramSummaryConfig };
     if (cfg.notifyNewReservations === false) {
@@ -102,7 +105,11 @@ export async function notifyNewBookingAlert(propertyId: string, booking: {
       msg += `📝 <b>Notes:</b> ${booking.notes}\n`;
     }
 
-    return await sendTelegramMessage(msg, property.telegramBotToken, property.telegramChatId);
+    return await sendTelegramMessage(
+      msg,
+      hasPropertyTelegram ? property.telegramBotToken : globalTelegram?.botToken,
+      hasPropertyTelegram ? property.telegramChatId : globalTelegram?.chatId,
+    );
   } catch (err) {
     console.error("Failed to send new booking alert:", err);
     return false;
@@ -118,28 +125,24 @@ export async function notifyCancellationAlert(propertyId: string, booking: {
   notes?: string;
 }) {
   try {
-    const { listProperties, defaultSummaryConfig } = await import("./portfolio");
-    const properties = await listProperties();
-    const property = properties.find((p) => p.id === propertyId);
+    const { listProperties } = await import("./portfolio");
+    const property = (await listProperties()).find((item) => item.id === propertyId);
+    if (!property || !property.active || !property.telegramEnabled || !property.telegramBotToken || !property.telegramChatId) return false;
 
-    if (!property || !property.active || !property.telegramEnabled || !property.telegramBotToken || !property.telegramChatId) {
-      return false;
-    }
-
-    const d1 = new Date(`${booking.checkIn}T00:00:00`);
-    const d2 = new Date(`${booking.checkOut}T00:00:00`);
-    const nights = Math.max(1, Math.round((d2.getTime() - d1.getTime()) / 86400000));
-
-    let msg = `🚨 <b>Cancellation Alert!</b>\n`;
-    msg += `🏢 <b>Property:</b> ${property.name}\n`;
-    msg += `❌ <b>Cancelled Guest:</b> ${booking.firstName} ${booking.lastName}\n`;
-    msg += `📅 <b>Freed Dates:</b> ${booking.checkIn} ➔ ${booking.checkOut} (${nights} night${nights > 1 ? "s" : ""})\n`;
-    msg += `🌐 <b>Channel:</b> ${booking.source}\n`;
-    msg += `💡 <b>Action:</b> Dates are now unblocked & available on your calendar.\n`;
-
-    return await sendTelegramMessage(msg, property.telegramBotToken, property.telegramChatId);
-  } catch (err) {
-    console.error("Failed to send cancellation alert:", err);
+    const start = new Date(`${booking.checkIn}T00:00:00`).getTime();
+    const end = new Date(`${booking.checkOut}T00:00:00`).getTime();
+    const nights = Math.max(1, Math.round((end - start) / 86_400_000));
+    const message = [
+      "🚨 <b>Cancellation Alert</b>",
+      `🏢 <b>Property:</b> ${property.name}`,
+      `❌ <b>Cancelled guest:</b> ${booking.firstName} ${booking.lastName}`,
+      `📅 <b>Freed dates:</b> ${booking.checkIn} → ${booking.checkOut} (${nights} night${nights === 1 ? "" : "s"})`,
+      `🌐 <b>Channel:</b> ${booking.source}`,
+      "💡 Dates are now unblocked and available.",
+    ].join("\n");
+    return await sendTelegramMessage(message, property.telegramBotToken, property.telegramChatId);
+  } catch (error) {
+    console.error("Failed to send cancellation alert:", error);
     return false;
   }
 }

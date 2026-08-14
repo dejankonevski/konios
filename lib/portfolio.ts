@@ -1,10 +1,25 @@
 import { getRedis } from "@/lib/bookings";
+import { defaultTelegramAlertTemplates } from "@/lib/telegram-alert-templates";
 
 export type Role = "owner" | "cohost" | "cleaner";
 export type TelegramSummaryConfig = {
   greeting?: string;
+  showCurrentStay?: boolean;
   showArrivals?: boolean;
   showDepartures?: boolean;
+  showNextReservation?: boolean;
+  showOutstandingPayments?: boolean;
+  showCleaningToday?: boolean;
+  showTurnaroundAlert?: boolean;
+  autoCleaningAlerts?: boolean;
+  notifyScheduledCleaning?: boolean;
+  notifyUnscheduledCleaning?: boolean;
+  notifySameDayTurnaround?: boolean;
+  notifyGuestCheckIn?: boolean;
+  checkInAlertTemplate?: string;
+  scheduledCleaningAlertTemplate?: string;
+  unscheduledCleaningAlertTemplate?: string;
+  turnaroundAlertTemplate?: string;
   showGuestName?: boolean;
   showPhone?: boolean;
   showSource?: boolean;
@@ -20,8 +35,19 @@ export type TelegramSummaryConfig = {
 };
 export const defaultSummaryConfig: TelegramSummaryConfig = {
   greeting: "Hey Dejan",
+  showCurrentStay: true,
   showArrivals: true,
   showDepartures: true,
+  showNextReservation: true,
+  showOutstandingPayments: true,
+  showCleaningToday: true,
+  showTurnaroundAlert: true,
+  autoCleaningAlerts: true,
+  notifyScheduledCleaning: true,
+  notifyUnscheduledCleaning: true,
+  notifySameDayTurnaround: true,
+  notifyGuestCheckIn: true,
+  ...defaultTelegramAlertTemplates,
   showGuestName: true,
   showPhone: true,
   showSource: true,

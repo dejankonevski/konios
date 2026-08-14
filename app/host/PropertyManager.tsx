@@ -3,6 +3,12 @@
 import { FormEvent, useEffect, useState } from "react";
 import type { Property, Unit, TelegramSummaryConfig } from "@/lib/portfolio";
 import { defaultSummaryConfig } from "@/lib/portfolio";
+import {
+  plainTelegramPreview,
+  telegramAlertTemplateOptions,
+  telegramTemplatePlaceholders,
+  type TelegramAlertTemplateKey,
+} from "@/lib/telegram-alert-templates";
 
 type SafeAdmin = { id: string; username: string; propertyIds: string[]; active: boolean; createdAt: number };
 type StripeStatus = { configured: boolean; last4: string | null; mode: "test" | "live" | null; source: "admin" | "environment" | null; updatedAt: number | null };
@@ -18,15 +24,17 @@ export default function PropertyManager({ role, properties, onPropertiesChanged 
   const [stripeSaving, setStripeSaving] = useState(false);
   const [activeSection, setActiveSection] = useState<Section>("properties");
   const [expandedSections, setExpandedSections] = useState<Record<string, Set<string>>>({});
+  const [selectedPropertyId, setSelectedPropertyId] = useState("");
+  const [selectedTemplateKey, setSelectedTemplateKey] = useState<TelegramAlertTemplateKey>(telegramAlertTemplateOptions[0].key);
 
-  // Default open accordion sections for all properties
+  // Keep the settings workspace focused on one property and one section.
   useEffect(() => {
     if (!properties.length) return;
     setExpandedSections((prev) => {
       const next = { ...prev };
       for (const p of properties) {
         if (!next[p.id]) {
-          next[p.id] = new Set(["calendar", "telegram", "export"]);
+          next[p.id] = new Set(["telegram"]);
         }
       }
       return next;
@@ -56,8 +64,7 @@ export default function PropertyManager({ role, properties, onPropertiesChanged 
     setExpandedSections((prev) => {
       const next = { ...prev };
       const current = new Set(prev[propertyId] || []);
-      if (current.has(section)) current.delete(section); else current.add(section);
-      next[propertyId] = current;
+      next[propertyId] = current.has(section) ? new Set() : new Set([section]);
       return next;
     });
   }
@@ -175,13 +182,25 @@ export default function PropertyManager({ role, properties, onPropertiesChanged 
     finally { setSavingPropertyId(null); }
   }
 
-  async function handleTestTelegram(property: Property) {
-    setTelegramTestingId(property.id);
-    setStatus(`Sending test message for ${property.name}...`);
+  async function handleTestTelegram(property: Property, templateKey: TelegramAlertTemplateKey) {
+    const testId = `${property.id}:${templateKey}`;
+    setTelegramTestingId(testId);
+    setStatus(`Sending template preview for ${property.name}...`);
     try {
-      const response = await fetch("/api/host/telegram/test", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ botToken: property.telegramBotToken, chatId: property.telegramChatId, propertyName: property.name }) });
+      const template = String(summaryConfigs[property.id]?.[templateKey] || defaultSummaryConfig[templateKey] || "");
+      const response = await fetch("/api/host/telegram/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          propertyId: property.id,
+          templateKey,
+          template,
+          botToken: property.telegramBotToken,
+          chatId: property.telegramChatId,
+        }),
+      });
       const data = await response.json();
-      setStatus(response.ok && data.success ? `✅ Test sent for ${property.name}! Check Telegram.` : data.error || "Could not send test message.");
+      setStatus(response.ok && data.success ? `✅ Exact template test sent for ${property.name}. Check Telegram.` : data.error || "Could not send test message.");
     } catch (err: any) { setStatus(`Error: ${err.message}`); }
     finally { setTelegramTestingId(null); }
   }
@@ -232,6 +251,9 @@ export default function PropertyManager({ role, properties, onPropertiesChanged 
     { key: "team", label: "Team", icon: "👥", masterOnly: true },
     { key: "settings", label: "Settings", icon: "⚙️", masterOnly: true },
   ];
+  const effectiveSelectedPropertyId = properties.some((property) => property.id === selectedPropertyId)
+    ? selectedPropertyId
+    : properties[0]?.id || "";
 
   return (
     <div className="pm-page">
@@ -263,7 +285,24 @@ export default function PropertyManager({ role, properties, onPropertiesChanged 
       {/* ═══ PROPERTIES SECTION ═══ */}
       {activeSection === "properties" && (
         <div className="pm-properties">
-          {properties.map((property) => (
+          <div className="pm-property-switcher" role="tablist" aria-label="Choose a property">
+            {properties.map((property) => (
+              <button
+                key={property.id}
+                type="button"
+                role="tab"
+                aria-selected={effectiveSelectedPropertyId === property.id}
+                className={`pm-property-switch ${effectiveSelectedPropertyId === property.id ? "pm-property-switch--active" : ""}`}
+                onClick={() => setSelectedPropertyId(property.id)}
+              >
+                <span className="pm-property-switch-mark">{property.name.slice(0, 1).toUpperCase()}</span>
+                <span><strong>{property.name}</strong><small>{property.address || `/${property.slug}`}</small></span>
+                <i className={property.active ? "is-active" : ""} aria-label={property.active ? "Active" : "Inactive"} />
+              </button>
+            ))}
+          </div>
+
+          {properties.filter((property) => property.id === effectiveSelectedPropertyId).map((property) => (
             <article key={property.id} className="pm-property-card">
               <div className="pm-property-header">
                 <div className="pm-property-info">
@@ -361,12 +400,125 @@ export default function PropertyManager({ role, properties, onPropertiesChanged 
                         />
                       </div>
 
-                      {/* Summary Content */}
-                      <div className="pm-section-label">Summary Content</div>
+                      {/* Operational sections */}
+                      <div className="pm-section-label">Operational updates</div>
                       <div className="pm-toggle-grid">
                         {([
-                          ["showArrivals", "Show arrivals"],
-                          ["showDepartures", "Show departures"],
+                          ["showCurrentStay", "Currently staying"],
+                          ["showDepartures", "Departing today"],
+                          ["showArrivals", "Arriving today"],
+                          ["showNextReservation", "Next reservation"],
+                          ["showOutstandingPayments", "Arrival payment due"],
+                          ["showCleaningToday", "Cleaning today"],
+                          ["showTurnaroundAlert", "Same-day turnaround"],
+                        ] as [keyof TelegramSummaryConfig, string][]).map(([key, label]) => (
+                          <label key={key} className="pm-checkbox">
+                            <input
+                              type="checkbox"
+                              checked={summaryConfigs[property.id]?.[key] !== false}
+                              onChange={(e) => updateSummaryConfig(property.id, key, e.target.checked)}
+                            />
+                            <span>{label}</span>
+                          </label>
+                        ))}
+                      </div>
+
+                      <div className="pm-section-label">Automatic operational alerts</div>
+                      <p className="pm-hint">Send check-in, checkout, cleaning, and turnaround alerts to this property&apos;s configured team chat.</p>
+                      <div className="pm-toggle-grid">
+                        {([
+                          ["autoCleaningAlerts", "Enable automatic alerts"],
+                          ["notifyScheduledCleaning", "Cleaning is scheduled"],
+                          ["notifyUnscheduledCleaning", "Cleaning not scheduled"],
+                          ["notifySameDayTurnaround", "Urgent turnaround alert"],
+                          ["notifyGuestCheckIn", "Guest check-in alert"],
+                        ] as [keyof TelegramSummaryConfig, string][]).map(([key, label]) => (
+                          <label key={key} className="pm-checkbox">
+                            <input
+                              type="checkbox"
+                              checked={summaryConfigs[property.id]?.[key] !== false}
+                              onChange={(e) => updateSummaryConfig(property.id, key, e.target.checked)}
+                            />
+                            <span>{label}</span>
+                          </label>
+                        ))}
+                      </div>
+
+                      <div className="pm-section-label">Message studio</div>
+                      <p className="pm-hint">Choose one alert, edit its exact wording and test the live preview without scrolling through every template.</p>
+                      {(() => {
+                        const option = telegramAlertTemplateOptions.find((item) => item.key === selectedTemplateKey) || telegramAlertTemplateOptions[0];
+                        const template = String(summaryConfigs[property.id]?.[option.key] || defaultSummaryConfig[option.key] || "");
+                        const sample = plainTelegramPreview(template)
+                          .replaceAll("{propertyName}", property.name)
+                          .replaceAll("{guestName}", "Example Guest")
+                          .replaceAll("{phone}", "+389 70 123 456")
+                          .replaceAll("{bookingSource}", "Booking.com")
+                          .replaceAll("{checkInDate}", "2026-08-12")
+                          .replaceAll("{checkInTime}", "15:00")
+                          .replaceAll("{checkInStatus}", "The official check-in time has been reached.")
+                          .replaceAll("{checkOutDate}", "2026-08-15")
+                          .replaceAll("{checkOutTime}", "10:00")
+                          .replaceAll("{cleaningStatus}", option.key === "unscheduledCleaningAlertTemplate" ? "CLEANING IS NOT SCHEDULED" : "Cleaning is scheduled")
+                          .replaceAll("{cleaningFee}", "1,500 MKD")
+                          .replaceAll("{nextGuestName}", "Next Example Guest")
+                          .replaceAll("{nextArrivalTime}", "15:00")
+                          .replaceAll("{cleaningWindow}", "10:00–15:00");
+                        const testId = `${property.id}:${option.key}`;
+                        return (
+                          <div className="pm-template-studio">
+                            <aside className="pm-template-menu" role="tablist" aria-label="Telegram alert templates">
+                              <div className="pm-template-menu-title"><span>Alert templates</span><b>{telegramAlertTemplateOptions.length}</b></div>
+                              {telegramAlertTemplateOptions.map((item, index) => (
+                                <button
+                                  key={item.key}
+                                  type="button"
+                                  role="tab"
+                                  aria-selected={item.key === option.key}
+                                  className={item.key === option.key ? "is-selected" : ""}
+                                  onClick={() => setSelectedTemplateKey(item.key)}
+                                >
+                                  <span>{String(index + 1).padStart(2, "0")}</span>
+                                  <div><strong>{item.label}</strong><small>{item.description}</small></div>
+                                  <i>›</i>
+                                </button>
+                              ))}
+                            </aside>
+                            <section className="pm-template-editor" role="tabpanel">
+                              <div className="pm-template-editor-head">
+                                <div><span>Editing alert</span><h4>{option.label}</h4><p>{option.description}</p></div>
+                                <div className="pm-template-actions">
+                                  <button type="button" className="pm-btn pm-btn--secondary pm-btn--sm" onClick={() => updateSummaryConfig(property.id, option.key, defaultSummaryConfig[option.key] || "")}>Reset</button>
+                                  <button type="button" className="pm-btn pm-btn--primary pm-btn--sm" onClick={() => handleTestTelegram(property, option.key)} disabled={telegramTestingId === testId}>
+                                    {telegramTestingId === testId ? "Sending…" : "Send test"}
+                                  </button>
+                                </div>
+                              </div>
+                              <label className="pm-label" htmlFor={`template-${property.id}-${option.key}`}>Message</label>
+                              <textarea
+                                id={`template-${property.id}-${option.key}`}
+                                className="pm-input pm-template-textarea"
+                                rows={9}
+                                value={template}
+                                onChange={(event) => updateSummaryConfig(property.id, option.key, event.target.value.slice(0, 1500))}
+                              />
+                              <details className="pm-placeholder-help">
+                                <summary>Insert dynamic information</summary>
+                                <div>{telegramTemplatePlaceholders.map((placeholder) => <button type="button" key={placeholder} onClick={() => updateSummaryConfig(property.id, option.key, `${template}${template.endsWith("\n") || !template ? "" : " "}{${placeholder}}`)}>{`{${placeholder}}`}</button>)}</div>
+                              </details>
+                              <div className="pm-message-preview">
+                                <span>Live Telegram preview</span>
+                                <pre>{sample}</pre>
+                              </div>
+                            </section>
+                          </div>
+                        );
+                      })()}
+
+                      {/* Detail fields */}
+                      <div className="pm-section-label">Information included</div>
+                      <div className="pm-toggle-grid">
+                        {([
                           ["showGuestName", "Guest name"],
                           ["showPhone", "Phone number"],
                           ["showSource", "Booking source"],
@@ -374,7 +526,7 @@ export default function PropertyManager({ role, properties, onPropertiesChanged 
                           ["showNights", "Number of nights"],
                           ["showArrivalTime", "Arrival time"],
                           ["showCheckoutTime", "Checkout time"],
-                          ["showGapNights", "Summary stats"],
+                          ["showGapNights", "Daily totals"],
                           ["showQuietDayNote", "Quiet day note"],
                           ["notifyNewReservations", "New booking alerts"],
                         ] as [keyof TelegramSummaryConfig, string][]).map(([key, label]) => (
@@ -450,14 +602,6 @@ export default function PropertyManager({ role, properties, onPropertiesChanged 
 
                       {/* Action Buttons */}
                       <div className="pm-btn-row">
-                        <button
-                          type="button"
-                          className="pm-btn pm-btn--secondary"
-                          onClick={() => handleTestTelegram(property)}
-                          disabled={telegramTestingId === property.id}
-                        >
-                          {telegramTestingId === property.id ? "⏳ Sending..." : "🔔 Send Test"}
-                        </button>
                         <button
                           type="button"
                           className="pm-btn pm-btn--secondary"

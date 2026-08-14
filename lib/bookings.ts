@@ -167,8 +167,10 @@ export async function listBookings(propertyId?: string) {
     
     const fName = (record.firstName || "").toUpperCase();
     const notes = (record.notes || "").toUpperCase();
-    if (fName.includes("CLOSED") || fName.includes("NOT AVAILABLE") || fName.includes("BLOCKED") ||
-        notes.includes("CLOSED") || notes.includes("NOT AVAILABLE") || notes.includes("BLOCKED")) {
+    const isCalendarReservation = record.source === "Booking.com" && Boolean(record.icalUid);
+    if (!isCalendarReservation &&
+        (fName.includes("CLOSED") || fName.includes("NOT AVAILABLE") || fName.includes("BLOCKED") ||
+         notes.includes("CLOSED") || notes.includes("NOT AVAILABLE") || notes.includes("BLOCKED"))) {
       return false;
     }
     
