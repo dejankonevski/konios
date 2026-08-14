@@ -173,6 +173,16 @@ export default function PropertyManager({ role, properties, onPropertiesChanged 
     const telegramChatId = form.get("telegramChatId")?.toString().trim() || "";
     const telegramEnabled = form.get("telegramEnabled") === "on";
     const telegramSummaryConfig = summaryConfigs[propertyId] || defaultSummaryConfig;
+    const existingProperty = properties.find((property) => property.id === propertyId);
+    const removingAirbnb = Boolean(existingProperty?.airbnbIcalUrl && !airbnbIcalUrl);
+    const removingBooking = Boolean(existingProperty?.bookingIcalUrl && !bookingIcalUrl);
+    if ((removingAirbnb || removingBooking) && !window.confirm(
+      `Remove the ${[removingAirbnb ? "Airbnb" : "", removingBooking ? "Booking.com" : ""].filter(Boolean).join(" and ")} calendar connection? New reservations and cancellations from that channel will stop syncing.`
+    )) {
+      setSavingPropertyId(null);
+      setStatus("Calendar connections were kept. Nothing was removed.");
+      return;
+    }
     try {
       const response = await fetch("/api/host/properties", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: propertyId, airbnbIcalUrl, bookingIcalUrl, telegramBotToken, telegramChatId, telegramEnabled, telegramSummaryConfig }) });
       const data = await response.json();
@@ -342,7 +352,7 @@ export default function PropertyManager({ role, properties, onPropertiesChanged 
                   </button>
                   {isAccordionOpen(property.id, "calendar") && (
                     <div className="pm-accordion-content">
-                      <p className="pm-hint"><strong>Automatic check: every 5 minutes.</strong> iCal providers may publish changes with a delay. Use Sync Now whenever you need an immediate refresh of the latest published feed.</p>
+                      <p className="pm-hint"><strong>Automatic check: every minute while this dashboard is open, plus a background scheduler.</strong> iCal providers may publish changes with a delay. Use Sync Now whenever you need an immediate refresh of the latest published feed.</p>
                       <div className="pm-form-group">
                         <label className="pm-label">Airbnb iCal Feed URL</label>
                         <input className="pm-input" type="url" name="airbnbIcalUrl" defaultValue={property.airbnbIcalUrl || ""} placeholder="https://www.airbnb.com/calendar/ical/..." />
