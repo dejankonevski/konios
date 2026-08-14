@@ -19,6 +19,7 @@ export async function GET(
   { params }: { params: Promise<{ unitId: string }> }
 ) {
   const { unitId } = await params;
+  const excludedSource = new URL(request.url).searchParams.get("exclude");
   const [properties, units] = await Promise.all([listProperties(), listUnits()]);
   
   let unit = units.find((u) => u.id === unitId);
@@ -45,6 +46,7 @@ export async function GET(
   const primaryUnitId = propertyUnits[0]?.id;
   const unitBookings = bookings.filter((booking) => {
     if (booking.revoked || booking.archivedAt) return false;
+    if (excludedSource && booking.source.toLowerCase() === excludedSource.toLowerCase()) return false;
     // A property-level feed contains the whole property's availability. A real
     // unit feed contains that unit plus legacy reservations that predate unit IDs
     // when it is the property's primary unit.

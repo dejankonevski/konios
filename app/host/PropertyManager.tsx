@@ -632,19 +632,32 @@ export default function PropertyManager({ role, properties, onPropertiesChanged 
                         const defaultId = property.id === "konios-house" ? "konios-house-32" : `${property.id}-unit`;
                         return [{ id: defaultId, propertyId: property.id, name: property.name, guideKey: property.id, active: true }];
                       })().map((unit) => {
-                        const exportUrl = typeof window !== "undefined"
+                        const baseExportUrl = typeof window !== "undefined"
                           ? `${window.location.protocol}//${window.location.host}/api/ical/${unit.id}`
                           : `/api/ical/${unit.id}`;
                         return (
-                          <div key={unit.id} className="pm-export-row">
-                            <input className="pm-input pm-input--mono" type="text" readOnly value={exportUrl} onClick={(e) => (e.target as HTMLInputElement).select()} />
-                            <button
-                              type="button"
-                              className="pm-btn pm-btn--secondary"
-                              onClick={() => { navigator.clipboard.writeText(exportUrl); setStatus(`✅ Copied iCal link for ${unit.name}!`); }}
-                            >
-                              📋 Copy
-                            </button>
+                          <div key={unit.id} className="pm-export-destinations">
+                            {([
+                              { label: "Import this into Airbnb", source: "Airbnb" },
+                              { label: "Import this into Booking.com", source: "Booking.com" },
+                            ] as const).map((destination) => {
+                              const exportUrl = `${baseExportUrl}?exclude=${encodeURIComponent(destination.source)}`;
+                              return (
+                                <div key={destination.source}>
+                                  <label className="pm-label">{destination.label}</label>
+                                  <div className="pm-export-row">
+                                    <input className="pm-input pm-input--mono" type="text" readOnly value={exportUrl} onClick={(e) => (e.target as HTMLInputElement).select()} />
+                                    <button
+                                      type="button"
+                                      className="pm-btn pm-btn--secondary"
+                                      onClick={() => { navigator.clipboard.writeText(exportUrl); setStatus(`✅ Copied ${destination.label.toLowerCase()} for ${unit.name}!`); }}
+                                    >
+                                      📋 Copy
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
                         );
                       })}
