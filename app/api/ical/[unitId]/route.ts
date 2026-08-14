@@ -46,7 +46,16 @@ export async function GET(
   const primaryUnitId = propertyUnits[0]?.id;
   const unitBookings = bookings.filter((booking) => {
     if (booking.revoked || booking.archivedAt) return false;
-    if (excludedSource && booking.source.toLowerCase() === excludedSource.toLowerCase()) return false;
+    if (excludedSource) {
+      if (booking.source.toLowerCase() === excludedSource.toLowerCase()) return false;
+    } else if (booking.source === "Airbnb" || booking.source === "Booking.com") {
+      // The legacy generic URL may already be subscribed by either provider.
+      // Never echo provider reservations through that ambiguous feed: doing so
+      // turns a platform's own reservation into an imported external block and
+      // can make its extranet report "No inventory". Destination-specific URLs
+      // below intentionally carry only the other platform's reservations.
+      return false;
+    }
     // A property-level feed contains the whole property's availability. A real
     // unit feed contains that unit plus legacy reservations that predate unit IDs
     // when it is the property's primary unit.
