@@ -24,6 +24,7 @@ export type Booking = {
   idRegistrationComplete?: boolean;
   archivedAt?: number | null;
   hasCleaningAgency?: boolean;
+  cleaningType?: "agency" | "self";
   cleaningFeeMkd?: number;
   cleaningStatus?: "scheduled" | "completed";
   cleaningNotes?: string;

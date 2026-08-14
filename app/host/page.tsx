@@ -42,6 +42,7 @@ type Booking = {
   idRegistrationComplete?: boolean;
   archivedAt?: number | null;
   hasCleaningAgency?: boolean;
+  cleaningType?: "agency" | "self";
   cleaningFeeMkd?: number;
   cleaningStatus?: "scheduled" | "completed";
   cleaningNotes?: string;
@@ -1904,8 +1905,8 @@ export default function HostPage() {
                   <div className="cleaning-card-info">
                     <span className="cleaning-card-icon">🧹</span>
                     <div>
-                      <strong>Agency Cleaning Service</strong>
-                      <p>Schedule cleaning agency for checkout day ({editingBooking.checkOut})</p>
+                      <strong>Post-Checkout Cleaning</strong>
+                      <p>Track cleaning performed by host/self or professional agency</p>
                     </div>
                   </div>
                   <label className="switch-toggle" htmlFor="edit-cleaning-toggle">
@@ -1917,6 +1918,7 @@ export default function HostPage() {
                         setEditingBooking({
                           ...editingBooking,
                           hasCleaningAgency: e.target.checked,
+                          cleaningType: e.target.checked ? (editingBooking.cleaningType || "agency") : "self",
                           cleaningFeeMkd: e.target.checked ? (editingBooking.cleaningFeeMkd || 750) : 0,
                           cleaningStatus: e.target.checked ? (editingBooking.cleaningStatus || "scheduled") : "scheduled",
                         })
@@ -1929,24 +1931,45 @@ export default function HostPage() {
                 {editingBooking.hasCleaningAgency ? (
                   <div className="cleaning-card-body">
                     <div className="form-group">
-                      <label htmlFor="edit-cleaning-fee">Agency Fee (MKD)</label>
-                      <input
-                        id="edit-cleaning-fee"
-                        type="number"
-                        step="50"
-                        min="0"
-                        placeholder="750"
-                        value={editingBooking.cleaningFeeMkd ?? 750}
+                      <label htmlFor="edit-cleaning-type">Cleaning Performer</label>
+                      <select
+                        id="edit-cleaning-type"
+                        value={editingBooking.cleaningType || "agency"}
                         onChange={(e) =>
                           setEditingBooking({
                             ...editingBooking,
-                            cleaningFeeMkd: parseFloat(e.target.value) || 0,
+                            cleaningType: e.target.value as "agency" | "self",
+                            cleaningFeeMkd: e.target.value === "agency" ? (editingBooking.cleaningFeeMkd || 750) : 0,
                           })
                         }
-                      />
+                      >
+                        <option value="agency">🏢 Professional Agency Cleaning</option>
+                        <option value="self">👤 Self / Host In-House Cleaning</option>
+                      </select>
                     </div>
+
+                    {editingBooking.cleaningType !== "self" ? (
+                      <div className="form-group">
+                        <label htmlFor="edit-cleaning-fee">Agency Fee (MKD)</label>
+                        <input
+                          id="edit-cleaning-fee"
+                          type="number"
+                          step="50"
+                          min="0"
+                          placeholder="750"
+                          value={editingBooking.cleaningFeeMkd ?? 750}
+                          onChange={(e) =>
+                            setEditingBooking({
+                              ...editingBooking,
+                              cleaningFeeMkd: parseFloat(e.target.value) || 0,
+                            })
+                          }
+                        />
+                      </div>
+                    ) : null}
+
                     <div className="form-group">
-                      <label htmlFor="edit-cleaning-status">Inspection Status</label>
+                      <label htmlFor="edit-cleaning-status">Cleaning Status</label>
                       <select
                         id="edit-cleaning-status"
                         value={editingBooking.cleaningStatus || "scheduled"}
@@ -1957,8 +1980,8 @@ export default function HostPage() {
                           })
                         }
                       >
-                        <option value="scheduled">⏳ Agency Scheduled ({editingBooking.cleaningFeeMkd || 750} MKD)</option>
-                        <option value="completed">✓ Inspection Checked & Cleaned</option>
+                        <option value="scheduled">⏳ Cleaning Pending / Scheduled</option>
+                        <option value="completed">✓ Cleaned &amp; Ready for Next Guest</option>
                       </select>
                     </div>
                   </div>

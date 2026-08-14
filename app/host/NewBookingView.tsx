@@ -357,8 +357,8 @@ export default function NewBookingView({
                     <div className="cleaning-card-info">
                       <span className="cleaning-card-icon">🧹</span>
                       <div>
-                        <strong>Assign Cleaning Agency</strong>
-                        <p>Schedule cleaning service on check-out date</p>
+                        <strong>Schedule Post-Checkout Cleaning</strong>
+                        <p>Assign agency cleaning or self / in-house host cleaning</p>
                       </div>
                     </div>
                     <label className="switch-toggle" htmlFor="new-cleaning-toggle-v2">
@@ -376,17 +376,34 @@ export default function NewBookingView({
                     </label>
                   </div>
                   <div id="new-cleaning-fee-input-wrap-v2" className="cleaning-card-body" style={{ display: "none" }}>
-                    <div className="form-group">
-                      <label htmlFor="new-cleaning-fee-v2">Agency Cleaning Fee (MKD)</label>
-                      <input
-                        id="new-cleaning-fee-v2"
-                        type="number"
-                        step="50"
-                        min="0"
-                        name="cleaningFeeMkd"
-                        defaultValue={750}
-                        placeholder="750"
-                      />
+                    <div className="nb-form-row two-col">
+                      <div className="form-group">
+                        <label htmlFor="new-cleaning-type-v2">Cleaning Performer</label>
+                        <select
+                          id="new-cleaning-type-v2"
+                          name="cleaningType"
+                          defaultValue="agency"
+                          onChange={(e) => {
+                            const feeField = document.getElementById("agency-fee-field-group");
+                            if (feeField) feeField.style.display = e.target.value === "agency" ? "block" : "none";
+                          }}
+                        >
+                          <option value="agency">🏢 Professional Agency Cleaning</option>
+                          <option value="self">👤 Self / Host In-House Cleaning</option>
+                        </select>
+                      </div>
+                      <div className="form-group" id="agency-fee-field-group">
+                        <label htmlFor="new-cleaning-fee-v2">Agency Fee (MKD)</label>
+                        <input
+                          id="new-cleaning-fee-v2"
+                          type="number"
+                          step="50"
+                          min="0"
+                          name="cleaningFeeMkd"
+                          defaultValue={750}
+                          placeholder="750"
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>

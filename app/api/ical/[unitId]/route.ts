@@ -1,5 +1,6 @@
 import { listBookings } from "@/lib/bookings";
 import { listUnits, listProperties } from "@/lib/portfolio";
+import { listCalendarBlocks } from "@/lib/calendar-blocks";
 
 export async function GET(
   request: Request,
@@ -22,8 +23,12 @@ export async function GET(
     }
   }
 
-  // Get active bookings for this property and unit
-  const bookings = await listBookings(propertyId);
+  // Get active bookings and personal calendar blocks for this property
+  const [bookings, blocks] = await Promise.all([
+    listBookings(propertyId),
+    listCalendarBlocks(propertyId || ""),
+  ]);
+
   const unitBookings = bookings.filter(
     (b) => !b.revoked && (b.unitId === unitId || (!b.unitId && (unitId === "konios-house-32" || unitId.endsWith("-unit"))))
   );
@@ -49,6 +54,24 @@ export async function GET(
       `DTEND;VALUE=DATE:${endVal}`,
       `SUMMARY:${summary}`,
       `DESCRIPTION:Guests: ${b.guests}\\nSource: ${b.source}\\nNotes: ${b.notes || ""}`,
+      "END:VEVENT"
+    );
+  }
+
+  // Also export admin blocked / closed dates so external platforms (Airbnb, Booking.com) sync them as unavailable
+  for (const block of blocks) {
+    const startVal = block.start.replace(/-/g, "");
+    const endVal = block.end.replace(/-/g, "");
+    const uid = `block-${block.id}@konios.com`;
+    const summary = `Closed / Blocked (${block.note || "Owner Use"})`;
+
+    icsLines.push(
+      "BEGIN:VEVENT",
+      `UID:${uid}`,
+      `DTSTART;VALUE=DATE:${startVal}`,
+      `DTEND;VALUE=DATE:${endVal}`,
+      `SUMMARY:${summary}`,
+      `DESCRIPTION:Blocked by Host: ${block.note || "Closed"}`,
       "END:VEVENT"
     );
   }
