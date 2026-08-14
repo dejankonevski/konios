@@ -342,6 +342,7 @@ export default function PropertyManager({ role, properties, onPropertiesChanged 
                   </button>
                   {isAccordionOpen(property.id, "calendar") && (
                     <div className="pm-accordion-content">
+                      <p className="pm-hint"><strong>Automatic check: every 5 minutes.</strong> iCal providers may publish changes with a delay. Use Sync Now whenever you need an immediate refresh of the latest published feed.</p>
                       <div className="pm-form-group">
                         <label className="pm-label">Airbnb iCal Feed URL</label>
                         <input className="pm-input" type="url" name="airbnbIcalUrl" defaultValue={property.airbnbIcalUrl || ""} placeholder="https://www.airbnb.com/calendar/ical/..." />

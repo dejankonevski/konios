@@ -1461,6 +1461,15 @@ export default function HostPage() {
             <button type="button" onClick={() => setCalendarSyncMessage("")} aria-label="Dismiss">×</button>
           </div>
         ) : null}
+        {(view === "overview" || view === "bookings") && selectedProperty && !selectedProperty.airbnbIcalUrl && !selectedProperty.bookingIcalUrl ? (
+          <div className="calendar-connection-warning" role="alert">
+            <div>
+              <strong>Calendar sync is not connected for {selectedProperty.name}</strong>
+              <span>New reservations, modifications, and cancellations cannot arrive until at least one provider import URL is saved.</span>
+            </div>
+            <button type="button" onClick={() => setView("properties")}>Connect calendars →</button>
+          </div>
+        ) : null}
         {view === "overview" && (
           <>
             {(() => {

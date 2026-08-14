@@ -8,6 +8,7 @@ export interface IcalEvent {
   checkIn: string; // YYYY-MM-DD
   checkOut: string; // YYYY-MM-DD
   description?: string;
+  status?: string;
 }
 export function parseIcal(icsString: string): IcalEvent[] {
   const events: IcalEvent[] = [];
@@ -48,6 +49,8 @@ export function parseIcal(icsString: string): IcalEvent[] {
           currentEvent.summary = value.trim();
         } else if (key === "DESCRIPTION") {
           currentEvent.description = value.trim().replace(/\\n/g, "\n").replace(/\\t/g, "\t").replace(/\\,/g, ",");
+        } else if (key === "STATUS") {
+          currentEvent.status = value.trim().toUpperCase();
         } else if (key === "DTSTART") {
           currentEvent.checkIn = parseIcalDate(value.trim());
         } else if (key === "DTEND") {
@@ -149,6 +152,10 @@ export async function syncPropertyIcal(propertyId: string) {
 
       for (const event of events) {
         const summary = event.summary.trim();
+        const isCancelled = event.status === "CANCELLED" || /\bCANCELLED\b|\bCANCELED\b/i.test(summary);
+        // Do not mark a cancelled event as active. If it was imported before,
+        // the source-aware cancellation pass below will archive it and alert.
+        if (isCancelled) continue;
         const checkInAt = new Date(`${event.checkIn}T00:00:00Z`).getTime();
         const checkOutAt = new Date(`${event.checkOut}T00:00:00Z`).getTime();
         const eventNights = Math.round((checkOutAt - checkInAt) / 86_400_000);

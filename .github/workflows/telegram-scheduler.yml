@@ -2,7 +2,8 @@ name: Telegram notification scheduler
 
 on:
   schedule:
-    - cron: "*/15 * * * *"
+    # iCal is a polling fallback, so check at GitHub's practical minimum.
+    - cron: "*/5 * * * *"
   workflow_dispatch:
 
 concurrency:
@@ -33,4 +34,3 @@ jobs:
             --max-time 60 \
             --header "Authorization: Bearer ${CRON_SECRET}" \
             https://konios.vercel.app/api/host/cleaning-alerts
-
