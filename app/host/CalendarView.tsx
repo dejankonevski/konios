@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import type { Booking } from "@/lib/bookings";
 import type { CalendarBlock } from "@/lib/calendar-blocks";
 import type { ProviderCalendarEvent } from "@/lib/provider-calendar";
+import SourceBadge from "./SourceBadge";
 
 const weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const monthTitle = (date: Date) => new Intl.DateTimeFormat("en", { month: "long", year: "numeric" }).format(date);
@@ -320,7 +321,7 @@ export default function CalendarView({ bookings, propertyId, checkInTime, checkO
                       {personalBlock ? <div className="calendar-block-event"><b>Closed / Blocked</b><span>{personalBlock.note}</span></div> : null}
                       {providerBlock && !staying && !personalBlock ? <div className="calendar-provider-event"><b>{providerBlock.source} unavailable</b><span>Calendar evidence · verify guest details</span></div> : null}
                       {gapLength ? <div className={gapLength === 1 ? "calendar-gap-event critical" : "calendar-gap-event"}><b>{gapLength === 1 ? "⚠ 1-night gap" : `${gapLength}-night gap`}</b><span>{gapLength === 1 ? "Hard to sell" : "Available"}</span></div> : null}
-                      {staying ? <button className={`calendar-booking-event source-${staying.source.toLowerCase().replace(/[^a-z]/g, "")}`} onClick={() => onOpenBooking(staying)}><span>{arrival ? `Check-in · ${checkInTime}` : "Occupied night"}</span><b>{staying.firstName} {staying.lastName}</b><small>{staying.source}{arrival ? ` · stay total ${new Intl.NumberFormat("en", { style: "currency", currency: staying.currency || "EUR", maximumFractionDigits: 0 }).format(Number(staying.grossAmount) || 0)}` : ""}</small></button> : null}
+                      {staying ? <button className={`calendar-booking-event source-${staying.source.toLowerCase().replace(/[^a-z]/g, "")}`} onClick={() => onOpenBooking(staying)}><span>{arrival ? `Check-in · ${checkInTime}` : "Occupied night"}</span><b>{staying.firstName} {staying.lastName}</b><small><SourceBadge source={staying.source} iconOnly />{arrival ? ` stay total ${new Intl.NumberFormat("en", { style: "currency", currency: staying.currency || "EUR", maximumFractionDigits: 0 }).format(Number(staying.grossAmount) || 0)}` : ""}</small></button> : null}
                       {departure ? <button className="calendar-departure-event" onClick={() => onOpenBooking(departure)}><b>Checkout · {checkOutTime}</b><span>{departure.firstName}</span></button> : null}
                       {departure ? <div className={nextArrival ? "calendar-cleaning-event turnaround" : "calendar-cleaning-event"}><b>{nextArrival ? "Fast turnaround" : "Cleaning window"}</b><span>{checkOutTime} → {nextArrival ? checkInTime : "ready"}</span></div> : null}
                     </div>;

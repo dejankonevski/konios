@@ -15,6 +15,7 @@ import PropertyManager from "./PropertyManager";
 import AdvisorView from "./AdvisorView";
 import CalendarView from "./CalendarView";
 import NewBookingView from "./NewBookingView";
+import SourceBadge from "./SourceBadge";
 import type { GuestGuide } from "@/lib/guest-guide";
 import type { Property } from "@/lib/portfolio";
 
@@ -1084,10 +1085,7 @@ export default function HostPage() {
                 </div>
 
                 <div className="source-cell" data-label="Source">
-                  <span
-                    className={`source-dot ${b.source.toLowerCase().replace(".com", "").replace(" ", "-")}`}
-                  />
-                  <span>{b.source}</span>
+                  <SourceBadge source={b.source} />
                 </div>
 
                 <div className="amount-cell" data-label="Total amount">
@@ -1493,7 +1491,7 @@ export default function HostPage() {
             <div className="current-stay-copy">
               <span>{selectedProperty?.name || "Selected property"} · Current stay</span>
               {currentStay ? (
-                <strong>{currentStay.firstName} {currentStay.lastName}</strong>
+                <strong>{currentStay.firstName} {currentStay.lastName} <SourceBadge source={currentStay.source} /></strong>
               ) : (
                 <strong>No guest is currently staying</strong>
               )}
@@ -1541,7 +1539,7 @@ export default function HostPage() {
                       <span className="canceled-avatar">{booking.firstName[0]}{booking.lastName[0]}</span>
                       <div>
                         <strong>{booking.firstName} {booking.lastName}</strong>
-                        <small>{booking.source} · {formatShort(booking.checkIn)} → {formatShort(booking.checkOut)}</small>
+                        <small><SourceBadge source={booking.source} /> · {formatShort(booking.checkIn)} → {formatShort(booking.checkOut)}</small>
                       </div>
                       <time>{new Intl.DateTimeFormat("en", { hour: "2-digit", minute: "2-digit" }).format(new Date(booking.cancellationDetectedAt || Date.now()))}</time>
                     </article>
