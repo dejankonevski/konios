@@ -570,7 +570,7 @@ export default function HostPage() {
         ? ` · ${result.cancellationsDetected} cancellation${result.cancellationsDetected === 1 ? "" : "s"} detected${result.cancellationNotificationFailures ? ` (${result.cancellationNotificationFailures} Telegram alert failed)` : ""}`
         : "";
       setCalendarSyncMessage(
-        `✅ Synced ${selectedProperty?.name || "property"}: ${result.added} added, ${result.updated} updated, ${result.removed} removed${cancellationSummary}. ${channelSummary}`
+        `✅ Synced ${selectedProperty?.name || "property"}: ${result.added} reservations added, ${result.updated} updated, ${result.removed} removed · ${result.availabilityBlocks || 0} availability blocks observed${cancellationSummary}. ${channelSummary}`
       );
       await loadBookings(propertyId);
     } catch (syncError) {

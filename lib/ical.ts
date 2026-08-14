@@ -1,6 +1,7 @@
 import { listBookings, createBooking, updateBooking, deleteBooking } from "./bookings";
 import { defaultSummaryConfig, listProperties } from "./portfolio";
 import { notifyCancellationAlert, notifyNewBookingAlert } from "./telegram";
+import { replaceProviderCalendarEvents } from "./provider-calendar";
 
 export interface IcalEvent {
   uid: string;
@@ -105,6 +106,7 @@ export async function syncPropertyIcal(propertyId: string) {
     configuredFeeds: 0,
     successfullyFetchedFeeds: 0,
     eventsRead: 0,
+    availabilityBlocks: 0,
     cancellationsDetected: 0,
     cancellationNotificationsSent: 0,
     cancellationNotificationFailures: 0,
@@ -146,10 +148,27 @@ export async function syncPropertyIcal(propertyId: string) {
       }
       const icsData = await response.text();
       const events = parseIcal(icsData);
+      const activeProviderEvents = events.filter((event) => {
+        const summary = event.summary.trim();
+        return event.status !== "CANCELLED" && !/\bCANCELLED\b|\bCANCELED\b/i.test(summary);
+      });
+      await replaceProviderCalendarEvents(propertyId, feed.source, activeProviderEvents.map((event) => ({
+        uid: event.uid,
+        start: event.checkIn,
+        end: event.checkOut,
+        summary: event.summary,
+        status: event.status,
+      })));
+      results.availabilityBlocks += activeProviderEvents.length;
       successfullyFetchedSources.add(feed.source);
       results.successfullyFetchedFeeds++;
       results.eventsRead += events.length;
       results.feeds.push({ source: feed.source, configured: true, status: "synced", events: events.length });
+
+      // Booking.com's iCal export is an anonymous availability feed. CLOSED
+      // blocks can merge, split, shrink and receive new UIDs. They are useful for
+      // showing unavailable nights, but must never mutate guest reservations.
+      if (feed.source === "Booking.com") continue;
 
       for (const event of events) {
         const summary = event.summary.trim();
@@ -160,20 +179,11 @@ export async function syncPropertyIcal(propertyId: string) {
           explicitlyCancelledUids.add(event.uid);
           continue;
         }
-        const checkInAt = new Date(`${event.checkIn}T00:00:00Z`).getTime();
-        const checkOutAt = new Date(`${event.checkOut}T00:00:00Z`).getTime();
-        const eventNights = Math.round((checkOutAt - checkInAt) / 86_400_000);
         const isClosedOrBlocked = summary.toUpperCase().includes("CLOSED") || 
                                   summary.toUpperCase().includes("NOT AVAILABLE") || 
                                   summary.toUpperCase().includes("BLOCKED") ||
                                   summary.toUpperCase().includes("OWNER");
-        // Booking.com's export intentionally hides guest details and labels real
-        // reservations as "CLOSED - Not available". Import short entries as
-        // anonymous reservations, but continue excluding long availability blocks.
-        const isAnonymousBookingReservation = feed.source === "Booking.com" &&
-          summary.toUpperCase().includes("CLOSED") &&
-          eventNights > 0 && eventNights <= 30;
-        if (isClosedOrBlocked && !isAnonymousBookingReservation) {
+        if (isClosedOrBlocked) {
           continue; // Skip closed or blocked dates from being imported as guest bookings
         }
 
@@ -186,7 +196,7 @@ export async function syncPropertyIcal(propertyId: string) {
         if (descName) {
           firstName = descName.firstName;
           lastName = descName.lastName;
-        } else if (!isAnonymousBookingReservation && summary && summary !== "Reserved") {
+        } else if (summary && summary !== "Reserved") {
           const cleanName = summary.replace(/\([^)]*\)/g, "").trim();
           const parts = cleanName.split(/\s+/);
           if (parts.length > 0 && parts[0] && parts[0].toLowerCase() !== "airbnb" && parts[0].toLowerCase() !== "booking.com") {
@@ -300,6 +310,7 @@ export async function syncPropertyIcal(propertyId: string) {
   const missingBySource = new Map<"Airbnb" | "Booking.com", Array<[string, typeof existingBookings[number]]>>();
   for (const [uid, booking] of existingIcalMap.entries()) {
     const source = booking.source as "Airbnb" | "Booking.com";
+    if (source === "Booking.com") continue;
     if (!successfullyFetchedSources.has(source) || activeSyncedUids.has(uid) || booking.checkOut < todayStr) continue;
     const entries = missingBySource.get(source) || [];
     entries.push([uid, booking]);
@@ -330,16 +341,6 @@ export async function syncPropertyIcal(propertyId: string) {
   };
 
   for (const [source, missing] of missingBySource.entries()) {
-    // Booking.com's export is an availability feed, not a reservation feed. It
-    // emits anonymous CLOSED blocks whose UID and date range can change as past
-    // nights roll off or adjacent blocks merge. Absence is never a cancellation.
-    if (source === "Booking.com") {
-      if (missing.length) {
-        results.errors.push(`Booking.com: ${missing.length} linked reservation(s) were not present in the availability feed; no cancellations were applied.`);
-      }
-      continue;
-    }
-
     const explicit = missing.filter(([uid]) => explicitlyCancelledUids.has(uid));
     for (const [, booking] of explicit) {
       await cancelBooking(booking, "Provider calendar explicitly marked the reservation cancelled");

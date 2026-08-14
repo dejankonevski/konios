@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import type { Booking } from "@/lib/bookings";
 import type { CalendarBlock } from "@/lib/calendar-blocks";
+import type { ProviderCalendarEvent } from "@/lib/provider-calendar";
 
 const weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const monthTitle = (date: Date) => new Intl.DateTimeFormat("en", { month: "long", year: "numeric" }).format(date);
@@ -26,6 +27,7 @@ type CalendarBooking = Booking & {
 export default function CalendarView({ bookings, propertyId, checkInTime, checkOutTime, onOpenBooking }: Props) {
   const [visibleMonthCount, setVisibleMonthCount] = useState(6);
   const [blocks, setBlocks] = useState<CalendarBlock[]>([]);
+  const [providerEvents, setProviderEvents] = useState<ProviderCalendarEvent[]>([]);
   const [status, setStatus] = useState("");
 
   // Interactive Selection State (click or drag)
@@ -40,17 +42,25 @@ export default function CalendarView({ bookings, propertyId, checkInTime, checkO
 
   async function loadBlocks() {
     const response = await fetch(`/api/host/blocked-dates?propertyId=${encodeURIComponent(propertyId)}`, { cache: "no-store" });
-    if (response.ok) setBlocks((await response.json()).blocks || []);
+    if (response.ok) {
+      const data = await response.json();
+      setBlocks(data.blocks || []);
+      setProviderEvents(data.providerEvents || []);
+    }
   }
 
   useEffect(() => {
     let live = true;
     fetch(`/api/host/blocked-dates?propertyId=${encodeURIComponent(propertyId)}`, { cache: "no-store" })
       .then((response) => response.ok ? response.json() : null)
-      .then((data) => { if (live && data?.blocks) setBlocks(data.blocks); })
+      .then((data) => {
+        if (!live || !data) return;
+        setBlocks(data.blocks || []);
+        setProviderEvents(data.providerEvents || []);
+      })
       .catch(() => {});
     return () => { live = false; };
-  }, [propertyId]);
+  }, [propertyId, bookings]);
 
   // Global mouseup listener to finish drag selection
   useEffect(() => {
@@ -78,6 +88,7 @@ export default function CalendarView({ bookings, propertyId, checkInTime, checkO
     const periods = [
       ...validBookings.map((booking) => ({ start: booking.checkIn, end: booking.checkOut })),
       ...blocks.map((block) => ({ start: block.start, end: block.end })),
+      ...providerEvents.map((event) => ({ start: event.start, end: event.end })),
     ].sort((a, b) => a.start.localeCompare(b.start));
     const merged: { start: string; end: string }[] = [];
     periods.forEach((period) => {
@@ -93,7 +104,7 @@ export default function CalendarView({ bookings, propertyId, checkInTime, checkO
       for (let day = 0; day < nights; day += 1) gaps.set(addDays(start, day), nights);
     }
     return gaps;
-  }, [validBookings, blocks]);
+  }, [validBookings, blocks, providerEvents]);
 
   const currentMonth = monthList[0];
   const currentMonthStart = dateKey(currentMonth);
@@ -248,6 +259,7 @@ export default function CalendarView({ bookings, propertyId, checkInTime, checkO
         <span className="legend-arrival">Check-in</span>
         <span className="legend-cleaning">Cleaning</span>
         <span className="legend-blocked">Personal block / Closed</span>
+        <span className="legend-provider">Provider availability block</span>
         <span className="legend-gap">Gap night</span>
         <span className="legend-one-gap">One-night gap</span>
       </div>
@@ -278,6 +290,7 @@ export default function CalendarView({ bookings, propertyId, checkInTime, checkO
                     const arrival = validBookings.find((booking) => booking.checkIn === key);
                     const departure = validBookings.find((booking) => booking.checkOut === key);
                     const personalBlock = blocks.find((block) => key >= block.start && key < block.end);
+                    const providerBlock = providerEvents.find((event) => key >= event.start && key < event.end);
                     const gapLength = gapNights.get(key);
                     const nextArrival = departure ? validBookings.find((booking) => booking.checkIn === key) : undefined;
                     const isSelected = selectedRange && key >= selectedRange.start && key <= selectedRange.end;
@@ -288,6 +301,7 @@ export default function CalendarView({ bookings, propertyId, checkInTime, checkO
                       outside ? "outside" : "",
                       staying ? "occupied" : "",
                       personalBlock ? "blocked" : "",
+                      providerBlock && !staying ? "provider-blocked" : "",
                       gapLength === 1 ? "one-night-gap" : gapLength ? "gap-night" : "",
                       isSelected ? "is-selected-range" : ""
                     ].filter(Boolean).join(" ");
@@ -304,6 +318,7 @@ export default function CalendarView({ bookings, propertyId, checkInTime, checkO
                         {!outside && !staying && !personalBlock && !gapLength && !isToday ? <small>Empty</small> : null}
                       </div>
                       {personalBlock ? <div className="calendar-block-event"><b>Closed / Blocked</b><span>{personalBlock.note}</span></div> : null}
+                      {providerBlock && !staying && !personalBlock ? <div className="calendar-provider-event"><b>{providerBlock.source} unavailable</b><span>Calendar evidence · verify guest details</span></div> : null}
                       {gapLength ? <div className={gapLength === 1 ? "calendar-gap-event critical" : "calendar-gap-event"}><b>{gapLength === 1 ? "⚠ 1-night gap" : `${gapLength}-night gap`}</b><span>{gapLength === 1 ? "Hard to sell" : "Available"}</span></div> : null}
                       {staying ? <button className={`calendar-booking-event source-${staying.source.toLowerCase().replace(/[^a-z]/g, "")}`} onClick={() => onOpenBooking(staying)}><span>{arrival ? `Check-in · ${checkInTime}` : "Occupied night"}</span><b>{staying.firstName} {staying.lastName}</b><small>{staying.source}{arrival ? ` · stay total ${new Intl.NumberFormat("en", { style: "currency", currency: staying.currency || "EUR", maximumFractionDigits: 0 }).format(Number(staying.grossAmount) || 0)}` : ""}</small></button> : null}
                       {departure ? <button className="calendar-departure-event" onClick={() => onOpenBooking(departure)}><b>Checkout · {checkOutTime}</b><span>{departure.firstName}</span></button> : null}
