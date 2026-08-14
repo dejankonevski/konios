@@ -11,9 +11,11 @@ async function authorized() {
 export async function GET(request: Request) {
   const session = await authorized();
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
-  const requestedProperty = new URL(request.url).searchParams.get("propertyId") || (session.role === "property-admin" ? session.propertyIds[0] : "konios-house");
+  const requestUrl = new URL(request.url);
+  const requestedProperty = requestUrl.searchParams.get("propertyId") || (session.role === "property-admin" ? session.propertyIds[0] : "konios-house");
+  const includeArchived = requestUrl.searchParams.get("includeArchived") === "true";
   if (session.role !== "master" && !session.propertyIds.includes(requestedProperty)) return Response.json({ error: "Property access denied." }, { status: 403 });
-  const [records, guide] = await Promise.all([listBookings(requestedProperty), getGuestGuide(requestedProperty)]);
+  const [records, guide] = await Promise.all([listBookings(requestedProperty, { includeArchived }), getGuestGuide(requestedProperty)]);
   const bookings = records.map((booking) => { const state = bookingState(booking, new Date(), guide); return { ...booking, accessStatus: state.status, stayStage: state.stayStage }; });
   return Response.json({ bookings, times: { checkInTime: guide.checkInTime, checkOutTime: guide.checkOutTime, portalLeadHours: guide.portalLeadHours, sensitiveRevealMinutes: guide.sensitiveRevealMinutes, accessExpiryMinutes: guide.accessExpiryMinutes } });
 }

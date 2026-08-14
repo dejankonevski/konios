@@ -51,6 +51,9 @@ type Booking = {
   expectedDepartureTime?: string;
   expectedArrivalTime?: string;
   touristTaxAmount?: number;
+  cancellationDetectedAt?: number;
+  cancellationSource?: "Airbnb" | "Booking.com";
+  cancellationReason?: string;
 };
 type Generated = Booking & { guest: string };
 const weekDays = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
@@ -266,6 +269,7 @@ export default function HostPage() {
   const [copiedLinkUrl, setCopiedLinkUrl] = useState<string | null>(null);
   const [copiedLinkGuest, setCopiedLinkGuest] = useState("");
   const [activeDropdownId, setActiveDropdownId] = useState<string | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
 
   useEffect(() => {
     function handleWindowClick() {
@@ -429,11 +433,12 @@ export default function HostPage() {
 
   const visible = useMemo(() => {
     return sortedBookings.filter((b) =>
+      (showArchived || !b.archivedAt) &&
       `${b.firstName} ${b.lastName} ${b.code} ${b.phone || ""} ${b.source}`
         .toLowerCase()
         .includes(search.toLowerCase())
     );
-  }, [sortedBookings, search]);
+  }, [sortedBookings, search, showArchived]);
 
   const overviewFinancials = useMemo(() => {
     const now = new Date();
@@ -500,7 +505,7 @@ export default function HostPage() {
     const requestId = ++bookingsRequestRef.current;
     setPropertyLoading(true);
     try {
-      const response = await fetch(`/api/host/code?propertyId=${encodeURIComponent(propertyId)}`, { cache: "no-store" });
+      const response = await fetch(`/api/host/code?propertyId=${encodeURIComponent(propertyId)}&includeArchived=true`, { cache: "no-store" });
       if (response.ok) {
         const data = await response.json();
         if (requestId !== bookingsRequestRef.current || activePropertyIdRef.current !== propertyId) return;
@@ -774,6 +779,8 @@ export default function HostPage() {
   async function changeBooking(booking: Booking, action: "toggle" | "delete") {
     const promptMsg = action === "delete"
       ? `Archive ${booking.firstName} ${booking.lastName}'s reservation? You can undo this action.`
+      : booking.archivedAt
+      ? `Restore ${booking.firstName} ${booking.lastName}'s archived reservation?`
       : booking.revoked
       ? `Are you sure you want to restore access code for ${booking.firstName} ${booking.lastName}?`
       : `Are you sure you want to revoke access code for ${booking.firstName} ${booking.lastName}?`;
@@ -787,7 +794,7 @@ export default function HostPage() {
         : {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ revoked: !booking.revoked }),
+            body: JSON.stringify(booking.archivedAt ? { archivedAt: null } : { revoked: !booking.revoked }),
           },
     );
     if (action === "delete") setLastArchived(booking);
@@ -839,6 +846,10 @@ export default function HostPage() {
     .sort((a, b) => a.checkIn.localeCompare(b.checkIn))[0];
   const selectedProperty = properties.find((property) => property.id === selectedPropertyId);
   const todayKey = dateKey(new Date());
+  const archivedBookings = bookings.filter((booking) => Boolean(booking.archivedAt));
+  const canceledToday = bookings
+    .filter((booking) => booking.cancellationDetectedAt && dateKey(new Date(booking.cancellationDetectedAt)) === todayKey)
+    .sort((a, b) => Number(b.cancellationDetectedAt || 0) - Number(a.cancellationDetectedAt || 0));
   const arrivingToday = bookings.filter((b) => !b.revoked && b.checkIn === todayKey);
   const departingToday = bookings.filter((b) => !b.revoked && b.checkOut === todayKey);
   const paymentDue = bookings.filter((b) => !b.revoked && (Number(b.grossAmount) || 0) > (Number(b.paymentCollected) || 0));
@@ -888,9 +899,15 @@ export default function HostPage() {
           const isExpired = b.accessStatus === "expired" || b.revoked;
           const isNextArrival = b.id === nextArrivalId;
           const isNoShow = Boolean(b.isNoShow);
+          const isCanceled = Boolean(b.cancellationDetectedAt);
+          const isArchived = Boolean(b.archivedAt);
           const isCleaningScheduled = Boolean(b.hasCleaningAgency && b.cleaningStatus === "scheduled");
-          const countdown = isNoShow
-            ? "🛑 No-Show"
+          const countdown = isCanceled
+            ? "Canceled"
+            : isArchived
+              ? "Archived"
+              : isNoShow
+                ? "🛑 No-Show"
             : isExpired
               ? (b.revoked ? "Revoked" : "Expired")
               : isActive
@@ -900,7 +917,7 @@ export default function HostPage() {
           const isDropdownActive = activeDropdownId === b.id;
           const rowClass = [
             "booking-table-row",
-            isNoShow ? "is-noshow-row" : "",
+            isCanceled ? "is-canceled-row" : isNoShow ? "is-noshow-row" : "",
             isCleaningScheduled ? "is-cleaning-scheduled-row" : (isActive ? "is-active-row" : ""),
             isNextArrival && !isCleaningScheduled ? "is-next-hero-row" : "is-subsequent-row",
             isDropdownActive ? "has-open-dropdown" : "",
@@ -927,6 +944,13 @@ export default function HostPage() {
                 title="Click to view and edit reservation details"
               >
                 {(() => {
+                  if (isCanceled) {
+                    return (
+                      <div className="row-left-bar canceled">
+                        <span>Canceled</span>
+                      </div>
+                    );
+                  }
                   if (isNoShow) {
                     return (
                       <div className="row-left-bar noshow">
@@ -970,6 +994,9 @@ export default function HostPage() {
                     </h4>
                     {isNoShow && (
                       <span className="row-tag noshow-tag">🛑 No-Show / Unpaid</span>
+                    )}
+                    {isCanceled && (
+                      <span className="row-tag canceled-tag">Canceled by {b.cancellationSource || b.source}</span>
                     )}
                     {isActive && !isNoShow && (
                       <span className="row-tag active-tag">● Currently staying</span>
@@ -1124,7 +1151,7 @@ export default function HostPage() {
                     }}
                     title="Click to copy door code"
                   >
-                    <strong>{b.code}</strong> <span>⧉</span>
+                    <strong>{isArchived ? "—" : b.code}</strong> <span>{isArchived ? "" : "⧉"}</span>
                   </button>
                 </div>
 
@@ -1502,6 +1529,27 @@ export default function HostPage() {
         ) : null}
         {view === "overview" && (
           <>
+            {canceledToday.length > 0 ? (
+              <section className="canceled-today-alert" aria-label="Reservations canceled today">
+                <div className="canceled-today-heading">
+                  <span>Cancellation alert</span>
+                  <strong>{canceledToday.length} reservation{canceledToday.length === 1 ? "" : "s"} canceled today</strong>
+                </div>
+                <div className="canceled-today-list">
+                  {canceledToday.slice(0, 4).map((booking) => (
+                    <article key={booking.id}>
+                      <span className="canceled-avatar">{booking.firstName[0]}{booking.lastName[0]}</span>
+                      <div>
+                        <strong>{booking.firstName} {booking.lastName}</strong>
+                        <small>{booking.source} · {formatShort(booking.checkIn)} → {formatShort(booking.checkOut)}</small>
+                      </div>
+                      <time>{new Intl.DateTimeFormat("en", { hour: "2-digit", minute: "2-digit" }).format(new Date(booking.cancellationDetectedAt || Date.now()))}</time>
+                    </article>
+                  ))}
+                </div>
+                <button type="button" onClick={() => { setShowArchived(true); setView("bookings"); }}>View canceled reservations →</button>
+              </section>
+            ) : null}
             {(() => {
               const todayStr = new Date().toISOString().slice(0, 10);
               const departingToday = bookings.find(
@@ -1692,6 +1740,13 @@ export default function HostPage() {
                   placeholder="Search…"
                 />
               </label>
+              <button
+                type="button"
+                className={`archived-bookings-toggle ${showArchived ? "is-active" : ""}`}
+                onClick={() => setShowArchived((current) => !current)}
+              >
+                {showArchived ? "Hide archived" : `Show archived / canceled (${archivedBookings.length})`}
+              </button>
               <div className="legend">
                 <span>
                   <i className="status-dot active" />

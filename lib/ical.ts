@@ -289,6 +289,11 @@ export async function syncPropertyIcal(propertyId: string) {
     if (successfullyFetchedSources.has(booking.source as "Airbnb" | "Booking.com") && !activeSyncedUids.has(uid)) {
       const todayStr = new Date().toISOString().slice(0, 10);
       if (booking.checkOut >= todayStr) {
+        await updateBooking(booking.id, {
+          cancellationDetectedAt: Date.now(),
+          cancellationSource: booking.source as "Airbnb" | "Booking.com",
+          cancellationReason: "Reservation disappeared from or was marked cancelled in the provider calendar",
+        });
         await deleteBooking(booking.id);
         results.removed++;
         results.cancellationsDetected++;

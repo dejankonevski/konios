@@ -34,6 +34,9 @@ export type Booking = {
   expectedDepartureTime?: string;
   touristTaxAmount?: number;
   icalUid?: string;
+  cancellationDetectedAt?: number;
+  cancellationSource?: "Airbnb" | "Booking.com";
+  cancellationReason?: string;
 };
 
 export function getRedis() {
@@ -151,7 +154,7 @@ export async function getBookingById(id: string) {
   return getRedis().get<Booking>(`booking:${id}`);
 }
 
-export async function listBookings(propertyId?: string) {
+export async function listBookings(propertyId?: string, options: { includeArchived?: boolean } = {}) {
   const redis = getRedis();
   const ids = await redis.zrange<string[]>("bookings", 0, -1, { rev: true });
   if (!ids.length) return [];
@@ -162,7 +165,7 @@ export async function listBookings(propertyId?: string) {
     await Promise.all([redis.set(`booking:${record.id}`, record), redis.set(`access-token:${record.accessToken}`, record.id)]);
   }));
   return records.filter((record) => {
-    if (record.archivedAt) return false;
+    if (record.archivedAt && !options.includeArchived) return false;
     if (propertyId && (record.propertyId || "konios-house") !== propertyId) return false;
     
     const fName = (record.firstName || "").toUpperCase();
