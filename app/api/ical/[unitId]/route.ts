@@ -2,6 +2,18 @@ import { listBookings } from "@/lib/bookings";
 import { listUnits, listProperties } from "@/lib/portfolio";
 import { listCalendarBlocks } from "@/lib/calendar-blocks";
 
+function escapeIcalText(value: string) {
+  return value
+    .replace(/\\/g, "\\\\")
+    .replace(/\r?\n/g, "\\n")
+    .replace(/,/g, "\\,")
+    .replace(/;/g, "\\;");
+}
+
+function utcStamp(timestamp: number) {
+  return new Date(timestamp).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+}
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ unitId: string }> }
@@ -29,9 +41,16 @@ export async function GET(
     listCalendarBlocks(propertyId || ""),
   ]);
 
-  const unitBookings = bookings.filter(
-    (b) => !b.revoked && (b.unitId === unitId || (!b.unitId && (unitId === "konios-house-32" || unitId.endsWith("-unit"))))
-  );
+  const propertyUnits = units.filter((candidate) => candidate.propertyId === propertyId && candidate.active);
+  const primaryUnitId = propertyUnits[0]?.id;
+  const unitBookings = bookings.filter((booking) => {
+    if (booking.revoked || booking.archivedAt) return false;
+    // A property-level feed contains the whole property's availability. A real
+    // unit feed contains that unit plus legacy reservations that predate unit IDs
+    // when it is the property's primary unit.
+    if (!unit) return true;
+    return booking.unitId === unit.id || (!booking.unitId && primaryUnitId === unit.id);
+  });
 
   let icsLines = [
     "BEGIN:VCALENDAR",
@@ -44,16 +63,19 @@ export async function GET(
   for (const b of unitBookings) {
     const startVal = b.checkIn.replace(/-/g, "");
     const endVal = b.checkOut.replace(/-/g, "");
-    const uid = b.icalUid || `booking-${b.id}@konios.com`;
-    const summary = `${b.firstName} ${b.lastName} (${b.source})`;
+    const uid = `booking-${b.id}@konios.vercel.app`;
+    const summary = `Reserved (${b.source})`;
 
     icsLines.push(
       "BEGIN:VEVENT",
       `UID:${uid}`,
+      `DTSTAMP:${utcStamp(b.createdAt || Date.now())}`,
+      `LAST-MODIFIED:${utcStamp(Date.now())}`,
+      "SEQUENCE:0",
       `DTSTART;VALUE=DATE:${startVal}`,
       `DTEND;VALUE=DATE:${endVal}`,
-      `SUMMARY:${summary}`,
-      `DESCRIPTION:Guests: ${b.guests}\\nSource: ${b.source}\\nNotes: ${b.notes || ""}`,
+      `SUMMARY:${escapeIcalText(summary)}`,
+      `DESCRIPTION:${escapeIcalText(`Reserved in Konios · Source: ${b.source}`)}`,
       "END:VEVENT"
     );
   }
@@ -68,10 +90,13 @@ export async function GET(
     icsLines.push(
       "BEGIN:VEVENT",
       `UID:${uid}`,
+      `DTSTAMP:${utcStamp(block.createdAt || Date.now())}`,
+      `LAST-MODIFIED:${utcStamp(Date.now())}`,
+      "SEQUENCE:0",
       `DTSTART;VALUE=DATE:${startVal}`,
       `DTEND;VALUE=DATE:${endVal}`,
-      `SUMMARY:${summary}`,
-      `DESCRIPTION:Blocked by Host: ${block.note || "Closed"}`,
+      `SUMMARY:${escapeIcalText(summary)}`,
+      `DESCRIPTION:${escapeIcalText(`Blocked by host: ${block.note || "Closed"}`)}`,
       "END:VEVENT"
     );
   }
@@ -83,7 +108,10 @@ export async function GET(
   return new Response(icsData, {
     headers: {
       "Content-Type": "text/calendar; charset=utf-8",
-      "Content-Disposition": `attachment; filename="calendar-${unitId}.ics"`
+      "Content-Disposition": `inline; filename="calendar-${unitId}.ics"`,
+      "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+      Pragma: "no-cache",
+      Expires: "0",
     }
   });
 }

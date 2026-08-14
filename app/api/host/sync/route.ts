@@ -15,7 +15,11 @@ export async function POST(request: Request) {
 
   try {
     const results = await syncPropertyIcal(input.propertyId);
-    return Response.json({ success: true, results });
+    const success = results.successfullyFetchedFeeds > 0;
+    return Response.json(
+      { success, partial: success && results.errors.length > 0, results },
+      { status: success ? 200 : 422, headers: { "Cache-Control": "no-store" } },
+    );
   } catch (error: any) {
     return Response.json({ error: error.message }, { status: 500 });
   }

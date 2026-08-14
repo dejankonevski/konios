@@ -217,7 +217,7 @@ export default function PropertyManager({ role, properties, onPropertiesChanged 
         if (errors.length > 0) msg += ` Errors: ${errors.join(", ")}`;
         setStatus(msg);
         await onPropertiesChanged();
-      } else { setStatus(data.error || "Failed to sync iCal calendars."); }
+      } else { setStatus(`Error: ${data.results?.errors?.join(" ") || data.error || "Failed to sync iCal calendars."}`); }
     } catch (err: any) { setStatus(`Error: ${err.message}`); }
     finally { setSyncingPropertyId(null); }
   }
@@ -432,6 +432,7 @@ export default function PropertyManager({ role, properties, onPropertiesChanged 
                           ["notifyUnscheduledCleaning", "Cleaning not scheduled"],
                           ["notifySameDayTurnaround", "Urgent turnaround alert"],
                           ["notifyGuestCheckIn", "Guest check-in alert"],
+                          ["notifyCancellations", "Reservation cancelled"],
                         ] as [keyof TelegramSummaryConfig, string][]).map(([key, label]) => (
                           <label key={key} className="pm-checkbox">
                             <input

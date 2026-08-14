@@ -41,6 +41,13 @@ export async function sendTelegramMessage(text: string, customBotToken?: string,
         parse_mode: "HTML"
       })
     });
+    if (!response.ok) {
+      const failure = await response.json().catch(() => null) as { description?: string } | null;
+      console.error("[telegram] Telegram rejected a message", {
+        status: response.status,
+        description: failure?.description || "Unknown Telegram error",
+      });
+    }
     return response.ok;
   } catch (error) {
     console.error("Failed to send Telegram message:", error);
@@ -125,22 +132,38 @@ export async function notifyCancellationAlert(propertyId: string, booking: {
   notes?: string;
 }) {
   try {
-    const { listProperties } = await import("./portfolio");
+    const { listProperties, defaultSummaryConfig } = await import("./portfolio");
     const property = (await listProperties()).find((item) => item.id === propertyId);
-    if (!property || !property.active || !property.telegramEnabled || !property.telegramBotToken || !property.telegramChatId) return false;
+    if (!property || !property.active) return false;
+
+    const config = { ...defaultSummaryConfig, ...property.telegramSummaryConfig };
+    if (config.notifyCancellations === false) return false;
+
+    // A property may deliberately use the shared Telegram connection. New
+    // booking alerts already support this fallback; cancellations must behave
+    // identically or they silently disappear for properties such as Konios.
+    const hasPropertyTelegram = Boolean(property.telegramEnabled && property.telegramBotToken && property.telegramChatId);
+    const globalTelegram = hasPropertyTelegram ? null : await getTelegramConfig();
+    if (!hasPropertyTelegram && (!globalTelegram?.enabled || !globalTelegram.botToken || !globalTelegram.chatId)) return false;
+
+    const escapeHtml = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
     const start = new Date(`${booking.checkIn}T00:00:00`).getTime();
     const end = new Date(`${booking.checkOut}T00:00:00`).getTime();
     const nights = Math.max(1, Math.round((end - start) / 86_400_000));
     const message = [
       "🚨 <b>Cancellation Alert</b>",
-      `🏢 <b>Property:</b> ${property.name}`,
-      `❌ <b>Cancelled guest:</b> ${booking.firstName} ${booking.lastName}`,
+      `🏢 <b>Property:</b> ${escapeHtml(property.name)}`,
+      `❌ <b>Cancelled guest:</b> ${escapeHtml(`${booking.firstName} ${booking.lastName}`)}`,
       `📅 <b>Freed dates:</b> ${booking.checkIn} → ${booking.checkOut} (${nights} night${nights === 1 ? "" : "s"})`,
-      `🌐 <b>Channel:</b> ${booking.source}`,
+      `🌐 <b>Channel:</b> ${escapeHtml(booking.source)}`,
       "💡 Dates are now unblocked and available.",
     ].join("\n");
-    return await sendTelegramMessage(message, property.telegramBotToken, property.telegramChatId);
+    return await sendTelegramMessage(
+      message,
+      hasPropertyTelegram ? property.telegramBotToken : globalTelegram?.botToken,
+      hasPropertyTelegram ? property.telegramChatId : globalTelegram?.chatId,
+    );
   } catch (error) {
     console.error("Failed to send cancellation alert:", error);
     return false;

@@ -99,8 +99,15 @@ export async function syncPropertyIcal(propertyId: string) {
     added: 0,
     updated: 0,
     removed: 0,
+    configuredFeeds: 0,
+    successfullyFetchedFeeds: 0,
+    eventsRead: 0,
+    cancellationsDetected: 0,
+    cancellationNotificationsSent: 0,
+    cancellationNotificationFailures: 0,
     notificationsSent: 0,
     notificationFailures: 0,
+    feeds: [] as Array<{ source: "Airbnb" | "Booking.com"; configured: boolean; status: "not-configured" | "synced" | "failed"; events: number; error?: string }>,
     errors: [] as string[]
   };
 
@@ -118,16 +125,27 @@ export async function syncPropertyIcal(propertyId: string) {
   const successfullyFetchedSources = new Set<"Airbnb" | "Booking.com">();
 
   for (const feed of syncFeeds) {
-    if (!feed.url?.trim()) continue;
+    if (!feed.url?.trim()) {
+      results.feeds.push({ source: feed.source, configured: false, status: "not-configured", events: 0 });
+      continue;
+    }
+
+    results.configuredFeeds++;
 
     try {
-      const response = await fetch(feed.url, { headers: { "User-Agent": "Konios-iCal-Sync/1.0" } });
+      const response = await fetch(feed.url, {
+        cache: "no-store",
+        headers: { "User-Agent": "Konios-iCal-Sync/1.0", Accept: "text/calendar, text/plain;q=0.9, */*;q=0.1" },
+      });
       if (!response.ok) {
         throw new Error(`HTTP ${response.status} fetching ${feed.source} iCal`);
       }
       const icsData = await response.text();
       const events = parseIcal(icsData);
       successfullyFetchedSources.add(feed.source);
+      results.successfullyFetchedFeeds++;
+      results.eventsRead += events.length;
+      results.feeds.push({ source: feed.source, configured: true, status: "synced", events: events.length });
 
       for (const event of events) {
         const summary = event.summary.trim();
@@ -232,8 +250,14 @@ export async function syncPropertyIcal(propertyId: string) {
         }
       }
     } catch (err: unknown) {
-      results.errors.push(`${feed.source}: ${err instanceof Error ? err.message : "Unknown sync error"}`);
+      const message = err instanceof Error ? err.message : "Unknown sync error";
+      results.errors.push(`${feed.source}: ${message}`);
+      results.feeds.push({ source: feed.source, configured: true, status: "failed", events: 0, error: message });
     }
+  }
+
+  if (results.configuredFeeds === 0) {
+    results.errors.push("No Airbnb or Booking.com import calendar URL is configured for this property.");
   }
 
   // Clean up any previously imported closed/blocked bookings
@@ -260,7 +284,8 @@ export async function syncPropertyIcal(propertyId: string) {
       if (booking.checkOut >= todayStr) {
         await deleteBooking(booking.id);
         results.removed++;
-        await notifyCancellationAlert(propertyId, {
+        results.cancellationsDetected++;
+        const notificationSent = await notifyCancellationAlert(propertyId, {
           firstName: booking.firstName,
           lastName: booking.lastName,
           checkIn: booking.checkIn,
@@ -268,9 +293,24 @@ export async function syncPropertyIcal(propertyId: string) {
           source: booking.source,
           notes: booking.notes,
         });
+        if (notificationSent) results.cancellationNotificationsSent++;
+        else results.cancellationNotificationFailures++;
       }
     }
   }
+
+  console.info("[ical-sync] completed", {
+    propertyId,
+    configuredFeeds: results.configuredFeeds,
+    successfullyFetchedFeeds: results.successfullyFetchedFeeds,
+    eventsRead: results.eventsRead,
+    added: results.added,
+    updated: results.updated,
+    removed: results.removed,
+    cancellationsDetected: results.cancellationsDetected,
+    cancellationNotificationsSent: results.cancellationNotificationsSent,
+    errors: results.errors,
+  });
 
   return results;
 }

@@ -261,6 +261,8 @@ export default function HostPage() {
   const [editSaving, setEditSaving] = useState(false);
   const [paymentLinkBookingId, setPaymentLinkBookingId] = useState<string | null>(null);
   const [paymentLinkMessage, setPaymentLinkMessage] = useState("");
+  const [calendarSyncing, setCalendarSyncing] = useState(false);
+  const [calendarSyncMessage, setCalendarSyncMessage] = useState("");
   const [copiedLinkUrl, setCopiedLinkUrl] = useState<string | null>(null);
   const [copiedLinkGuest, setCopiedLinkGuest] = useState("");
   const [activeDropdownId, setActiveDropdownId] = useState<string | null>(null);
@@ -529,6 +531,43 @@ export default function HostPage() {
     setResult(null);
     setEditingBooking(null);
     await loadBookings(propertyId);
+  }
+
+  async function syncSelectedPropertyCalendars() {
+    const propertyId = activePropertyIdRef.current;
+    setCalendarSyncing(true);
+    setCalendarSyncMessage("");
+    try {
+      const response = await fetch("/api/host/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ propertyId }),
+      });
+      const data = await response.json();
+      const result = data.results;
+      if (!response.ok || !result) {
+        const detail = result?.errors?.join(" ") || data.error || "Calendar sync failed.";
+        setCalendarSyncMessage(`⚠️ ${detail}`);
+        return;
+      }
+
+      const channelSummary = (result.feeds || [])
+        .map((feed: { source: string; status: string; events: number }) =>
+          feed.status === "synced" ? `${feed.source}: ${feed.events} events` : `${feed.source}: not connected`
+        )
+        .join(" · ");
+      const cancellationSummary = result.cancellationsDetected
+        ? ` · ${result.cancellationsDetected} cancellation${result.cancellationsDetected === 1 ? "" : "s"} detected${result.cancellationNotificationFailures ? ` (${result.cancellationNotificationFailures} Telegram alert failed)` : ""}`
+        : "";
+      setCalendarSyncMessage(
+        `✅ Synced ${selectedProperty?.name || "property"}: ${result.added} added, ${result.updated} updated, ${result.removed} removed${cancellationSummary}. ${channelSummary}`
+      );
+      await loadBookings(propertyId);
+    } catch (syncError) {
+      setCalendarSyncMessage(`⚠️ ${syncError instanceof Error ? syncError.message : "Calendar sync failed."}`);
+    } finally {
+      setCalendarSyncing(false);
+    }
   }
   async function login(event: FormEvent) {
     event.preventDefault();
@@ -1371,6 +1410,15 @@ export default function HostPage() {
               </div>
             </label>
             <button
+              type="button"
+              className="calendar-sync-button"
+              onClick={() => void syncSelectedPropertyCalendars()}
+              disabled={calendarSyncing || propertyLoading}
+              title="Fetch the latest Airbnb and Booking.com calendars for the selected property"
+            >
+              {calendarSyncing ? "Syncing…" : "↻ Sync calendars"}
+            </button>
+            <button
               className="quick-add"
               onClick={() => {
                 setView("new");
@@ -1405,6 +1453,12 @@ export default function HostPage() {
           <div className="dashboard-toast" role="status">
             <span>{paymentLinkMessage}</span>
             <button type="button" onClick={() => setPaymentLinkMessage("")} aria-label="Dismiss">×</button>
+          </div>
+        ) : null}
+        {calendarSyncMessage ? (
+          <div className={`dashboard-toast calendar-sync-toast ${calendarSyncMessage.startsWith("⚠️") ? "is-warning" : ""}`} role="status">
+            <span>{calendarSyncMessage}</span>
+            <button type="button" onClick={() => setCalendarSyncMessage("")} aria-label="Dismiss">×</button>
           </div>
         ) : null}
         {view === "overview" && (
