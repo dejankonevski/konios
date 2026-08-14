@@ -125,6 +125,7 @@ export async function syncPropertyIcal(propertyId: string) {
   );
 
   const activeSyncedUids = new Set<string>();
+  const explicitlyCancelledUids = new Set<string>();
   const successfullyFetchedSources = new Set<"Airbnb" | "Booking.com">();
 
   for (const feed of syncFeeds) {
@@ -155,7 +156,10 @@ export async function syncPropertyIcal(propertyId: string) {
         const isCancelled = event.status === "CANCELLED" || /\bCANCELLED\b|\bCANCELED\b/i.test(summary);
         // Do not mark a cancelled event as active. If it was imported before,
         // the source-aware cancellation pass below will archive it and alert.
-        if (isCancelled) continue;
+        if (isCancelled) {
+          explicitlyCancelledUids.add(event.uid);
+          continue;
+        }
         const checkInAt = new Date(`${event.checkIn}T00:00:00Z`).getTime();
         const checkOutAt = new Date(`${event.checkOut}T00:00:00Z`).getTime();
         const eventNights = Math.round((checkOutAt - checkInAt) / 86_400_000);
@@ -218,6 +222,11 @@ export async function syncPropertyIcal(propertyId: string) {
         }
 
         if (existing) {
+          if (existing.icalMissingSince || existing.icalMissingCount) {
+            await updateBooking(existing.id, { icalMissingSince: 0, icalMissingCount: 0 });
+            existing.icalMissingSince = 0;
+            existing.icalMissingCount = 0;
+          }
           if (existing.checkIn !== event.checkIn || existing.checkOut !== event.checkOut) {
             await updateBooking(existing.id, {
               checkIn: event.checkIn,
@@ -283,31 +292,78 @@ export async function syncPropertyIcal(propertyId: string) {
     }
   }
 
-  // Cancel imported reservations only when their source feed was fetched
-  // successfully. A failed provider request must never erase reservations.
+  // A provider feed can temporarily return an empty/partial result, or a host can
+  // accidentally paste an export URL into an import field. Missing once is not
+  // proof of cancellation. Explicit CANCELLED events are immediate; disappearances
+  // require repeated observations, and a batch disappearance is quarantined.
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const missingBySource = new Map<"Airbnb" | "Booking.com", Array<[string, typeof existingBookings[number]]>>();
   for (const [uid, booking] of existingIcalMap.entries()) {
-    if (successfullyFetchedSources.has(booking.source as "Airbnb" | "Booking.com") && !activeSyncedUids.has(uid)) {
-      const todayStr = new Date().toISOString().slice(0, 10);
-      if (booking.checkOut >= todayStr) {
-        await updateBooking(booking.id, {
-          cancellationDetectedAt: Date.now(),
-          cancellationSource: booking.source as "Airbnb" | "Booking.com",
-          cancellationReason: "Reservation disappeared from or was marked cancelled in the provider calendar",
-        });
-        await deleteBooking(booking.id);
-        results.removed++;
-        results.cancellationsDetected++;
-        const notificationSent = await notifyCancellationAlert(propertyId, {
-          firstName: booking.firstName,
-          lastName: booking.lastName,
-          checkIn: booking.checkIn,
-          checkOut: booking.checkOut,
-          source: booking.source,
-          notes: booking.notes,
-        });
-        if (notificationSent) results.cancellationNotificationsSent++;
-        else results.cancellationNotificationFailures++;
+    const source = booking.source as "Airbnb" | "Booking.com";
+    if (!successfullyFetchedSources.has(source) || activeSyncedUids.has(uid) || booking.checkOut < todayStr) continue;
+    const entries = missingBySource.get(source) || [];
+    entries.push([uid, booking]);
+    missingBySource.set(source, entries);
+  }
+
+  const cancelBooking = async (booking: typeof existingBookings[number], reason: string) => {
+    await updateBooking(booking.id, {
+      cancellationDetectedAt: Date.now(),
+      cancellationSource: booking.source as "Airbnb" | "Booking.com",
+      cancellationReason: reason,
+      icalMissingSince: 0,
+      icalMissingCount: 0,
+    });
+    await deleteBooking(booking.id);
+    results.removed++;
+    results.cancellationsDetected++;
+    const notificationSent = await notifyCancellationAlert(propertyId, {
+      firstName: booking.firstName,
+      lastName: booking.lastName,
+      checkIn: booking.checkIn,
+      checkOut: booking.checkOut,
+      source: booking.source,
+      notes: booking.notes,
+    });
+    if (notificationSent) results.cancellationNotificationsSent++;
+    else results.cancellationNotificationFailures++;
+  };
+
+  for (const [source, missing] of missingBySource.entries()) {
+    // Booking.com's export is an availability feed, not a reservation feed. It
+    // emits anonymous CLOSED blocks whose UID and date range can change as past
+    // nights roll off or adjacent blocks merge. Absence is never a cancellation.
+    if (source === "Booking.com") {
+      if (missing.length) {
+        results.errors.push(`Booking.com: ${missing.length} linked reservation(s) were not present in the availability feed; no cancellations were applied.`);
       }
+      continue;
+    }
+
+    const explicit = missing.filter(([uid]) => explicitlyCancelledUids.has(uid));
+    for (const [, booking] of explicit) {
+      await cancelBooking(booking, "Provider calendar explicitly marked the reservation cancelled");
+    }
+    const unconfirmed = missing.filter(([uid]) => !explicitlyCancelledUids.has(uid));
+    if (!unconfirmed.length) continue;
+
+    if (unconfirmed.length > 1) {
+      results.errors.push(`${source}: safety stop — ${unconfirmed.length} reservations disappeared together; no cancellations were applied.`);
+      continue;
+    }
+    const [, booking] = unconfirmed[0];
+    if (booking.checkIn <= todayStr && booking.checkOut > todayStr) {
+      results.errors.push(`${source}: safety stop — current stay ${booking.firstName} ${booking.lastName} was missing; it was not cancelled.`);
+      continue;
+    }
+    const now = Date.now();
+    const missingSince = booking.icalMissingSince || now;
+    const missingCount = (booking.icalMissingCount || 0) + 1;
+    await updateBooking(booking.id, { icalMissingSince: missingSince, icalMissingCount: missingCount });
+    if (missingCount >= 3 && now - missingSince >= 15 * 60 * 1000) {
+      await cancelBooking(booking, "Reservation was absent from three successful provider syncs for at least 15 minutes");
+    } else {
+      results.errors.push(`${source}: cancellation pending verification (${missingCount}/3 observations).`);
     }
   }
 

@@ -37,6 +37,8 @@ export type Booking = {
   cancellationDetectedAt?: number;
   cancellationSource?: "Airbnb" | "Booking.com";
   cancellationReason?: string;
+  icalMissingSince?: number;
+  icalMissingCount?: number;
 };
 
 export function getRedis() {
