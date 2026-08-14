@@ -17,7 +17,10 @@ export async function GET(request: Request) {
   if (session.role !== "master" && !session.propertyIds.includes(requestedProperty)) return Response.json({ error: "Property access denied." }, { status: 403 });
   const [records, guide] = await Promise.all([listBookings(requestedProperty, { includeArchived }), getGuestGuide(requestedProperty)]);
   const bookings = records.map((booking) => { const state = bookingState(booking, new Date(), guide); return { ...booking, accessStatus: state.status, stayStage: state.stayStage }; });
-  return Response.json({ bookings, times: { checkInTime: guide.checkInTime, checkOutTime: guide.checkOutTime, portalLeadHours: guide.portalLeadHours, sensitiveRevealMinutes: guide.sensitiveRevealMinutes, accessExpiryMinutes: guide.accessExpiryMinutes } });
+  return Response.json(
+    { bookings, times: { checkInTime: guide.checkInTime, checkOutTime: guide.checkOutTime, portalLeadHours: guide.portalLeadHours, sensitiveRevealMinutes: guide.sensitiveRevealMinutes, accessExpiryMinutes: guide.accessExpiryMinutes } },
+    { headers: { "Cache-Control": "private, no-store, max-age=0", Pragma: "no-cache" } },
+  );
 }
 
 export async function POST(request: Request) {
