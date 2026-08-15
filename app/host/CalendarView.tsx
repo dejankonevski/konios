@@ -290,6 +290,7 @@ export default function CalendarView({ bookings, propertyId, checkInTime, checkO
                     const staying = validBookings.find((booking) => key >= booking.checkIn && key < booking.checkOut);
                     const arrival = validBookings.find((booking) => booking.checkIn === key);
                     const departure = validBookings.find((booking) => booking.checkOut === key);
+                    const isCheckoutDayOnly = departure && !staying;
                     const personalBlock = blocks.find((block) => key >= block.start && key < block.end);
                     const providerBlock = providerEvents.find((event) => key >= event.start && key < event.end);
                     const gapLength = gapNights.get(key);
