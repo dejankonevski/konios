@@ -895,7 +895,7 @@ export default function HostPage() {
       ) : (
         items.map((b, index) => {
           const departingGuest = b;
-          const nextB = items.find((candidate, cIdx) => cIdx > index && !candidate.revoked && !candidate.cancellationDetectedAt && candidate.checkIn >= b.checkOut);
+          const nextB = items.find((candidate, cIdx) => cIdx > index && !candidate.revoked && !candidate.cancellationDetectedAt && candidate.checkIn === b.checkOut);
           const isSameDayTurnaround = Boolean(
             nextB && !departingGuest.revoked && !departingGuest.cancellationDetectedAt && departingGuest.checkOut === nextB.checkIn
           );
