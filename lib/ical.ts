@@ -188,8 +188,18 @@ export async function syncPropertyIcal(propertyId: string) {
                                   summary.toUpperCase().includes("NOT AVAILABLE") || 
                                   summary.toUpperCase().includes("BLOCKED") ||
                                   summary.toUpperCase().includes("OWNER");
-        if (feed.source === "Airbnb" && isClosedOrBlocked) {
-          continue; // Skip closed or blocked dates from being imported as guest bookings
+        
+        // If an event is a blocked/closed period (from Airbnb or Booking.com), record it as a Calendar Block
+        // so it blocks availability on your calendar WITHOUT appearing as a fake guest booking!
+        if (isClosedOrBlocked) {
+          activeSyncedUids.add(event.uid);
+          // Ensure it doesn't exist as a guest booking
+          const existingAsBooking = existingIcalMap.get(event.uid);
+          if (existingAsBooking) {
+            await deleteBooking(existingAsBooking.id);
+            results.removed++;
+          }
+          continue; 
         }
 
         const eventNights = nightsBetween(event.checkIn, event.checkOut);
