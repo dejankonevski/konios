@@ -894,9 +894,10 @@ export default function HostPage() {
         </div>
       ) : (
         items.map((b, index) => {
-          const nextB = items[index + 1];
+          const departingGuest = b;
+          const nextB = items.find((candidate, cIdx) => cIdx > index && !candidate.revoked && !candidate.cancellationDetectedAt && candidate.checkIn >= b.checkOut);
           const isSameDayTurnaround = Boolean(
-            nextB && !b.revoked && !nextB.revoked && b.checkOut === nextB.checkIn
+            nextB && !departingGuest.revoked && !departingGuest.cancellationDetectedAt && departingGuest.checkOut === nextB.checkIn
           );
           const isActive = b.stayStage === "during-stay" || b.stayStage === "checkout-day";
           const isExpired = b.accessStatus === "expired" || b.revoked;
