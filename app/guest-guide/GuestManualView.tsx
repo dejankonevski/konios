@@ -77,9 +77,6 @@ export default function GuestManualView({
   });
   const [previewImage, setPreviewImage] = useState<{ src: string; title: string; subtitle?: string } | null>(null);
   const [activeSection, setActiveSection] = useState<GuideSection>(() => sectionForStage(accessState.stayStage));
-  const [paymentLoading, setPaymentLoading] = useState(false);
-  const [paymentError, setPaymentError] = useState("");
-  const outstandingAmount = Math.max(0, Number(booking.grossAmount || 0) - Number(booking.paymentCollected || 0));
   const accessDetailsLabel = new Intl.DateTimeFormat("en", {
     timeZone: "Europe/Skopje",
     dateStyle: "long",
@@ -91,20 +88,6 @@ export default function GuestManualView({
     window.setTimeout(() => {
       document.getElementById("guide-content")?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 0);
-  }
-
-  async function startPayment() {
-    setPaymentLoading(true);
-    setPaymentError("");
-    try {
-      const response = await fetch("/api/guest/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ accessToken: booking.accessToken }) });
-      const data = await response.json();
-      if (!response.ok || !data.url) throw new Error(data.error || "Payment checkout could not be started.");
-      window.location.assign(data.url);
-    } catch (error) {
-      setPaymentError(error instanceof Error ? error.message : "Payment checkout could not be started.");
-      setPaymentLoading(false);
-    }
   }
 
   useEffect(() => {
@@ -237,7 +220,6 @@ export default function GuestManualView({
             {activeSection === "checkout" ? `Checkout is at ${guide.checkOutTime}. Everything to do before you leave is below.` : null}
           </p>
         </div>
-        {outstandingAmount > 0 ? <div className="guest-payment-banner"><div><span>Outstanding balance</span><strong>{new Intl.NumberFormat("en", { style: "currency", currency: booking.currency || "EUR" }).format(outstandingAmount)}</strong><small>Pay securely by card through Stripe Checkout.</small></div><button type="button" onClick={startPayment} disabled={paymentLoading}>{paymentLoading ? "Opening secure checkout…" : "Pay balance securely →"}</button>{paymentError ? <p role="alert">{paymentError}</p> : null}</div> : null}
         <div className="guide-hub-grid">
           {([
             ["checkin", "01", "Check in", "Directions, parking, entrance and key"],
