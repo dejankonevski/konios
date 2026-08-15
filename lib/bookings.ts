@@ -34,6 +34,8 @@ export type Booking = {
   expectedDepartureTime?: string;
   touristTaxAmount?: number;
   icalUid?: string;
+  icalManaged?: boolean;
+  guestNameRequired?: boolean;
   cancellationDetectedAt?: number;
   cancellationSource?: "Airbnb" | "Booking.com";
   cancellationReason?: string;
@@ -180,7 +182,7 @@ export async function listBookings(propertyId?: string, options: { includeArchiv
     const fullName = `${record.firstName || ""} ${record.lastName || ""}`.trim().toUpperCase();
     const notes = (record.notes || "").toUpperCase();
     const generatedPlaceholder = notes.includes("IMPORTED VIA ICAL SYNC") &&
-      (fullName === "CLOSED - NOT AVAILABLE" || fullName === "BOOKING.COM GUEST" || fullName === "AIRBNB GUEST");
+      (fullName === "CLOSED - NOT AVAILABLE" || fullName.includes("BLOCKED"));
     if (generatedPlaceholder) return false;
 
     const duplicateKey = `${record.source}|${record.firstName}|${record.lastName}|${record.checkIn}|${record.checkOut}`;

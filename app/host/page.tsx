@@ -55,6 +55,7 @@ type Booking = {
   cancellationDetectedAt?: number;
   cancellationSource?: "Airbnb" | "Booking.com";
   cancellationReason?: string;
+  guestNameRequired?: boolean;
 };
 type Generated = Booking & { guest: string };
 const weekDays = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
@@ -854,6 +855,7 @@ export default function HostPage() {
   const arrivingToday = bookings.filter((b) => !b.revoked && b.checkIn === todayKey);
   const departingToday = bookings.filter((b) => !b.revoked && b.checkOut === todayKey);
   const paymentDue = bookings.filter((b) => !b.revoked && (Number(b.grossAmount) || 0) > (Number(b.paymentCollected) || 0));
+  const guestNamesRequired = bookings.filter((b) => !b.revoked && !b.archivedAt && b.guestNameRequired);
   const nextUnoccupiedGap = (() => {
     const stays = bookings
       .filter((booking) => !booking.revoked && booking.checkOut > todayKey)
@@ -998,6 +1000,9 @@ export default function HostPage() {
                     )}
                     {isCanceled && (
                       <span className="row-tag canceled-tag">Canceled by {b.cancellationSource || b.source}</span>
+                    )}
+                    {b.guestNameRequired && !isCanceled && (
+                      <span className="row-tag guest-name-required-tag">Guest name required · click Edit</span>
                     )}
                     {isActive && !isNoShow && (
                       <span className="row-tag active-tag">● Currently staying</span>
@@ -1515,6 +1520,12 @@ export default function HostPage() {
             <span>{calendarSyncMessage}</span>
             <button type="button" onClick={() => setCalendarSyncMessage("")} aria-label="Dismiss">×</button>
           </div>
+        ) : null}
+        {(view === "overview" || view === "bookings") && guestNamesRequired.length > 0 ? (
+          <button className="guest-name-required-banner" type="button" onClick={() => setView("bookings")}>
+            <span>👤 <b>{guestNamesRequired.length} synced reservation{guestNamesRequired.length === 1 ? " needs" : "s need"} a guest name</b> · The provider calendar hid the personal details.</span>
+            <strong>Open and update →</strong>
+          </button>
         ) : null}
         {(view === "overview" || view === "bookings") && selectedProperty && !selectedProperty.airbnbIcalUrl && !selectedProperty.bookingIcalUrl ? (
           <div className="calendar-connection-warning" role="alert">

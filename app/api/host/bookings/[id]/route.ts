@@ -18,6 +18,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   if (typeof body.firstName === "string" && body.firstName.trim()) updates.firstName = body.firstName.trim();
   if (typeof body.lastName === "string" && body.lastName.trim()) updates.lastName = body.lastName.trim();
+  if (
+    typeof body.firstName === "string" && body.firstName.trim() &&
+    typeof body.lastName === "string" && body.lastName.trim() &&
+    `${body.firstName.trim()} ${body.lastName.trim()}`.toLowerCase() !== "booking.com guest" &&
+    `${body.firstName.trim()} ${body.lastName.trim()}`.toLowerCase() !== "airbnb guest"
+  ) updates.guestNameRequired = false;
   if (typeof body.guests === "number" && body.guests > 0) updates.guests = Math.floor(body.guests);
   if (typeof body.phone === "string") updates.phone = body.phone.trim();
   if (typeof body.notes === "string") updates.notes = body.notes.trim();

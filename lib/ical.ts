@@ -2,6 +2,7 @@ import { listBookings, createBooking, updateBooking, deleteBooking } from "./boo
 import { defaultSummaryConfig, listProperties, listUnits } from "./portfolio";
 import { notifyCancellationAlert, notifyNewBookingAlert } from "./telegram";
 import { replaceProviderCalendarEvents } from "./provider-calendar";
+import { subtractDateRanges } from "./date-ranges";
 
 export interface IcalEvent {
   uid: string;
@@ -94,6 +95,14 @@ function extractGuestNameFromDescription(description?: string): { firstName: str
   return null;
 }
 
+function nightsBetween(start: string, end: string) {
+  return Math.round((new Date(`${end}T00:00:00Z`).getTime() - new Date(`${start}T00:00:00Z`).getTime()) / 86_400_000);
+}
+
+function bookingSegmentUid(providerUid: string, start: string, end: string) {
+  return `booking-calendar:${providerUid}:${start}:${end}`;
+}
+
 export async function syncPropertyIcal(propertyId: string) {
   const properties = await listProperties();
   const property = properties.find((p) => p.id === propertyId);
@@ -166,11 +175,6 @@ export async function syncPropertyIcal(propertyId: string) {
       results.eventsRead += events.length;
       results.feeds.push({ source: feed.source, configured: true, status: "synced", events: events.length });
 
-      // Booking.com's iCal export is an anonymous availability feed. CLOSED
-      // blocks can merge, split, shrink and receive new UIDs. They are useful for
-      // showing unavailable nights, but must never mutate guest reservations.
-      if (feed.source === "Booking.com") continue;
-
       for (const event of events) {
         const summary = event.summary.trim();
         const isCancelled = event.status === "CANCELLED" || /\bCANCELLED\b|\bCANCELED\b/i.test(summary);
@@ -184,8 +188,80 @@ export async function syncPropertyIcal(propertyId: string) {
                                   summary.toUpperCase().includes("NOT AVAILABLE") || 
                                   summary.toUpperCase().includes("BLOCKED") ||
                                   summary.toUpperCase().includes("OWNER");
-        if (isClosedOrBlocked) {
+        if (feed.source === "Airbnb" && isClosedOrBlocked) {
           continue; // Skip closed or blocked dates from being imported as guest bookings
+        }
+
+        const eventNights = nightsBetween(event.checkIn, event.checkOut);
+        if (!Number.isFinite(eventNights) || eventNights < 1 || eventNights > 30) continue;
+
+        // Booking.com exposes only merged anonymous unavailable ranges. Never
+        // stretch an existing named reservation to fit such a range. Preserve
+        // every existing stay it covers and create visible, editable placeholders
+        // only for the uncovered dates.
+        if (feed.source === "Booking.com") {
+          const coveredBookings = existingBookings.filter((booking) => (
+            !booking.revoked && !booking.archivedAt &&
+            booking.checkIn < event.checkOut && booking.checkOut > event.checkIn
+          ));
+          for (const booking of coveredBookings) {
+            if (booking.source === "Booking.com" && booking.icalManaged && booking.icalUid &&
+                booking.checkIn >= event.checkIn && booking.checkOut <= event.checkOut) {
+              activeSyncedUids.add(booking.icalUid);
+            }
+          }
+
+          const uncovered = subtractDateRanges(
+            { start: event.checkIn, end: event.checkOut },
+            coveredBookings.map((booking) => ({ start: booking.checkIn, end: booking.checkOut })),
+          );
+
+          for (const segment of uncovered) {
+            const segmentUid = bookingSegmentUid(event.uid, segment.start, segment.end);
+            activeSyncedUids.add(segmentUid);
+            let existing = existingIcalMap.get(segmentUid);
+            if (!existing) {
+              existing = existingBookings.find((booking) => (
+                !booking.revoked && !booking.archivedAt && booking.source === feed.source &&
+                booking.checkIn === segment.start && booking.checkOut === segment.end
+              ));
+            }
+            if (existing) {
+              if (existing.icalMissingSince || existing.icalMissingCount) {
+                await updateBooking(existing.id, { icalMissingSince: 0, icalMissingCount: 0 });
+              }
+              continue;
+            }
+
+            const newBooking = await createBooking({
+              propertyId,
+              unitId: propertyUnitId,
+              firstName: "Booking.com",
+              lastName: "Guest",
+              checkIn: segment.start,
+              checkOut: segment.end,
+              guests: 1,
+              source: feed.source,
+              notes: `Imported via iCal Sync. Guest identity is hidden by Booking.com. Original summary: ${event.summary}`,
+              icalUid: segmentUid,
+              icalManaged: true,
+              guestNameRequired: true,
+            });
+            existingBookings.push(newBooking);
+            existingIcalMap.set(segmentUid, newBooking);
+            results.added++;
+            const notificationSent = await notifyNewBookingAlert(propertyId, {
+              firstName: newBooking.firstName,
+              lastName: newBooking.lastName,
+              checkIn: newBooking.checkIn,
+              checkOut: newBooking.checkOut,
+              source: newBooking.source,
+              notes: "Guest name is hidden by the Booking.com calendar. Open this reservation in Konios and enter the actual guest name.",
+            });
+            if (notificationSent) results.notificationsSent++;
+            else if (({ ...defaultSummaryConfig, ...property.telegramSummaryConfig }).notifyNewReservations !== false) results.notificationFailures++;
+          }
+          continue;
         }
 
         activeSyncedUids.add(event.uid);
@@ -257,7 +333,9 @@ export async function syncPropertyIcal(propertyId: string) {
             guests: 1,
             source: feed.source,
             notes: `Imported via iCal Sync. Summary: ${event.summary}`,
-            icalUid: event.uid
+            icalUid: event.uid,
+            icalManaged: true,
+            guestNameRequired: firstName === feed.source && lastName === "Guest",
           });
           existingBookings.push(newBooking);
           existingIcalMap.set(event.uid, newBooking);
@@ -312,7 +390,7 @@ export async function syncPropertyIcal(propertyId: string) {
   const missingBySource = new Map<"Airbnb" | "Booking.com", Array<[string, typeof existingBookings[number]]>>();
   for (const [uid, booking] of existingIcalMap.entries()) {
     const source = booking.source as "Airbnb" | "Booking.com";
-    if (source === "Booking.com") continue;
+    if (source === "Booking.com" && !booking.icalManaged) continue;
     if (!successfullyFetchedSources.has(source) || activeSyncedUids.has(uid) || booking.checkOut < todayStr) continue;
     const entries = missingBySource.get(source) || [];
     entries.push([uid, booking]);
