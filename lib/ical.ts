@@ -188,12 +188,10 @@ export async function syncPropertyIcal(propertyId: string) {
                                   summary.toUpperCase().includes("NOT AVAILABLE") || 
                                   summary.toUpperCase().includes("BLOCKED") ||
                                   summary.toUpperCase().includes("OWNER");
-        
-        // If an event is a blocked/closed period (from Airbnb or Booking.com), record it as a Calendar Block
-        // so it blocks availability on your calendar WITHOUT appearing as a fake guest booking!
+
+        // If an event is explicitly a blocked/closed period, handle as a calendar block
         if (isClosedOrBlocked) {
           activeSyncedUids.add(event.uid);
-          // Ensure it doesn't exist as a guest booking
           const existingAsBooking = existingIcalMap.get(event.uid);
           if (existingAsBooking) {
             await deleteBooking(existingAsBooking.id);
@@ -205,10 +203,9 @@ export async function syncPropertyIcal(propertyId: string) {
         const eventNights = nightsBetween(event.checkIn, event.checkOut);
         if (!Number.isFinite(eventNights) || eventNights < 1 || eventNights > 30) continue;
 
-        // Booking.com exposes only merged anonymous unavailable ranges. Never
-        // stretch an existing named reservation to fit such a range. Preserve
-        // every existing stay it covers and create visible, editable placeholders
-        // only for the uncovered dates.
+        // Booking.com exposes only merged anonymous unavailable ranges (e.g. 2026-08-24 to 2026-08-28).
+        // If part of the range is closed/blocked (e.g. 24th) or already covered by an existing booking,
+        // subtract those dates so guest reservations are accurate (e.g. Aug 25 to Aug 28).
         if (feed.source === "Booking.com") {
           const coveredBookings = existingBookings.filter((booking) => (
             !booking.revoked && !booking.archivedAt &&
@@ -221,7 +218,7 @@ export async function syncPropertyIcal(propertyId: string) {
             }
           }
 
-          const uncovered = subtractDateRanges(
+          let uncovered = subtractDateRanges(
             { start: event.checkIn, end: event.checkOut },
             coveredBookings.map((booking) => ({ start: booking.checkIn, end: booking.checkOut })),
           );
