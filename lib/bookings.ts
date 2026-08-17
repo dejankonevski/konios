@@ -178,7 +178,6 @@ export async function listBookings(propertyId?: string, options: { includeArchiv
     if (record.archivedAt && !options.includeArchived) return false;
     if (propertyId && (record.propertyId || "konios-house") !== propertyId) return false;
     
-    const fName = (record.firstName || "").toUpperCase();
     const fullName = `${record.firstName || ""} ${record.lastName || ""}`.trim().toUpperCase();
     const notes = (record.notes || "").toUpperCase();
     const generatedPlaceholder = notes.includes("IMPORTED VIA ICAL SYNC") &&
@@ -188,13 +187,6 @@ export async function listBookings(propertyId?: string, options: { includeArchiv
     const duplicateKey = `${record.source}|${record.firstName}|${record.lastName}|${record.checkIn}|${record.checkOut}`;
     if ((record.revoked || record.archivedAt) && activeReservationKeys.has(duplicateKey)) return false;
 
-    const isCalendarReservation = record.source === "Booking.com" && Boolean(record.icalUid);
-    if (!isCalendarReservation &&
-        (fName.includes("CLOSED") || fName.includes("NOT AVAILABLE") || fName.includes("BLOCKED") ||
-         notes.includes("CLOSED") || notes.includes("NOT AVAILABLE") || notes.includes("BLOCKED"))) {
-      return false;
-    }
-    
     return true;
   });
 }
