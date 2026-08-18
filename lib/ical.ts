@@ -184,21 +184,7 @@ export async function syncPropertyIcal(propertyId: string) {
           explicitlyCancelledUids.add(event.uid);
           continue;
         }
-        const isClosedOrBlocked = summary.toUpperCase().includes("CLOSED") || 
-                                  summary.toUpperCase().includes("NOT AVAILABLE") || 
-                                  summary.toUpperCase().includes("BLOCKED") ||
-                                  summary.toUpperCase().includes("OWNER");
 
-        // If an event is explicitly a blocked/closed period, handle as a calendar block
-        if (isClosedOrBlocked) {
-          activeSyncedUids.add(event.uid);
-          const existingAsBooking = existingIcalMap.get(event.uid);
-          if (existingAsBooking) {
-            await deleteBooking(existingAsBooking.id);
-            results.removed++;
-          }
-          continue; 
-        }
 
         const eventNights = nightsBetween(event.checkIn, event.checkOut);
         if (!Number.isFinite(eventNights) || eventNights < 1 || eventNights > 30) continue;
