@@ -41,6 +41,7 @@ export type Booking = {
   cancellationReason?: string;
   icalMissingSince?: number;
   icalMissingCount?: number;
+  manualArchive?: boolean;
 };
 
 export function getRedis() {
@@ -174,8 +175,17 @@ export async function listBookings(propertyId?: string, options: { includeArchiv
       .map((record) => `${record.source}|${record.firstName}|${record.lastName}|${record.checkIn}|${record.checkOut}`),
   );
 
+  // Auto-restore any booking whose archivedAt was set by background sync (not explicitly manually archived by host)
+  await Promise.all(records.map(async (record) => {
+    if (record.archivedAt && !record.manualArchive) {
+      record.archivedAt = null;
+      record.revoked = false;
+      await redis.set(`booking:${record.id}`, record);
+    }
+  }));
+
   const candidateRecords = records.filter((record) => {
-    if (record.archivedAt && !options.includeArchived) return false;
+    if (record.archivedAt && record.manualArchive && !options.includeArchived) return false;
     if (propertyId && (record.propertyId || "konios-house") !== propertyId) return false;
     
     const fullName = `${record.firstName || ""} ${record.lastName || ""}`.trim().toUpperCase();
@@ -249,7 +259,7 @@ export async function deleteBooking(id: string) {
   const redis = getRedis();
   const booking = await redis.get<Booking>(`booking:${id}`);
   if (!booking) return false;
-  const archived: Booking = { ...booking, revoked: true, archivedAt: Date.now() };
+  const archived: Booking = { ...booking, revoked: true, archivedAt: Date.now(), manualArchive: true };
   await redis.set(`booking:${id}`, archived);
   await logAudit("reservation.archived", id, { guest: `${booking.firstName} ${booking.lastName}` });
   return true;
