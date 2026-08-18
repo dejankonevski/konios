@@ -174,12 +174,7 @@ export async function listBookings(propertyId?: string, options: { includeArchiv
       .map((record) => `${record.source}|${record.firstName}|${record.lastName}|${record.checkIn}|${record.checkOut}`),
   );
 
-  return records.filter((record) => {
-    // If a booking was archived automatically by an iCal sync pass, clear archivedAt/revoked so it is not lost
-    if (record.archivedAt && (record.cancellationDetectedAt || record.cancellationReason || record.icalUid || record.icalMissingCount)) {
-      record.archivedAt = null;
-      record.revoked = false;
-    }
+  const candidateRecords = records.filter((record) => {
     if (record.archivedAt && !options.includeArchived) return false;
     if (propertyId && (record.propertyId || "konios-house") !== propertyId) return false;
     
@@ -189,11 +184,53 @@ export async function listBookings(propertyId?: string, options: { includeArchiv
       (fullName === "CLOSED - NOT AVAILABLE" || fullName.includes("BLOCKED"));
     if (generatedPlaceholder) return false;
 
-    const duplicateKey = `${record.source}|${record.firstName}|${record.lastName}|${record.checkIn}|${record.checkOut}`;
-    if ((record.revoked || record.archivedAt) && activeReservationKeys.has(duplicateKey)) return false;
-
     return true;
   });
+
+  const groupMap = new Map<string, Booking[]>();
+  for (const record of candidateRecords) {
+    if (record.revoked && !options.includeArchived) continue;
+    const key = `${record.propertyId || "konios-house"}|${record.checkIn}|${record.checkOut}`;
+    const group = groupMap.get(key) || [];
+    group.push(record);
+    groupMap.set(key, group);
+  }
+
+  const selectedIds = new Set<string>();
+
+  for (const [, group] of groupMap.entries()) {
+    if (group.length === 1) {
+      selectedIds.add(group[0].id);
+      continue;
+    }
+
+    const ranked = group.map((b) => {
+      const fullName = `${b.firstName || ""} ${b.lastName || ""}`.trim();
+      const isPlaceholderName =
+        !fullName ||
+        fullName.toLowerCase() === "booking.com guest" ||
+        fullName.toLowerCase() === "airbnb guest" ||
+        fullName.toUpperCase().includes("CLOSED") ||
+        fullName.toUpperCase().includes("BLOCKED");
+
+      let score = 0;
+      if (!isPlaceholderName) score += 100;
+      if (!b.guestNameRequired) score += 50;
+      if (b.phone) score += 30;
+      if ((b.grossAmount || 0) > 0) score += 20;
+      if ((b.netAmount || 0) > 0 || (b.channelFeeAmount || 0) > 0) score += 10;
+      if (b.notes && !b.notes.includes("Imported via iCal Sync")) score += 10;
+      if (b.icalUid) score += 5;
+      score += 1 / (b.createdAt || 1);
+
+      return { booking: b, score };
+    });
+
+    ranked.sort((a, b) => b.score - a.score);
+    selectedIds.add(ranked[0].booking.id);
+  }
+
+  return candidateRecords.filter((record) => selectedIds.has(record.id));
 }
 
 export async function updateBooking(
