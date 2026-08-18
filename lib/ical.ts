@@ -373,21 +373,8 @@ export async function syncPropertyIcal(propertyId: string) {
     results.errors.push("No Airbnb or Booking.com import calendar URL is configured for this property.");
   }
 
-  // Clean up any previously imported closed/blocked bookings
-  for (const booking of existingBookings) {
-    const notes = (booking.notes || "").toUpperCase();
-    const fName = (booking.firstName || "").toUpperCase();
-    // A calendar UID, not the editable guest name or imported summary, is the
-    // permanent reservation identity. Renaming Booking.com Guest must never
-    // make a subsequent sync archive the record.
-    const isCalendarReservation = booking.source === "Booking.com" && Boolean(booking.icalUid);
-    if (!isCalendarReservation &&
-        (fName.includes("CLOSED") || fName.includes("NOT AVAILABLE") || fName.includes("BLOCKED") ||
-         notes.includes("CLOSED") || notes.includes("NOT AVAILABLE") || notes.includes("BLOCKED"))) {
-      await deleteBooking(booking.id);
-      results.removed++;
-    }
-  }
+  // Prevent misclassified notes/names from being automatically deleted during sync
+  // Only explicitly cancelled or absent iCal events should trigger cancellation workflows.
 
   // A provider feed can temporarily return an empty/partial result, or a host can
   // accidentally paste an export URL into an import field. Missing once is not
