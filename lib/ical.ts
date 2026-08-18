@@ -321,11 +321,11 @@ export async function syncPropertyIcal(propertyId: string) {
             existing.icalMissingSince = 0;
             existing.icalMissingCount = 0;
           }
+          // Only update dates if they changed, strictly preserving any guest details (name, phone, price, notes) entered by host
           if (existing.checkIn !== event.checkIn || existing.checkOut !== event.checkOut) {
             await updateBooking(existing.id, {
               checkIn: event.checkIn,
               checkOut: event.checkOut,
-              notes: `Updated via iCal Sync. Original summary: ${event.summary}`
             });
             results.updated++;
           }
