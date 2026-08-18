@@ -31,15 +31,20 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (["Airbnb", "Booking.com", "Direct", "Other"].includes(body.source)) updates.source = body.source;
   if (typeof body.grossAmount === "number") updates.grossAmount = Math.max(0, body.grossAmount);
   if (typeof body.netAmount === "number") updates.netAmount = Math.max(0, body.netAmount);
+  if (typeof body.channelFeeAmount === "number") updates.channelFeeAmount = Math.max(0, body.channelFeeAmount);
+  if (typeof body.touristTaxAmount === "number") updates.touristTaxAmount = Math.max(0, body.touristTaxAmount);
   if (typeof body.currency === "string") updates.currency = body.currency.trim().toUpperCase();
   if (typeof body.paymentCollected === "number") updates.paymentCollected = Math.max(0, body.paymentCollected);
   if (typeof body.idRegistrationComplete === "boolean") updates.idRegistrationComplete = body.idRegistrationComplete;
   if (body.archivedAt === null) { updates.archivedAt = null; updates.revoked = false; }
   if (typeof body.hasCleaningAgency === "boolean") updates.hasCleaningAgency = body.hasCleaningAgency;
+  if (["agency", "self"].includes(body.cleaningType)) updates.cleaningType = body.cleaningType;
   if (typeof body.cleaningFeeMkd === "number") updates.cleaningFeeMkd = Math.max(0, body.cleaningFeeMkd);
   if (["scheduled", "completed"].includes(body.cleaningStatus)) updates.cleaningStatus = body.cleaningStatus;
   if (typeof body.cleaningNotes === "string") updates.cleaningNotes = body.cleaningNotes.trim();
   if (typeof body.isNoShow === "boolean") updates.isNoShow = body.isNoShow;
+  if (typeof body.expectedArrivalTime === "string") updates.expectedArrivalTime = body.expectedArrivalTime.trim();
+  if (typeof body.expectedDepartureTime === "string") updates.expectedDepartureTime = body.expectedDepartureTime.trim();
 
   if (typeof body.checkIn === "string" && typeof body.checkOut === "string") {
     if (body.checkIn >= body.checkOut) {

@@ -212,8 +212,7 @@ export async function syncPropertyIcal(propertyId: string) {
             booking.checkIn < event.checkOut && booking.checkOut > event.checkIn
           ));
           for (const booking of coveredBookings) {
-            if (booking.source === "Booking.com" && booking.icalManaged && booking.icalUid &&
-                booking.checkIn >= event.checkIn && booking.checkOut <= event.checkOut) {
+            if (booking.source === "Booking.com" && booking.icalUid) {
               activeSyncedUids.add(booking.icalUid);
             }
           }
@@ -398,9 +397,9 @@ export async function syncPropertyIcal(propertyId: string) {
       cancellationReason: reason,
       icalMissingSince: 0,
       icalMissingCount: 0,
+      archivedAt: null,
+      revoked: false,
     });
-    await deleteBooking(booking.id);
-    results.removed++;
     results.cancellationsDetected++;
     const notificationSent = await notifyCancellationAlert(propertyId, {
       firstName: booking.firstName,

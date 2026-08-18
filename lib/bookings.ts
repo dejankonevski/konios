@@ -175,6 +175,11 @@ export async function listBookings(propertyId?: string, options: { includeArchiv
   );
 
   return records.filter((record) => {
+    // If a booking was archived automatically by an iCal sync pass, clear archivedAt/revoked so it is not lost
+    if (record.archivedAt && (record.cancellationDetectedAt || record.cancellationReason || record.icalUid || record.icalMissingCount)) {
+      record.archivedAt = null;
+      record.revoked = false;
+    }
     if (record.archivedAt && !options.includeArchived) return false;
     if (propertyId && (record.propertyId || "konios-house") !== propertyId) return false;
     
