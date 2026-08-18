@@ -175,17 +175,17 @@ export async function listBookings(propertyId?: string, options: { includeArchiv
       .map((record) => `${record.source}|${record.firstName}|${record.lastName}|${record.checkIn}|${record.checkOut}`),
   );
 
-  // Auto-restore any booking whose archivedAt was set by background sync (not explicitly manually archived by host)
+  // Restore any booking that was falsely archived by previous automatic provider sync cancellations
   await Promise.all(records.map(async (record) => {
-    if (record.archivedAt && !record.manualArchive) {
+    if (record.archivedAt && record.cancellationReason?.includes("absent from three successful provider syncs")) {
       record.archivedAt = null;
       record.revoked = false;
       await redis.set(`booking:${record.id}`, record);
     }
   }));
 
-  const candidateRecords = records.filter((record) => {
-    if (record.archivedAt && record.manualArchive && !options.includeArchived) return false;
+  const filtered = records.filter((record) => {
+    if (record.archivedAt && !options.includeArchived) return false;
     if (propertyId && (record.propertyId || "konios-house") !== propertyId) return false;
     
     const fullName = `${record.firstName || ""} ${record.lastName || ""}`.trim().toUpperCase();
@@ -197,49 +197,51 @@ export async function listBookings(propertyId?: string, options: { includeArchiv
     return true;
   });
 
-  const ranked = candidateRecords.map((b) => {
-    const fullName = `${b.firstName || ""} ${b.lastName || ""}`.trim();
-    const isPlaceholderName =
-      !fullName ||
-      fullName.toLowerCase() === "booking.com guest" ||
-      fullName.toLowerCase() === "airbnb guest" ||
-      fullName.toUpperCase().includes("CLOSED") ||
-      fullName.toUpperCase().includes("BLOCKED");
+  const activeRecords = filtered.filter((r) => !r.revoked && !r.archivedAt);
 
-    let score = 0;
-    if (!isPlaceholderName) score += 100;
-    if (!b.guestNameRequired) score += 50;
-    if (b.phone) score += 30;
-    if ((b.grossAmount || 0) > 0) score += 20;
-    if ((b.netAmount || 0) > 0 || (b.channelFeeAmount || 0) > 0) score += 10;
-    if (b.notes && !b.notes.includes("Imported via iCal Sync")) score += 10;
-    if (b.icalUid) score += 5;
-    score += 1 / (b.createdAt || 1);
-
-    return { booking: b, score };
-  });
-
-  ranked.sort((a, b) => b.score - a.score);
-
-  const selectedBookings: Booking[] = [];
-  for (const item of ranked) {
-    const candidate = item.booking;
-    if (candidate.revoked && !options.includeArchived) continue;
-
-    const candidateProp = candidate.propertyId || "konios-house";
-    const hasOverlap = selectedBookings.some((selected) => {
-      const selectedProp = selected.propertyId || "konios-house";
-      if (candidateProp !== selectedProp) return false;
-      return isDateRangeOverlap(candidate.checkIn, candidate.checkOut, selected.checkIn, selected.checkOut);
-    });
-
-    if (!hasOverlap) {
-      selectedBookings.push(candidate);
-    }
+  const groupMap = new Map<string, Booking[]>();
+  for (const record of activeRecords) {
+    const key = `${record.propertyId || "konios-house"}|${record.checkIn}|${record.checkOut}`;
+    const group = groupMap.get(key) || [];
+    group.push(record);
+    groupMap.set(key, group);
   }
 
-  const selectedSet = new Set(selectedBookings.map((b) => b.id));
-  return candidateRecords.filter((record) => selectedSet.has(record.id));
+  const selectedActiveIds = new Set<string>();
+
+  for (const [, group] of groupMap.entries()) {
+    if (group.length === 1) {
+      selectedActiveIds.add(group[0].id);
+      continue;
+    }
+
+    const ranked = group.map((b) => {
+      const fullName = `${b.firstName || ""} ${b.lastName || ""}`.trim();
+      const isPlaceholderName =
+        !fullName ||
+        fullName.toLowerCase() === "booking.com guest" ||
+        fullName.toLowerCase() === "airbnb guest" ||
+        fullName.toUpperCase().includes("CLOSED") ||
+        fullName.toUpperCase().includes("BLOCKED");
+
+      let score = 0;
+      if (!isPlaceholderName) score += 100;
+      if (!b.guestNameRequired) score += 50;
+      if (b.phone) score += 30;
+      if ((b.grossAmount || 0) > 0) score += 20;
+      if ((b.netAmount || 0) > 0 || (b.channelFeeAmount || 0) > 0) score += 10;
+      if (b.notes && !b.notes.includes("Imported via iCal Sync")) score += 10;
+      if (b.icalUid) score += 5;
+      score += 1 / (b.createdAt || 1);
+
+      return { booking: b, score };
+    });
+
+    ranked.sort((a, b) => b.score - a.score);
+    selectedActiveIds.add(ranked[0].booking.id);
+  }
+
+  return filtered.filter((r) => r.archivedAt || selectedActiveIds.has(r.id));
 }
 
 export async function updateBooking(
