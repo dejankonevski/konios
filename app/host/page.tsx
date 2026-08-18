@@ -16,6 +16,8 @@ import AdvisorView from "./AdvisorView";
 import CalendarView from "./CalendarView";
 import NewBookingView from "./NewBookingView";
 import SourceBadge from "./SourceBadge";
+import { SyncReviewModal } from "./SyncReviewModal";
+import type { PendingSyncItem } from "@/lib/ical";
 import type { GuestGuide } from "@/lib/guest-guide";
 import type { Property } from "@/lib/portfolio";
 
@@ -272,6 +274,8 @@ export default function HostPage() {
   const [copiedLinkGuest, setCopiedLinkGuest] = useState("");
   const [activeDropdownId, setActiveDropdownId] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
+  const [syncReviewItems, setSyncReviewItems] = useState<PendingSyncItem[] | null>(null);
+  const [syncReviewErrors, setSyncReviewErrors] = useState<string[]>([]);
 
   useEffect(() => {
     function handleWindowClick() {
@@ -549,30 +553,43 @@ export default function HostPage() {
       const response = await fetch("/api/host/sync", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ propertyId }),
+        body: JSON.stringify({ propertyId, action: "preview" }),
       });
       const data = await response.json();
-      const result = data.results;
-      if (!response.ok || !result) {
-        const detail = result?.errors?.join(" ") || data.error || "Calendar sync failed.";
-        setCalendarSyncMessage(`⚠️ ${detail}`);
+      if (!response.ok) {
+        setCalendarSyncMessage(`⚠️ ${data.error || "Calendar sync preview failed."}`);
         return;
       }
-
-      const channelSummary = (result.feeds || [])
-        .map((feed: { source: string; status: string; events: number }) =>
-          feed.status === "synced" ? `${feed.source}: ${feed.events} events` : `${feed.source}: not connected`
-        )
-        .join(" · ");
-      const cancellationSummary = result.cancellationsDetected
-        ? ` · ${result.cancellationsDetected} cancellation${result.cancellationsDetected === 1 ? "" : "s"} detected${result.cancellationNotificationFailures ? ` (${result.cancellationNotificationFailures} Telegram alert failed)` : ""}`
-        : "";
-      setCalendarSyncMessage(
-        `✅ Synced ${selectedProperty?.name || "property"}: ${result.added} reservations added, ${result.updated} updated, ${result.removed} removed · ${result.availabilityBlocks || 0} availability blocks observed${cancellationSummary}. ${channelSummary}`
-      );
-      await loadBookings(propertyId);
+      const items = (data.pendingItems || []) as PendingSyncItem[];
+      setSyncReviewItems(items);
+      setSyncReviewErrors(data.errors || []);
     } catch (syncError) {
-      setCalendarSyncMessage(`⚠️ ${syncError instanceof Error ? syncError.message : "Calendar sync failed."}`);
+      setCalendarSyncMessage(`⚠️ ${syncError instanceof Error ? syncError.message : "Calendar sync preview failed."}`);
+    } finally {
+      setCalendarSyncing(false);
+    }
+  }
+
+  async function handleCommitSync(approvedItems: PendingSyncItem[]) {
+    const propertyId = activePropertyIdRef.current;
+    setCalendarSyncing(true);
+    try {
+      const response = await fetch("/api/host/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ propertyId, action: "commit", approvedItems }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setCalendarSyncMessage(`⚠️ ${data.error || "Sync commit failed."}`);
+        return;
+      }
+      const res = data.results;
+      setCalendarSyncMessage(`✅ Synced ${selectedProperty?.name || "property"}: ${res.added} added, ${res.updated} updated, ${res.notificationsSent} Telegram notifications sent.`);
+      setSyncReviewItems(null);
+      await loadBookings(propertyId);
+    } catch (err) {
+      setCalendarSyncMessage(`⚠️ ${err instanceof Error ? err.message : "Sync commit failed."}`);
     } finally {
       setCalendarSyncing(false);
     }
@@ -2293,6 +2310,16 @@ export default function HostPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {syncReviewItems !== null && (
+        <SyncReviewModal
+          propertyName={selectedProperty?.name || "Property"}
+          items={syncReviewItems}
+          errors={syncReviewErrors}
+          onCommit={handleCommitSync}
+          onClose={() => setSyncReviewItems(null)}
+        />
       )}
     </main>
   );

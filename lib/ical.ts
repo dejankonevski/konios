@@ -1,4 +1,4 @@
-import { listBookings, createBooking, updateBooking, deleteBooking } from "./bookings";
+import { listBookings, createBooking, updateBooking, deleteBooking, isDateRangeOverlap } from "./bookings";
 import { defaultSummaryConfig, listProperties, listUnits } from "./portfolio";
 import { notifyCancellationAlert, notifyNewBookingAlert } from "./telegram";
 import { replaceProviderCalendarEvents } from "./provider-calendar";
@@ -439,6 +439,212 @@ export async function syncPropertyIcal(propertyId: string) {
     cancellationNotificationsSent: results.cancellationNotificationsSent,
     errors: results.errors,
   });
+
+  return results;
+}
+
+export interface PendingSyncItem {
+  tempId: string;
+  source: "Airbnb" | "Booking.com";
+  icalUid: string;
+  checkIn: string;
+  checkOut: string;
+  summary: string;
+  firstName: string;
+  lastName: string;
+  phone?: string;
+  grossAmount?: number;
+  netAmount?: number;
+  channelFeeAmount?: number;
+  touristTaxAmount?: number;
+  notes?: string;
+  status: "new" | "date-update" | "conflict" | "already-synced";
+  existingBookingId?: string;
+  conflictBookingId?: string;
+  conflictReason?: string;
+}
+
+export async function previewPropertyIcal(propertyId: string): Promise<{
+  pendingItems: PendingSyncItem[];
+  configuredFeeds: number;
+  eventsRead: number;
+  errors: string[];
+}> {
+  const properties = await listProperties();
+  const property = properties.find((p) => p.id === propertyId);
+  if (!property) throw new Error("Property not found");
+
+  const syncFeeds = [
+    { url: property.airbnbIcalUrl, source: "Airbnb" as const },
+    { url: property.bookingIcalUrl, source: "Booking.com" as const }
+  ];
+
+  const existingBookings = await listBookings(propertyId);
+  const existingIcalMap = new Map(
+    existingBookings.filter((b) => b.icalUid).map((b) => [b.icalUid!, b])
+  );
+
+  const pendingItems: PendingSyncItem[] = [];
+  const errors: string[] = [];
+  let configuredFeeds = 0;
+  let eventsRead = 0;
+
+  for (const feed of syncFeeds) {
+    if (!feed.url?.trim()) continue;
+    configuredFeeds++;
+
+    try {
+      const response = await fetch(feed.url, {
+        cache: "no-store",
+        headers: { "User-Agent": "Konios-iCal-Sync/1.0", Accept: "text/calendar, text/plain;q=0.9, */*;q=0.1" },
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status} fetching ${feed.source} iCal`);
+      }
+      const icsData = await response.text();
+      const events = parseIcal(icsData);
+      eventsRead += events.length;
+
+      for (const event of events) {
+        const summary = event.summary.trim();
+        const isCancelled = event.status === "CANCELLED" || /\bCANCELLED\b|\bCANCELED\b/i.test(summary);
+        if (isCancelled) continue;
+
+        const eventNights = nightsBetween(event.checkIn, event.checkOut);
+        if (!Number.isFinite(eventNights) || eventNights < 1 || eventNights > 30) continue;
+
+        let firstName: string = feed.source;
+        let lastName: string = "Guest";
+
+        const descName = extractGuestNameFromDescription(event.description);
+        if (descName) {
+          firstName = descName.firstName;
+          lastName = descName.lastName;
+        } else if (summary && summary !== "Reserved" && !summary.toUpperCase().includes("CLOSED")) {
+          const cleanName = summary.replace(/\([^)]*\)/g, "").trim();
+          const parts = cleanName.split(/\s+/);
+          if (parts.length > 0 && parts[0] && parts[0].toLowerCase() !== "airbnb" && parts[0].toLowerCase() !== "booking.com") {
+            firstName = parts[0];
+            lastName = parts.slice(1).join(" ") || "Guest";
+          }
+        }
+
+        const existing = existingIcalMap.get(event.uid) || existingBookings.find(
+          (b) => !b.revoked && b.source === feed.source && b.checkIn === event.checkIn && b.checkOut === event.checkOut
+        );
+
+        let status: PendingSyncItem["status"] = "new";
+        let conflictBookingId: string | undefined;
+        let conflictReason: string | undefined;
+
+        if (existing) {
+          if (existing.checkIn === event.checkIn && existing.checkOut === event.checkOut) {
+            status = "already-synced";
+          } else {
+            status = "date-update";
+          }
+        } else {
+          const conflict = existingBookings.find(
+            (b) => !b.revoked && isDateRangeOverlap(event.checkIn, event.checkOut, b.checkIn, b.checkOut)
+          );
+          if (conflict) {
+            status = "conflict";
+            conflictBookingId = conflict.id;
+            conflictReason = `Overlaps with ${conflict.firstName} ${conflict.lastName} (${conflict.checkIn} to ${conflict.checkOut})`;
+          }
+        }
+
+        pendingItems.push({
+          tempId: crypto.randomUUID(),
+          source: feed.source,
+          icalUid: event.uid,
+          checkIn: event.checkIn,
+          checkOut: event.checkOut,
+          summary: event.summary,
+          firstName: existing?.firstName || firstName,
+          lastName: existing?.lastName || lastName,
+          phone: existing?.phone || "",
+          grossAmount: existing?.grossAmount || 0,
+          netAmount: existing?.netAmount || 0,
+          channelFeeAmount: existing?.channelFeeAmount || 0,
+          touristTaxAmount: existing?.touristTaxAmount || 0,
+          notes: existing?.notes || `Imported via iCal Sync from ${feed.source}. Summary: ${event.summary}`,
+          status,
+          existingBookingId: existing?.id,
+          conflictBookingId,
+          conflictReason,
+        });
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Unknown sync error";
+      errors.push(`${feed.source}: ${message}`);
+    }
+  }
+
+  return { pendingItems, configuredFeeds, eventsRead, errors };
+}
+
+export async function commitPropertyIcalSync(
+  propertyId: string,
+  approvedItems: PendingSyncItem[]
+): Promise<{ added: number; updated: number; notificationsSent: number }> {
+  const properties = await listProperties();
+  const property = properties.find((p) => p.id === propertyId);
+  if (!property) throw new Error("Property not found");
+  const propertyUnitId = (await listUnits()).find((unit) => unit.propertyId === propertyId && unit.active)?.id || `${propertyId}-unit`;
+
+  const results = { added: 0, updated: 0, notificationsSent: 0 };
+
+  for (const item of approvedItems) {
+    if (item.existingBookingId) {
+      await updateBooking(item.existingBookingId, {
+        firstName: item.firstName,
+        lastName: item.lastName,
+        phone: item.phone,
+        checkIn: item.checkIn,
+        checkOut: item.checkOut,
+        grossAmount: item.grossAmount,
+        netAmount: item.netAmount,
+        channelFeeAmount: item.channelFeeAmount,
+        touristTaxAmount: item.touristTaxAmount,
+        notes: item.notes,
+        icalUid: item.icalUid,
+        icalMissingSince: 0,
+        icalMissingCount: 0,
+      });
+      results.updated++;
+    } else {
+      const newBooking = await createBooking({
+        propertyId,
+        unitId: propertyUnitId,
+        firstName: item.firstName,
+        lastName: item.lastName,
+        phone: item.phone || "",
+        checkIn: item.checkIn,
+        checkOut: item.checkOut,
+        guests: 1,
+        source: item.source,
+        notes: item.notes || `Imported via iCal Sync. Summary: ${item.summary}`,
+        grossAmount: item.grossAmount || 0,
+        netAmount: item.netAmount || 0,
+        channelFeeAmount: item.channelFeeAmount || 0,
+        touristTaxAmount: item.touristTaxAmount || 0,
+        icalUid: item.icalUid,
+        icalManaged: true,
+        guestNameRequired: item.firstName === item.source && item.lastName === "Guest",
+      });
+      results.added++;
+      const notificationSent = await notifyNewBookingAlert(propertyId, {
+        firstName: newBooking.firstName,
+        lastName: newBooking.lastName,
+        checkIn: newBooking.checkIn,
+        checkOut: newBooking.checkOut,
+        source: newBooking.source,
+        notes: newBooking.notes,
+      });
+      if (notificationSent) results.notificationsSent++;
+    }
+  }
 
   return results;
 }
