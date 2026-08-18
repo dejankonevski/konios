@@ -504,9 +504,7 @@ export default function HostPage() {
       if (response.ok) {
         const data = await response.json();
         if (requestId !== bookingsRequestRef.current || activePropertyIdRef.current !== propertyId) return;
-        const propertyBookings = (data.bookings || []).filter(
-          (booking: Booking) => (booking.propertyId || "konios-house") === propertyId
-        );
+        const propertyBookings = (data.bookings || []);
         setBookings(propertyBookings);
         if (data.times) setTimes(data.times);
       }
