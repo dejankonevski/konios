@@ -299,19 +299,6 @@ export default function HostPage() {
       }
     }
     checkSession();
-
-    // While the host is actively using the dashboard, poll the provider feed
-    // every minute and also whenever the browser regains focus. This is much
-    // faster than waiting for a best-effort external cron run.
-    const refresh = () => {
-      if (activePropertyIdRef.current) void backgroundSyncActiveProperty();
-    };
-    const interval = setInterval(refresh, 60000);
-    window.addEventListener("focus", refresh);
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener("focus", refresh);
-    };
   }, []);
 
   async function handleLogout() {
@@ -595,30 +582,7 @@ export default function HostPage() {
     }
   }
 
-  async function backgroundSyncActiveProperty() {
-    const propertyId = activePropertyIdRef.current;
-    try {
-      const response = await fetch("/api/host/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ propertyId }),
-      });
-      if (!response.ok) return;
-      const data = await response.json();
-      const result = data.results;
-      if (!result) return;
-      const changed = Number(result.added || 0) + Number(result.updated || 0) + Number(result.removed || 0);
-      if (changed > 0) {
-        const cancellationText = result.cancellationsDetected
-          ? ` ${result.cancellationsDetected} cancellation${result.cancellationsDetected === 1 ? "" : "s"} detected.`
-          : "";
-        setCalendarSyncMessage(`✅ Calendar updated automatically: ${result.added} added, ${result.updated} modified, ${result.removed} removed.${cancellationText}`);
-      }
-      await loadBookings(propertyId);
-    } catch (backgroundError) {
-      console.error("[calendar-sync] dashboard background refresh failed", backgroundError);
-    }
-  }
+
   async function login(event: FormEvent) {
     event.preventDefault();
     setError("");
