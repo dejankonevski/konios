@@ -366,17 +366,37 @@ export async function syncPropertyIcal(propertyId: string) {
   // proof of cancellation. Explicit CANCELLED events are immediate; disappearances
   // require repeated observations, and a batch disappearance is quarantined.
   const todayStr = new Date().toISOString().slice(0, 10);
+
+  // Clear any false cancellation markers for completed or current stays (checkOut <= todayStr)
+  for (const booking of existingBookings) {
+    if (booking.checkOut <= todayStr && (booking.cancellationDetectedAt || booking.cancellationReason)) {
+      await updateBooking(booking.id, {
+        cancellationDetectedAt: 0,
+        cancellationReason: undefined,
+        cancellationSource: undefined,
+        icalMissingSince: 0,
+        icalMissingCount: 0,
+      });
+      booking.cancellationDetectedAt = 0;
+      booking.cancellationReason = undefined;
+      booking.cancellationSource = undefined;
+    }
+  }
+
   const missingBySource = new Map<"Airbnb" | "Booking.com", Array<[string, typeof existingBookings[number]]>>();
   for (const [uid, booking] of existingIcalMap.entries()) {
     const source = booking.source as "Airbnb" | "Booking.com";
     if (source === "Booking.com" && !booking.icalManaged) continue;
-    if (!successfullyFetchedSources.has(source) || activeSyncedUids.has(uid) || booking.checkOut < todayStr) continue;
+    // Stays that have checked in or checked out (checkIn <= todayStr or checkOut <= todayStr) are current/past stays and must NEVER be marked cancelled
+    if (!successfullyFetchedSources.has(source) || activeSyncedUids.has(uid) || booking.checkOut <= todayStr || booking.checkIn <= todayStr) continue;
     const entries = missingBySource.get(source) || [];
     entries.push([uid, booking]);
     missingBySource.set(source, entries);
   }
 
   const cancelBooking = async (booking: typeof existingBookings[number], reason: string) => {
+    // Never cancel a stay that has already checked in or checked out
+    if (booking.checkIn <= todayStr || booking.checkOut <= todayStr) return;
     await updateBooking(booking.id, {
       cancellationDetectedAt: Date.now(),
       cancellationSource: booking.source as "Airbnb" | "Booking.com",
@@ -400,11 +420,11 @@ export async function syncPropertyIcal(propertyId: string) {
   };
 
   for (const [source, missing] of missingBySource.entries()) {
-    const explicit = missing.filter(([uid]) => explicitlyCancelledUids.has(uid));
+    const explicit = missing.filter(([, booking]) => booking.checkIn > todayStr && explicitlyCancelledUids.has(booking.icalUid || ""));
     for (const [, booking] of explicit) {
       await cancelBooking(booking, "Provider calendar explicitly marked the reservation cancelled");
     }
-    const unconfirmed = missing.filter(([uid]) => !explicitlyCancelledUids.has(uid));
+    const unconfirmed = missing.filter(([, booking]) => booking.checkIn > todayStr && !explicitlyCancelledUids.has(booking.icalUid || ""));
     if (!unconfirmed.length) continue;
 
     if (unconfirmed.length > 1) {
@@ -412,7 +432,7 @@ export async function syncPropertyIcal(propertyId: string) {
       continue;
     }
     const [, booking] = unconfirmed[0];
-    if (booking.checkIn <= todayStr && booking.checkOut > todayStr) {
+    if (booking.checkIn <= todayStr) {
       results.errors.push(`${source}: safety stop — current stay ${booking.firstName} ${booking.lastName} was missing; it was not cancelled.`);
       continue;
     }
