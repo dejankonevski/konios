@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { getHostSession } from "@/lib/access-code";
-import { findOverlappingBooking, deleteBooking, getBookingById, updateBooking } from "@/lib/bookings";
+import { findOverlappingBooking, deleteBooking, archiveBooking, permanentlyDeleteBooking, getBookingById, updateBooking } from "@/lib/bookings";
 
 async function authorized() { return getHostSession((await cookies()).get("konios_host")?.value); }
 
@@ -68,12 +68,18 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   return booking ? Response.json({ booking }) : Response.json({ error: "Not found" }, { status: 404 });
 }
 
-export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await authorized();
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
   const existing = await getBookingById(id);
   if (!existing) return Response.json({ error: "Not found" }, { status: 404 });
   if (session.role !== "master" && !session.propertyIds.includes(existing.propertyId || "konios-house")) return Response.json({ error: "Property access denied." }, { status: 403 });
-  return (await deleteBooking(id)) ? Response.json({ ok: true }) : Response.json({ error: "Not found" }, { status: 404 });
+
+  const url = new URL(request.url);
+  const action = url.searchParams.get("action");
+  if (action === "archive") {
+    return (await archiveBooking(id)) ? Response.json({ ok: true, mode: "archived" }) : Response.json({ error: "Not found" }, { status: 404 });
+  }
+  return (await permanentlyDeleteBooking(id)) ? Response.json({ ok: true, mode: "deleted" }) : Response.json({ error: "Not found" }, { status: 404 });
 }

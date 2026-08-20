@@ -257,13 +257,29 @@ export async function updateBooking(
   return updated;
 }
 
-export async function deleteBooking(id: string) {
+export async function archiveBooking(id: string) {
   const redis = getRedis();
   const booking = await redis.get<Booking>(`booking:${id}`);
   if (!booking) return false;
   const archived: Booking = { ...booking, revoked: true, archivedAt: Date.now(), manualArchive: true };
   await redis.set(`booking:${id}`, archived);
   await logAudit("reservation.archived", id, { guest: `${booking.firstName} ${booking.lastName}` });
+  return true;
+}
+
+export async function deleteBooking(id: string) {
+  return permanentlyDeleteBooking(id);
+}
+
+export async function permanentlyDeleteBooking(id: string) {
+  const redis = getRedis();
+  const booking = await redis.get<Booking>(`booking:${id}`);
+  if (booking?.accessToken) {
+    await redis.del(`access-token:${booking.accessToken}`);
+  }
+  await redis.del(`booking:${id}`);
+  await redis.zrem("bookings", id);
+  await logAudit("reservation.deleted", id, { guest: booking ? `${booking.firstName} ${booking.lastName}` : id });
   return true;
 }
 
