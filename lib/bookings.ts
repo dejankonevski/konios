@@ -300,7 +300,7 @@ export async function findOverlappingBooking(
 ): Promise<Booking | null> {
   const allBookings = await listBookings(propertyId);
   for (const booking of allBookings) {
-    if (booking.revoked) continue;
+    if (booking.revoked || booking.archivedAt) continue;
     if (excludeId && booking.id === excludeId) continue;
     if (isDateRangeOverlap(checkIn, checkOut, booking.checkIn, booking.checkOut)) {
       return booking;

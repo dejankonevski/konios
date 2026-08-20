@@ -317,6 +317,14 @@ export default function HostPage() {
     }
   }
 
+  function addDaysToDate(dateStr: string, days: number): string {
+    if (!dateStr) return dateStr;
+    const d = new Date(`${dateStr}T00:00:00Z`);
+    if (isNaN(d.getTime())) return dateStr;
+    d.setUTCDate(d.getUTCDate() + days);
+    return d.toISOString().slice(0, 10);
+  }
+
   const dragStartRef = useRef<string | null>(null);
   const isDraggingRef = useRef(false);
   const pointerDownPosRef = useRef<{ x: number; y: number } | null>(null);
@@ -1938,30 +1946,74 @@ export default function HostPage() {
                 </div>
               </div>
 
-              <div className="modal-field-row">
-                <div className="form-group">
-                  <label htmlFor="edit-checkin">Check-in Date</label>
-                  <input
-                    id="edit-checkin"
-                    required
-                    type="date"
-                    value={editingBooking.checkIn}
-                    onChange={(e) =>
-                      setEditingBooking({ ...editingBooking, checkIn: e.target.value })
-                    }
-                  />
+              <div style={{ background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '12px', padding: '14px 16px', marginBottom: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                  <label style={{ fontWeight: 700, fontSize: '0.85rem', color: '#1e293b' }}>
+                    📅 Stay Dates & Duration
+                  </label>
+                  {editingBooking.checkIn && editingBooking.checkOut && (
+                    <span style={{ background: '#e0f2fe', color: '#0369a1', fontSize: '0.78rem', fontWeight: 700, padding: '3px 10px', borderRadius: '12px' }}>
+                      🌙 {Math.max(1, Math.round((new Date(`${editingBooking.checkOut}T00:00:00Z`).getTime() - new Date(`${editingBooking.checkIn}T00:00:00Z`).getTime()) / 86400000))} Night(s)
+                    </span>
+                  )}
                 </div>
-                <div className="form-group">
-                  <label htmlFor="edit-checkout">Check-out Date</label>
-                  <input
-                    id="edit-checkout"
-                    required
-                    type="date"
-                    value={editingBooking.checkOut}
-                    onChange={(e) =>
-                      setEditingBooking({ ...editingBooking, checkOut: e.target.value })
-                    }
-                  />
+
+                <div className="modal-field-row" style={{ gap: '12px' }}>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label htmlFor="edit-checkin" style={{ fontSize: '0.75rem', color: '#475569' }}>Arrival Date (Check-in)</label>
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      <button
+                        type="button"
+                        style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#fff', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer' }}
+                        onClick={() => setEditingBooking({ ...editingBooking, checkIn: addDaysToDate(editingBooking.checkIn, -1) })}
+                      >
+                        -1d
+                      </button>
+                      <input
+                        id="edit-checkin"
+                        required
+                        type="date"
+                        value={editingBooking.checkIn}
+                        onChange={(e) => setEditingBooking({ ...editingBooking, checkIn: e.target.value })}
+                        style={{ flex: 1 }}
+                      />
+                      <button
+                        type="button"
+                        style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#fff', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer' }}
+                        onClick={() => setEditingBooking({ ...editingBooking, checkIn: addDaysToDate(editingBooking.checkIn, 1) })}
+                      >
+                        +1d
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label htmlFor="edit-checkout" style={{ fontSize: '0.75rem', color: '#475569' }}>Departure Date (Check-out)</label>
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      <button
+                        type="button"
+                        style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#fff', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer' }}
+                        onClick={() => setEditingBooking({ ...editingBooking, checkOut: addDaysToDate(editingBooking.checkOut, -1) })}
+                      >
+                        -1d
+                      </button>
+                      <input
+                        id="edit-checkout"
+                        required
+                        type="date"
+                        value={editingBooking.checkOut}
+                        onChange={(e) => setEditingBooking({ ...editingBooking, checkOut: e.target.value })}
+                        style={{ flex: 1 }}
+                      />
+                      <button
+                        type="button"
+                        style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#fff', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer' }}
+                        onClick={() => setEditingBooking({ ...editingBooking, checkOut: addDaysToDate(editingBooking.checkOut, 1) })}
+                      >
+                        +1d
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
 
