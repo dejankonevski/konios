@@ -371,7 +371,7 @@ export default function HostPage() {
         return;
       }
       setEditingBooking(null);
-      await loadBookings();
+      await loadBookings(activePropertyIdRef.current);
     } catch {
       setEditError("Failed to update reservation");
     } finally {

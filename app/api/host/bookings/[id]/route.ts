@@ -50,16 +50,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (body.checkIn >= body.checkOut) {
       return Response.json({ error: "Checkout date must be after arrival date." }, { status: 400 });
     }
-    const conflict = await findOverlappingBooking(body.checkIn, body.checkOut, id, propertyId);
-    if (conflict) {
-      return Response.json(
-        {
-          error: "Selected dates overlap with an existing booking.",
-          conflictBooking: conflict,
-        },
-        { status: 409 }
-      );
-    }
     updates.checkIn = body.checkIn;
     updates.checkOut = body.checkOut;
   }
