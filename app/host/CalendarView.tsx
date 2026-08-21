@@ -315,21 +315,13 @@ export default function CalendarView({ bookings, propertyId, checkInTime, checkO
                         onMouseDown={(e) => handleCellMouseDown(key, e)}
                         onMouseEnter={() => handleCellMouseEnter(key)}
                       >
+                        {/* Top Row: Day Number & Gap Warnings */}
                         <div className="calendar-day-header">
                           <div className="header-left">
                             <span className={isToday ? "today-badge" : "day-num"}>{date.getDate()}</span>
                             {isToday && <span className="today-pill">TODAY</span>}
                           </div>
                           <div className="header-right">
-                            {departure && (
-                              <span
-                                className="checkout-badge"
-                                onClick={(e) => { e.stopPropagation(); onOpenBooking(departure); }}
-                                title={`Checkout: ${departure.firstName} ${departure.lastName}`}
-                              >
-                                Out {checkOutTime}
-                              </span>
-                            )}
                             {gapLength === 1 && !staying && (
                               <span className="gap-badge critical">⚠️ 1-Night Gap</span>
                             )}
@@ -339,20 +331,19 @@ export default function CalendarView({ bookings, propertyId, checkInTime, checkO
                           </div>
                         </div>
 
-                        {personalBlock && (
-                          <div className="calendar-block-pill">
-                            <strong>🔒 Closed / Blocked</strong>
-                            <span>{personalBlock.note}</span>
+                        {/* 1. DEPARTURE CARD (Guest Checking Out Today) */}
+                        {departure && (
+                          <div
+                            className="event-pill departure-pill"
+                            onClick={(e) => { e.stopPropagation(); onOpenBooking(departure); }}
+                            title={`Checkout: ${departure.firstName} ${departure.lastName}`}
+                          >
+                            <span className="pill-tag checkout-tag">🛫 Out {checkOutTime}</span>
+                            <span className="pill-name">{departure.firstName} {departure.lastName}</span>
                           </div>
                         )}
 
-                        {providerBlock && !staying && !personalBlock && (
-                          <div className="calendar-provider-pill">
-                            <strong>🔒 {providerBlock.source}</strong>
-                            <span>Unavailable</span>
-                          </div>
-                        )}
-
+                        {/* 2. STAYING / ARRIVAL CARD */}
                         {staying && (() => {
                           const isStart = key === staying.checkIn;
                           const isEnd = key === addDays(staying.checkOut, -1);
@@ -361,41 +352,60 @@ export default function CalendarView({ bookings, propertyId, checkInTime, checkO
                           const currentNightIndex = nightsBetween(staying.checkIn, key) + 1;
 
                           const spanClasses = [
-                            "calendar-booking-banner",
+                            "event-pill",
+                            "staying-pill",
                             `source-${staying.source.toLowerCase().replace(/[^a-z]/g, "")}`,
-                            isStart ? "banner-start" : "",
-                            isEnd ? "banner-end" : "",
-                            isMiddle ? "banner-middle" : ""
+                            isStart ? "is-start" : "",
+                            isEnd ? "is-end" : "",
+                            isMiddle ? "is-middle" : ""
                           ].filter(Boolean).join(" ");
 
                           return (
-                            <button
-                              type="button"
+                            <div
                               className={spanClasses}
                               onClick={() => onOpenBooking(staying)}
                               title={`${staying.firstName} ${staying.lastName} (${staying.checkIn} → ${staying.checkOut}) - ${totalNights} nights`}
                             >
                               {isStart ? (
-                                <div className="banner-content start">
-                                  <span className="banner-source">
+                                <div className="pill-main">
+                                  <div className="pill-header-line">
+                                    <span className="pill-tag checkin-tag">🛬 In {checkInTime}</span>
                                     <SourceBadge source={staying.source} iconOnly />
-                                    {staying.source}
-                                  </span>
-                                  <span className="banner-name">{staying.firstName} {staying.lastName}</span>
-                                  <span className="banner-meta">({totalNights}n · €{Math.round(Number(staying.grossAmount) || 0)})</span>
+                                  </div>
+                                  <div className="pill-name">{staying.firstName} {staying.lastName}</div>
+                                  <div className="pill-sub">
+                                    <span>{totalNights} night{totalNights > 1 ? "s" : ""}</span>
+                                    {(Number(staying.grossAmount) || 0) > 0 && <span>€{Math.round(Number(staying.grossAmount))}</span>}
+                                  </div>
                                 </div>
                               ) : (
-                                <div className="banner-content middle">
-                                  <span className="banner-name">{staying.firstName} {staying.lastName}</span>
-                                  <span className="banner-night">{currentNightIndex}/{totalNights}</span>
+                                <div className="pill-middle-line">
+                                  <span className="pill-name">{staying.firstName} {staying.lastName}</span>
+                                  <span className="pill-night">{currentNightIndex}/{totalNights}</span>
                                 </div>
                               )}
-                            </button>
+                            </div>
                           );
                         })()}
 
+                        {/* 3. PERSONAL / PROVIDER BLOCKS */}
+                        {personalBlock && (
+                          <div className="event-pill block-pill">
+                            <span className="pill-tag block-tag">🔒 Closed</span>
+                            <span className="pill-name">{personalBlock.note}</span>
+                          </div>
+                        )}
+
+                        {providerBlock && !staying && !personalBlock && (
+                          <div className="event-pill provider-pill">
+                            <span className="pill-tag block-tag">🔒 {providerBlock.source}</span>
+                            <span className="pill-name">Unavailable</span>
+                          </div>
+                        )}
+
+                        {/* 4. CLEANING TURNAROUND FOOTER */}
                         {departure && (
-                          <div className={`calendar-cleaning-footer ${nextArrival ? "turnaround" : ""}`}>
+                          <div className={`cleaning-footer ${nextArrival ? "is-turnaround" : ""}`}>
                             <span>🧹 {nextArrival ? `Turnaround (${checkOutTime} → ${checkInTime})` : `Clean → Ready`}</span>
                           </div>
                         )}
