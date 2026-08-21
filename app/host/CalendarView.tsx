@@ -308,24 +308,79 @@ export default function CalendarView({ bookings, propertyId, checkInTime, checkO
                       isSelected ? "is-selected-range" : ""
                     ].filter(Boolean).join(" ");
 
-                    return <div
-                      className={classes}
-                      key={key}
-                      onMouseDown={(e) => handleCellMouseDown(key, e)}
-                      onMouseEnter={() => handleCellMouseEnter(key)}
-                    >
-                      <div className="calendar-day-number">
-                        <span className={isToday ? "today-badge" : ""}>{date.getDate()}</span>
-                        {isToday ? <span className="today-pill">TODAY</span> : null}
-                        {!outside && !staying && !personalBlock && !gapLength && !isToday ? <small>Empty</small> : null}
+                    return (
+                      <div
+                        className={classes}
+                        key={key}
+                        onMouseDown={(e) => handleCellMouseDown(key, e)}
+                        onMouseEnter={() => handleCellMouseEnter(key)}
+                      >
+                        <div className="calendar-day-header">
+                          <span className={isToday ? "today-badge" : "day-num"}>{date.getDate()}</span>
+                          {isToday && <span className="today-pill">TODAY</span>}
+                          {gapLength === 1 && !staying && (
+                            <span className="gap-badge critical">⚠️ 1-Night Gap</span>
+                          )}
+                          {gapLength && gapLength > 1 && !staying && (
+                            <span className="gap-badge info">{gapLength}-Night Gap</span>
+                          )}
+                        </div>
+
+                        {personalBlock && (
+                          <div className="calendar-block-pill">
+                            <strong>🔒 Closed / Blocked</strong>
+                            <span>{personalBlock.note}</span>
+                          </div>
+                        )}
+
+                        {providerBlock && !staying && !personalBlock && (
+                          <div className="calendar-provider-pill">
+                            <strong>🔒 {providerBlock.source}</strong>
+                            <span>Unavailable</span>
+                          </div>
+                        )}
+
+                        {staying && (
+                          <button
+                            type="button"
+                            className={`calendar-booking-pill source-${staying.source.toLowerCase().replace(/[^a-z]/g, "")}`}
+                            onClick={() => onOpenBooking(staying)}
+                          >
+                            <div className="pill-top-row">
+                              <span className="pill-channel">
+                                <SourceBadge source={staying.source} iconOnly />
+                                {staying.source}
+                              </span>
+                              {arrival && <span className="pill-checkin-badge">In {checkInTime}</span>}
+                            </div>
+
+                            <div className="pill-guest-name">
+                              {staying.firstName} {staying.lastName}
+                            </div>
+
+                            <div className="pill-bottom-row">
+                              <span>{nightsBetween(staying.checkIn, staying.checkOut)} night{nightsBetween(staying.checkIn, staying.checkOut) > 1 ? "s" : ""}</span>
+                              {(Number(staying.grossAmount) || 0) > 0 && (
+                                <span className="pill-price">€{Math.round(Number(staying.grossAmount))}</span>
+                              )}
+                            </div>
+                          </button>
+                        )}
+
+                        {departure && !staying && (
+                          <button type="button" className="calendar-checkout-pill" onClick={() => onOpenBooking(departure)}>
+                            <span className="checkout-badge">Out {checkOutTime}</span>
+                            <span className="checkout-name">{departure.firstName} {departure.lastName}</span>
+                          </button>
+                        )}
+
+                        {departure && (
+                          <div className={`calendar-cleaning-pill ${nextArrival ? "turnaround" : ""}`}>
+                            <span>🧹 {nextArrival ? `⚡ Turnaround (${checkOutTime} → ${checkInTime})` : `Clean (${checkOutTime} → Ready)`}</span>
+                          </div>
+                        )}
                       </div>
-                      {personalBlock ? <div className="calendar-block-event"><b>Closed / Blocked</b><span>{personalBlock.note}</span></div> : null}
-                      {providerBlock && !staying && !personalBlock ? <div className="calendar-provider-event"><b>Closed</b><span>{providerBlock.source} unavailable · synced</span></div> : null}
-                      {gapLength ? <div className={gapLength === 1 ? "calendar-gap-event critical" : "calendar-gap-event"}><b>{gapLength === 1 ? "⚠ 1-night gap" : `${gapLength}-night gap`}</b><span>{gapLength === 1 ? "Hard to sell" : "Available"}</span></div> : null}
-                      {staying ? <button className={`calendar-booking-event source-${staying.source.toLowerCase().replace(/[^a-z]/g, "")}`} onClick={() => onOpenBooking(staying)}><span>{arrival ? `Check-in · ${checkInTime}` : "Occupied night"}</span><b>{staying.firstName} {staying.lastName}</b><small><SourceBadge source={staying.source} iconOnly />{arrival ? ` stay total ${new Intl.NumberFormat("en", { style: "currency", currency: staying.currency || "EUR", maximumFractionDigits: 0 }).format(Number(staying.grossAmount) || 0)}` : ""}</small></button> : null}
-                      {departure ? <button className="calendar-departure-event" onClick={() => onOpenBooking(departure)}><b>Checkout · {checkOutTime}</b><span>{departure.firstName}</span></button> : null}
-                      {departure ? <div className={nextArrival ? "calendar-cleaning-event turnaround" : "calendar-cleaning-event"}><b>{nextArrival ? "Fast turnaround" : "Cleaning window"}</b><span>{checkOutTime} → {nextArrival ? checkInTime : "ready"}</span></div> : null}
-                    </div>;
+                    );
                   })}
                 </div>
               </div>
