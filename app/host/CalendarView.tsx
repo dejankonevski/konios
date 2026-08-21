@@ -340,32 +340,64 @@ export default function CalendarView({ bookings, propertyId, checkInTime, checkO
                           </div>
                         )}
 
-                        {staying && (
-                          <button
-                            type="button"
-                            className={`calendar-booking-pill source-${staying.source.toLowerCase().replace(/[^a-z]/g, "")}`}
-                            onClick={() => onOpenBooking(staying)}
-                          >
-                            <div className="pill-top-row">
-                              <span className="pill-channel">
-                                <SourceBadge source={staying.source} iconOnly />
-                                {staying.source}
-                              </span>
-                              {arrival && <span className="pill-checkin-badge">In {checkInTime}</span>}
-                            </div>
+                        {staying && (() => {
+                          const isStart = key === staying.checkIn;
+                          const isEnd = key === addDays(staying.checkOut, -1);
+                          const isMiddle = !isStart && !isEnd;
+                          const totalNights = nightsBetween(staying.checkIn, staying.checkOut);
+                          const currentNightIndex = nightsBetween(staying.checkIn, key) + 1;
+                          const isMonday = date.getDay() === 1;
 
-                            <div className="pill-guest-name">
-                              {staying.firstName} {staying.lastName}
-                            </div>
+                          const spanClasses = [
+                            "calendar-booking-span",
+                            `source-${staying.source.toLowerCase().replace(/[^a-z]/g, "")}`,
+                            isStart ? "span-start" : "",
+                            isEnd ? "span-end" : "",
+                            isMiddle ? "span-middle" : ""
+                          ].filter(Boolean).join(" ");
 
-                            <div className="pill-bottom-row">
-                              <span>{nightsBetween(staying.checkIn, staying.checkOut)} night{nightsBetween(staying.checkIn, staying.checkOut) > 1 ? "s" : ""}</span>
-                              {(Number(staying.grossAmount) || 0) > 0 && (
-                                <span className="pill-price">€{Math.round(Number(staying.grossAmount))}</span>
+                          return (
+                            <button
+                              type="button"
+                              className={spanClasses}
+                              onClick={() => onOpenBooking(staying)}
+                              title={`${staying.firstName} ${staying.lastName} (${staying.checkIn} → ${staying.checkOut})`}
+                            >
+                              {isStart ? (
+                                <>
+                                  <div className="pill-top-row">
+                                    <span className="pill-channel">
+                                      <SourceBadge source={staying.source} iconOnly />
+                                      {staying.source}
+                                    </span>
+                                    <span className="pill-checkin-badge">In {checkInTime}</span>
+                                  </div>
+
+                                  <div className="pill-guest-name">
+                                    {staying.firstName} {staying.lastName}
+                                  </div>
+
+                                  <div className="pill-bottom-row">
+                                    <span>{totalNights} night{totalNights > 1 ? "s" : ""}</span>
+                                    {(Number(staying.grossAmount) || 0) > 0 && (
+                                      <span className="pill-price">€{Math.round(Number(staying.grossAmount))}</span>
+                                    )}
+                                  </div>
+                                </>
+                              ) : isMonday ? (
+                                <div className="span-cont-header">
+                                  <span className="cont-name">{staying.firstName} {staying.lastName}</span>
+                                  <span className="cont-night">({currentNightIndex}/{totalNights})</span>
+                                </div>
+                              ) : (
+                                <div className="span-middle-bar">
+                                  <span className="span-bar-line" />
+                                  {isEnd && <span className="span-night-indicator">Night {currentNightIndex}/{totalNights}</span>}
+                                </div>
                               )}
-                            </div>
-                          </button>
-                        )}
+                            </button>
+                          );
+                        })()}
 
                         {departure && !staying && (
                           <button type="button" className="calendar-checkout-pill" onClick={() => onOpenBooking(departure)}>

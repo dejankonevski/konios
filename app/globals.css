@@ -2149,45 +2149,155 @@ body { top: 0!important; position: static!important; }
   color: #6042a4;
 }
 
-/* Booking Pill */
-.calendar-booking-pill {
-  width: 100%;
+/* Connected Reservation Spans */
+.calendar-booking-span {
+  width: auto;
   display: flex;
   flex-direction: column;
+  justify-content: center;
   gap: 3px;
   padding: 6px 8px;
   border: 1px solid #dbeafe;
-  border-radius: 8px;
   background: #ffffff;
   text-align: left;
   cursor: pointer;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
   transition: transform 0.1s ease, box-shadow 0.1s ease;
+  position: relative;
+  min-height: 48px;
 }
 
-.calendar-booking-pill:hover {
+.calendar-booking-span:hover {
   transform: translateY(-1px);
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
 }
 
-.calendar-booking-pill.source-airbnb {
-  border-left: 4px solid #ff385c;
+.calendar-booking-span.span-start {
+  border-radius: 8px 0 0 8px;
+  margin-right: -9px;
+  z-index: 2;
+  border-right: none;
+}
+
+.calendar-booking-span.span-middle {
+  border-radius: 0;
+  margin-left: -9px;
+  margin-right: -9px;
+  z-index: 1;
+  border-left: none;
+  border-right: none;
+  justify-content: center;
+}
+
+.calendar-booking-span.span-end {
+  border-radius: 0 8px 8px 0;
+  margin-left: -9px;
+  margin-right: 0;
+  z-index: 2;
+  border-left: none;
+}
+
+.calendar-booking-span.span-start.span-end {
+  border-radius: 8px;
+  margin-left: 0;
+  margin-right: 0;
+  border-left: 4px solid;
+  border-right: 1px solid;
+}
+
+.calendar-booking-span.source-airbnb {
+  border-top-color: #fecdd3;
+  border-bottom-color: #fecdd3;
   background: #fff5f7;
 }
-
-.calendar-booking-pill.source-bookingcom {
-  border-left: 4px solid #003b95;
-  background: #f2f7ff;
+.calendar-booking-span.span-start.source-airbnb {
+  border-left: 4px solid #ff385c;
+}
+.calendar-booking-span.span-end.source-airbnb {
+  border-right: 1px solid #fecdd3;
 }
 
-.calendar-booking-pill.source-direct {
-  border-left: 4px solid #16a34a;
+.calendar-booking-span.source-bookingcom {
+  border-top-color: #bfdbfe;
+  border-bottom-color: #bfdbfe;
+  background: #f0f7ff;
+}
+.calendar-booking-span.span-start.source-bookingcom {
+  border-left: 4px solid #003b95;
+}
+.calendar-booking-span.span-end.source-bookingcom {
+  border-right: 1px solid #bfdbfe;
+}
+
+.calendar-booking-span.source-direct {
+  border-top-color: #bbf7d0;
+  border-bottom-color: #bbf7d0;
   background: #f0fdf4;
 }
+.calendar-booking-span.span-start.source-direct {
+  border-left: 4px solid #16a34a;
+}
+.calendar-booking-span.span-end.source-direct {
+  border-right: 1px solid #bbf7d0;
+}
 
-.calendar-booking-pill.source-other {
-  border-left: 4px solid #7c3aed;
+.calendar-booking-span.source-other {
+  border-top-color: #e9d5ff;
+  border-bottom-color: #e9d5ff;
   background: #faf5ff;
+}
+.calendar-booking-span.span-start.source-other {
+  border-left: 4px solid #7c3aed;
+}
+.calendar-booking-span.span-end.source-other {
+  border-right: 1px solid #e9d5ff;
+}
+
+.span-middle-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 4px 0;
+}
+
+.span-bar-line {
+  height: 3px;
+  width: 100%;
+  border-radius: 2px;
+  opacity: 0.35;
+  background: currentColor;
+}
+
+.span-night-indicator {
+  font-size: 0.65rem;
+  font-weight: 800;
+  color: #475569;
+  white-space: nowrap;
+  background: rgba(255, 255, 255, 0.85);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.span-cont-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #334155;
+}
+
+.cont-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cont-night {
+  font-size: 0.62rem;
+  color: #64748b;
 }
 
 .pill-top-row {
